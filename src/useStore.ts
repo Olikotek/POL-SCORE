@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 
-async function fetchStore(activeTournamentId?: string | null): Promise<{ store: Store; tournaments: Tournament[]; activeTournament: Tournament | null; leaguePoints: any[] }> {
+async function fetchStore(activeTournamentId?: string | null): Promise<{ store: Store; tournaments: Tournament[]; activeTournament: Tournament | null; leaguePoints: any[]; registrations: any[]; logoUrl: string | null }> {
   const [
     coursesRes,
     courseHolesRes,
@@ -13,6 +13,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
     settingsRes,
     tournamentsRes,
     leaguePointsRes,
+    registrationsRes,
   ] = await Promise.all([
     supabase.from('courses').select('*').order('name'),
     supabase.from('course_holes').select('*').order('course_id, number'),
@@ -23,11 +24,12 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
     supabase.from('tournament_settings').select('*').maybeSingle(),
     supabase.from('tournaments').select('*').order('date', { ascending: false }),
     supabase.from('league_points').select('*'),
+    supabase.from('tournament_registrations').select('*'),
   ]);
 
   const firstError =
     coursesRes.error || courseHolesRes.error || playersRes.error || flightsRes.error ||
-    flightPlayersRes.error || scoresRes.error || settingsRes.error || tournamentsRes.error || leaguePointsRes.error;
+    flightPlayersRes.error || scoresRes.error || settingsRes.error || tournamentsRes.error || leaguePointsRes.error || registrationsRes.error;
   if (firstError) throw firstError;
 
   const tournaments: Tournament[] = (tournamentsRes.data ?? []).map((t) => ({
@@ -148,6 +150,8 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
     tournaments,
     activeTournament,
     leaguePoints: leaguePointsRes.data ?? [],
+    registrations: registrationsRes.data ?? [],
+    logoUrl: settings?.logo_url ?? null,
   };
 }
 
@@ -157,6 +161,8 @@ export function useStore() {
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(() => localStorage.getItem('pffg_active_tournament'));
   const [leaguePoints, setLeaguePoints] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +175,8 @@ export function useStore() {
       setTournaments(res.tournaments);
       setActiveTournament(res.activeTournament);
       setLeaguePoints(res.leaguePoints);
+      setRegistrations(res.registrations);
+      setLogoUrl(res.logoUrl);
       setError(null);
     } catch {
       setError('Nie udało się połączyć z bazą danych turnieju.');
@@ -205,6 +213,7 @@ export function useStore() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_settings' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'league_points' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_registrations' }, scheduleReload)
       .subscribe();
 
     return () => {
@@ -231,6 +240,8 @@ export function useStore() {
     activeTournament,
     setActiveTournamentId: selectTournament,
     leaguePoints,
+    registrations,
+    logoUrl,
     currentUser,
     userProfile,
     loading,

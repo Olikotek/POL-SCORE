@@ -301,10 +301,12 @@ export function computeCuriosities(players: Player[], holesR1: Hole[], holesR2: 
     if (!hardestHole || avg > hardestHole.avgRel) hardestHole = { number: hole.number, avgRel: avg };
   });
 
+  const longestResult = longest as { player: Player; streak: number } | null;
+  const mostParsResult = mostPars as { player: Player; count: number } | null;
   return {
-    longestBirdieStreak: longest && longest.streak > 1 ? longest : null,
+    longestBirdieStreak: longestResult && longestResult.streak > 1 ? longestResult : null,
     bounceBacks: bounceBackCounts.slice(0, 3),
-    mostPars: mostPars && mostPars.count > 0 ? mostPars : null,
+    mostPars: mostParsResult && mostParsResult.count > 0 ? mostParsResult : null,
     hardestHole,
   };
 }

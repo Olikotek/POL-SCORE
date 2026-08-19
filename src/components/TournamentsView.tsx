@@ -1,22 +1,12 @@
 import { useState, useMemo } from 'react';
-import {
-  Search,
-  Calendar,
-  MapPin,
-  Users,
-  Eye,
-  CheckCircle2,
-  XCircle,
-  UserPlus,
-  ArrowLeft,
-  RotateCcw,
-} from 'lucide-react';
+import { Search, Calendar, MapPin, Users, Eye, CircleCheck as CheckCircle2, Circle as XCircle, UserPlus, ArrowLeft, RotateCcw } from 'lucide-react';
 import type { Tournament, Store, Player, Category } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 
 export function TournamentsView({
   tournaments,
   store,
+  registrations,
   currentUser,
   userProfile,
   onRegisterClick,
@@ -25,6 +15,7 @@ export function TournamentsView({
 }: {
   tournaments: Tournament[];
   store: Store;
+  registrations: any[];
   currentUser: any;
   userProfile: Player | null;
   onRegisterClick: (tournament: Tournament) => void;
@@ -57,8 +48,14 @@ export function TournamentsView({
   }, [tournaments, searchQuery, statusFilter]);
 
   const registeredPlayers = useMemo(() => {
-    return (store.players || []).filter((p) => p.isActive !== false);
-  }, [store.players]);
+    if (!selectedTournament) return [];
+    const regIds = new Set(
+      (registrations || [])
+        .filter((r) => r.tournament_id === selectedTournament.id)
+        .map((r) => r.player_id)
+    );
+    return (store.players || []).filter((p) => regIds.has(p.id));
+  }, [store.players, registrations, selectedTournament]);
 
   const filteredRegisteredPlayers = useMemo(() => {
     return registeredPlayers.filter((p) => {
@@ -327,8 +324,8 @@ export function TournamentsView({
           <tbody>
             {filteredTournaments.map((t) => {
               const isCompleted = t.status === 'completed';
-              const isCurrentLive = t.id === store.tournamentName || t.status === 'active';
-              const count = isCurrentLive ? registeredPlayers.length : 0;
+              const tRegCount = (registrations || []).filter((r) => r.tournament_id === t.id).length;
+              const count = tRegCount;
 
               return (
                 <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, Edit } from 'lucide-react';
+import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, CreditCard as Edit } from 'lucide-react';
 import type { Flight, View, Tournament } from '@/types';
 import { useStore } from '@/useStore';
 import { combinedRelative } from '@/scoring';
@@ -15,7 +15,7 @@ import { RegisterModal } from '@/components/RegisterModal';
 import { AuthModal } from '@/components/AuthModal';
 
 function App() {
-  const { store, tournaments, activeTournament, setActiveTournamentId, leaguePoints, currentUser, userProfile, loading, error, refresh } = useStore();
+  const { store, tournaments, activeTournament, setActiveTournamentId, leaguePoints, registrations, logoUrl, currentUser, userProfile, loading, error, refresh } = useStore();
   const [view, setView] = useState<View | 'standings' | 'archive' | 'tournaments'>('wyniki');
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -90,7 +90,11 @@ function App() {
         <div style={{ width: '100%', borderBottom: '1px solid #1e293b', background: '#0b1329', padding: '8px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button className="brand" onClick={() => setView('wyniki')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="brand-mark">
-              <Flag size={17} fill="currentColor" />
+              {logoUrl ? (
+                <img src={logoUrl} alt="PFFG" />
+              ) : (
+                <Flag size={17} fill="currentColor" />
+              )}
             </span>
             <span style={{ textAlign: 'left' }}>
               <b style={{ color: '#fff', fontSize: '15px' }}>PFFG</b>
@@ -231,7 +235,6 @@ function App() {
         {view === 'archive' && (
           <Archive
             tournaments={tournaments}
-            store={store}
             onSelectTournament={(t) => {
               setActiveTournamentId(t.id);
               setView('wyniki');
@@ -242,6 +245,7 @@ function App() {
           <TournamentsView
             tournaments={tournaments}
             store={store}
+            registrations={registrations}
             currentUser={currentUser}
             userProfile={userProfile}
             onRegisterClick={handleRegisterClick}
@@ -290,7 +294,9 @@ function App() {
 
       {showRegisterModal && (
         <RegisterModal
+          tournamentId={selectedTournamentForRegister?.id}
           tournamentName={selectedTournamentForRegister?.name || store.tournamentName}
+          userProfile={userProfile}
           onClose={() => {
             setShowRegisterModal(false);
             setSelectedTournamentForRegister(null);

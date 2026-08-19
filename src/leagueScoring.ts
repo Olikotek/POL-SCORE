@@ -63,6 +63,8 @@ export function computeSeasonStanding(
 
   const polishOpen = playerLeagueResults
     .filter((r) => r.isPolishOpen)
+    .map((r) => r.points)
+    .map((r) => r.points)
     .reduce((sum, val) => sum + val, 0);
 
   const totalPoints = Number((best6 + polishOpen).toFixed(2));

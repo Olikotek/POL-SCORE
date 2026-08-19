@@ -446,3 +446,55 @@ export async function deleteTournament(id: string) {
     throw error;
   }
 }
+
+export async function setLogoUrl(url: string | null) {
+  const { error } = await supabase
+    .from('tournament_settings')
+    .update({ logo_url: url })
+    .eq('id', 1);
+  if (error) {
+    alert(`Błąd zapisu logo: ${error.message}`);
+    throw error;
+  }
+}
+
+export async function registerForTournament(tournamentId: string, playerId: string, paymentMethod: string = 'on_site') {
+  const { error } = await supabase
+    .from('tournament_registrations')
+    .upsert(
+      { tournament_id: tournamentId, player_id: playerId, payment_method: paymentMethod },
+      { onConflict: 'tournament_id,player_id' }
+    );
+  if (error && !error.message.includes('duplicate key')) {
+    throw error;
+  }
+}
+
+export async function fetchRegistrations(tournamentId?: string | null) {
+  let query = supabase.from('tournament_registrations').select('*');
+  if (tournamentId) {
+    query = query.eq('tournament_id', tournamentId);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function setLogoUrl(url: string | null) {
+  const { error } = await supabase
+    .from('tournament_settings')
+    .update({ logo_url: url })
+    .eq('id', 1);
+  if (error) throw error;
+}
+
+export async function registerPlayerForTournament(tournamentId: string, playerId: string, paymentMethod: string = 'on_site') {
+  const { error } = await supabase
+    .from('tournament_registrations')
+    .insert({
+      tournament_id: tournamentId,
+      player_id: playerId,
+      payment_method: paymentMethod,
+    });
+  if (error && !error.message.includes('duplicate key')) throw error;
+}
