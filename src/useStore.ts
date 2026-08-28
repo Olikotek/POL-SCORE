@@ -3,41 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 
-// Funkcja pomocnicza pobierająca WSZYSTKIE rekordy (omija limit 1000 PostgREST)
-async function fetchAllScores(tournamentId?: string | null) {
-  let allScores: any[] = [];
-  let from = 0;
-  const step = 1000;
-  let hasMore = true;
-
-  while (hasMore) {
-    let query = supabase
-      .from('scores')
-      .select('*')
-      .range(from, from + step - 1);
-
-    if (tournamentId) {
-      query = query.eq('tournament_id', tournamentId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    if (data && data.length > 0) {
-      allScores = allScores.concat(data);
-      if (data.length < step) {
-        hasMore = false;
-      } else {
-        from += step;
-      }
-    } else {
-      hasMore = false;
-    }
-  }
-
-  return allScores;
-}
-
 async function fetchStore(activeTournamentId?: string | null): Promise<{
   store: Store;
   tournaments: Tournament[];
@@ -75,27 +40,34 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       tournaments[0];
   }
 
-  let flightsQuery = supabase.from('flights').select('*').order('name');
+  // 2. Pobieramy R1 i R2 OSOBNO po 1000 rekordów (omija sztywny limit 1000 PostgREST)
+  let r1Query = supabase.from('scores').select('*').eq('round', 1).limit(1000);
+  let r2Query = supabase.from('scores').select('*').eq('round', 2).limit(1000);
+  let flightsQuery = supabase.from('flights').select('*').order('name').limit(1000);
+
   if (activeTournament?.id) {
+    r1Query = r1Query.eq('tournament_id', activeTournament.id);
+    r2Query = r2Query.eq('tournament_id', activeTournament.id);
     flightsQuery = flightsQuery.eq('tournament_id', activeTournament.id);
   }
 
-  // 2. Pobieramy pozostałe tabele oraz WSZYSTKIE wyniki przez stronicowanie
   const [
     coursesRes,
     courseHolesRes,
     playersRes,
     flightsRes,
     flightPlayersRes,
-    scoresRows,
+    scoresR1Res,
+    scoresR2Res,
     leaguePointsRes,
   ] = await Promise.all([
     supabase.from('courses').select('*').order('name'),
     supabase.from('course_holes').select('*').order('course_id, number'),
-    supabase.from('players').select('*').order('name'),
+    supabase.from('players').select('*').order('name').limit(2000),
     flightsQuery,
-    supabase.from('flight_players').select('*'),
-    fetchAllScores(activeTournament?.id),
+    supabase.from('flight_players').select('*').limit(2000),
+    r1Query,
+    r2Query,
     supabase.from('league_points').select('*'),
   ]);
 
@@ -105,12 +77,17 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     playersRes.error ||
     flightsRes.error ||
     flightPlayersRes.error ||
+    scoresR1Res.error ||
+    scoresR2Res.error ||
     settingsRes.error ||
     tournamentsRes.error ||
     leaguePointsRes.error ||
     registrationsRes.error;
 
   if (firstError) throw firstError;
+
+  // Łączymy wyniki Rundy 1 i Rundy 2 w jedną pełną tablicę dołków
+  const scoresRows = [...(scoresR1Res.data ?? []), ...(scoresR2Res.data ?? [])];
 
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const courseHoles = courseHolesRes.data ?? [];
@@ -139,14 +116,29 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const flightsRows = flightsRes.data ?? [];
   const flightPlayers = flightPlayersRes.data ?? [];
 
-  const players: Player[] = (playersRes.data ?? []).map((p) => {
+  // Filtrujemy tylko graczy, którzy faktycznie biorą udział w danym turnieju
+  const activePlayerIds = new Set<string>();
+  scoresRows.forEach((s) => {
+    if (s.player_id) activePlayerIds.add(String(s.player_id).toLowerCase());
+  });
+  flightPlayers.forEach((fp) => {
+    if (fp.player_id) activePlayerIds.add(String(fp.player_id).toLowerCase());
+  });
+
+  const rawPlayers = playersRes.data ?? [];
+  const participatingPlayers =
+    activeTournament?.id && activePlayerIds.size > 0
+      ? rawPlayers.filter((p) => activePlayerIds.has(String(p.id).toLowerCase()))
+      : rawPlayers;
+
+  const players: Player[] = participatingPlayers.map((p) => {
     const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
     scoresRows
-      .filter((s) => s.player_id === p.id)
+      .filter((s) => String(s.player_id).toLowerCase() === String(p.id).toLowerCase())
       .forEach((s) => {
-        const r = Number(s.round ?? s.round_number);
-        const h = Number(s.hole_number ?? s.hole);
+        const r = Number(s.round ?? s.round_number ?? 1);
+        const h = Number(s.hole_number ?? s.hole ?? 0);
         const val = Number(s.strokes ?? s.score ?? 0);
 
         if ((r === 1 || r === 2) && h >= 1 && h <= 18) {
@@ -154,7 +146,10 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
         }
       });
 
-    const linkedFlightIds = flightPlayers.filter((fp) => fp.player_id === p.id).map((fp) => fp.flight_id);
+    const linkedFlightIds = flightPlayers
+      .filter((fp) => String(fp.player_id).toLowerCase() === String(p.id).toLowerCase())
+      .map((fp) => fp.flight_id);
+
     const flightId: Record<Round, string | null> = {
       1: flightsRows.find((f) => f.round === 1 && linkedFlightIds.includes(f.id))?.id ?? null,
       2: flightsRows.find((f) => f.round === 2 && linkedFlightIds.includes(f.id))?.id ?? null,
@@ -216,7 +211,9 @@ export function useStore() {
   const [store, setStore] = useState<Store | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
-  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(() => localStorage.getItem('pffg_active_tournament'));
+  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(() =>
+    localStorage.getItem('pffg_active_tournament')
+  );
   const [leaguePoints, setLeaguePoints] = useState<any[]>([]);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -286,11 +283,15 @@ export function useStore() {
     localStorage.setItem('pffg_active_tournament', id);
   };
 
-  const userProfile = store?.players.find((p: any) => 
-    (currentUser?.id && p.userId === currentUser.id) || 
-    (currentUser?.email && p.email?.toLowerCase() === currentUser.email.toLowerCase()) ||
-    (currentUser?.email && p.name && currentUser.email.toLowerCase().includes(p.name.toLowerCase().replace(/\s+/g, '')))
-  ) ?? null;
+  const userProfile =
+    store?.players.find(
+      (p: any) =>
+        (currentUser?.id && p.userId === currentUser.id) ||
+        (currentUser?.email && p.email?.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (currentUser?.email &&
+          p.name &&
+          currentUser.email.toLowerCase().includes(p.name.toLowerCase().replace(/\s+/g, '')))
+    ) ?? null;
 
   return {
     store,
