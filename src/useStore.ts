@@ -3,6 +3,41 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 
+// Funkcja pomocnicza pobierająca 100% wyników (omija twardy limit 1000 wierszy PostgREST)
+async function fetchAllScoresForTournament(tournamentId?: string | null) {
+  let allScores: any[] = [];
+  let from = 0;
+  const step = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from('scores')
+      .select('*')
+      .range(from, from + step - 1);
+
+    if (tournamentId) {
+      query = query.eq('tournament_id', tournamentId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allScores = allScores.concat(data);
+      if (data.length < step) {
+        hasMore = false;
+      } else {
+        from += step;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allScores;
+}
+
 async function fetchStore(activeTournamentId?: string | null): Promise<{
   store: Store;
   tournaments: Tournament[];
@@ -40,34 +75,27 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       tournaments[0];
   }
 
-  // 2. Pobieramy R1 i R2 OSOBNO po 1000 rekordów (omija sztywny limit 1000 PostgREST)
-  let r1Query = supabase.from('scores').select('*').eq('round', 1).limit(1000);
-  let r2Query = supabase.from('scores').select('*').eq('round', 2).limit(1000);
   let flightsQuery = supabase.from('flights').select('*').order('name').limit(1000);
-
   if (activeTournament?.id) {
-    r1Query = r1Query.eq('tournament_id', activeTournament.id);
-    r2Query = r2Query.eq('tournament_id', activeTournament.id);
     flightsQuery = flightsQuery.eq('tournament_id', activeTournament.id);
   }
 
+  // 2. Pobieramy pozostałe tabele oraz 100% wyników przez funkcję stronicującą
   const [
     coursesRes,
     courseHolesRes,
     playersRes,
     flightsRes,
     flightPlayersRes,
-    scoresR1Res,
-    scoresR2Res,
+    scoresRows,
     leaguePointsRes,
   ] = await Promise.all([
     supabase.from('courses').select('*').order('name'),
     supabase.from('course_holes').select('*').order('course_id, number'),
-    supabase.from('players').select('*').order('name').limit(2000),
+    supabase.from('players').select('*').order('name').limit(3000),
     flightsQuery,
-    supabase.from('flight_players').select('*').limit(2000),
-    r1Query,
-    r2Query,
+    supabase.from('flight_players').select('*').limit(3000),
+    fetchAllScoresForTournament(activeTournament?.id),
     supabase.from('league_points').select('*'),
   ]);
 
@@ -77,17 +105,12 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     playersRes.error ||
     flightsRes.error ||
     flightPlayersRes.error ||
-    scoresR1Res.error ||
-    scoresR2Res.error ||
     settingsRes.error ||
     tournamentsRes.error ||
     leaguePointsRes.error ||
     registrationsRes.error;
 
   if (firstError) throw firstError;
-
-  // Łączymy wyniki Rundy 1 i Rundy 2 w jedną pełną tablicę dołków
-  const scoresRows = [...(scoresR1Res.data ?? []), ...(scoresR2Res.data ?? [])];
 
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const courseHoles = courseHolesRes.data ?? [];
@@ -110,13 +133,17 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     holesByCourse[c.id] = holesForCourse(c.id);
   }
 
-  const holesR1 = holesForCourse(round1CourseId);
-  const holesR2 = holesForCourse(round2CourseId);
+  let holesR1 = holesForCourse(round1CourseId);
+  let holesR2 = holesForCourse(round2CourseId);
+
+  // Fallback, gdyby w bazie round2CourseId nie miało przypisanych dołków
+  if (holesR1.length === 0 && holesR2.length > 0) holesR1 = holesR2;
+  if (holesR2.length === 0 && holesR1.length > 0) holesR2 = holesR1;
 
   const flightsRows = flightsRes.data ?? [];
   const flightPlayers = flightPlayersRes.data ?? [];
 
-  // Filtrujemy tylko graczy, którzy faktycznie biorą udział w danym turnieju
+  // Filtrujemy tylko graczy, którzy mają wyniki lub flight w tym turnieju
   const activePlayerIds = new Set<string>();
   scoresRows.forEach((s) => {
     if (s.player_id) activePlayerIds.add(String(s.player_id).toLowerCase());
