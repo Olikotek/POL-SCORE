@@ -121,8 +121,13 @@ export function PlayerModal({
   leaguePoints?: any[];
   onClose: () => void;
 }) {
-  const holesR1 = store.holesByRound[1] || [];
-  const holesR2 = store.holesByRound[2] || [];
+  const holesR1 = (store.holesByRound[1] && store.holesByRound[1].length > 0)
+    ? store.holesByRound[1]
+    : (store.holesByRound[2] || []);
+
+  const holesR2 = (store.holesByRound[2] && store.holesByRound[2].length > 0)
+    ? store.holesByRound[2]
+    : holesR1;
 
   const [activeView, setActiveView] = useState<'scorecard' | 'personal' | 'rankings' | 'tournaments'>(
     hideScorecardTab ? (initialTab === 'scorecard' ? 'personal' : initialTab) : initialTab
