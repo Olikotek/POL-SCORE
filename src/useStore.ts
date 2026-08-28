@@ -40,36 +40,27 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       tournaments[0];
   }
 
-  // 2. Budujemy zapytania z filtrem turnieju
-  let r1Query = supabase.from('scores').select('*').eq('round', 1).limit(1000);
-  let r2Query = supabase.from('scores').select('*').eq('round', 2).limit(1000);
-  let flightsQuery = supabase.from('flights').select('*').order('name').limit(1000);
+  const activeTournId = activeTournament?.id || '53b07d3c-d274-496c-876c-acfad8b7151d';
 
-  if (activeTournament?.id) {
-    r1Query = r1Query.eq('tournament_id', activeTournament.id);
-    r2Query = r2Query.eq('tournament_id', activeTournament.id);
-    flightsQuery = flightsQuery.eq('tournament_id', activeTournament.id);
-  }
+  // 2. Pobieramy WSZYSTKIE dołki przez funkcję RPC (zwraca 100% z 1890 dołków bez limitu wierszy)
+  let flightsQuery = supabase.from('flights').select('*').eq('tournament_id', activeTournId).order('name');
 
-  // 3. Pobieramy R1 (972 wiersze) i R2 (918 wierszy) w dwóch niezależnych żądaniach
   const [
     coursesRes,
     courseHolesRes,
     playersRes,
     flightsRes,
     flightPlayersRes,
-    scoresR1Res,
-    scoresR2Res,
+    rpcScoresRes,
     leaguePointsRes,
   ] = await Promise.all([
     supabase.from('courses').select('*').order('name'),
     supabase.from('course_holes').select('*').order('course_id, number'),
-    supabase.from('players').select('*').order('name').limit(3000),
+    supabase.from('players').select('*').order('name').limit(2000),
     flightsQuery,
-    supabase.from('flight_players').select('*').limit(3000),
-    r1Query,
-    r2Query,
-    supabase.from('league_points').select('*'),
+    supabase.from('flight_players').select('*').limit(2000),
+    supabase.rpc('get_tournament_scores_matrix', { p_tournament_id: activeTournId }),
+    supabase.from('league_points').select('*').eq('tournament_id', activeTournId),
   ]);
 
   const firstError =
@@ -78,8 +69,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     playersRes.error ||
     flightsRes.error ||
     flightPlayersRes.error ||
-    scoresR1Res.error ||
-    scoresR2Res.error ||
+    rpcScoresRes.error ||
     settingsRes.error ||
     tournamentsRes.error ||
     leaguePointsRes.error ||
@@ -87,8 +77,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   if (firstError) throw firstError;
 
-  // Łączymy R1 i R2 w jedną tablicę
-  const scoresRows = [...(scoresR1Res.data ?? []), ...(scoresR2Res.data ?? [])];
+  const scoresRows: any[] = rpcScoresRes.data ?? [];
 
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const courseHoles = courseHolesRes.data ?? [];
@@ -120,20 +109,16 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const flightsRows = flightsRes.data ?? [];
   const flightPlayers = flightPlayersRes.data ?? [];
 
-  // Filtrujemy tylko graczy, którzy mają dołki w turnieju
+  // Filtrujemy tylko graczy, którzy mają wyniki w tym turnieju
   const activePlayerIds = new Set<string>();
   scoresRows.forEach((s) => {
     if (s.player_id) activePlayerIds.add(String(s.player_id).toLowerCase());
   });
-  flightPlayers.forEach((fp) => {
-    if (fp.player_id) activePlayerIds.add(String(fp.player_id).toLowerCase());
-  });
 
   const rawPlayers = playersRes.data ?? [];
-  const participatingPlayers =
-    activeTournament?.id && activePlayerIds.size > 0
-      ? rawPlayers.filter((p) => activePlayerIds.has(String(p.id).toLowerCase()))
-      : rawPlayers;
+  const participatingPlayers = activePlayerIds.size > 0
+    ? rawPlayers.filter((p) => activePlayerIds.has(String(p.id).toLowerCase()))
+    : rawPlayers;
 
   const players: Player[] = participatingPlayers.map((p) => {
     const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
@@ -141,9 +126,9 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     scoresRows
       .filter((s) => String(s.player_id).toLowerCase() === String(p.id).toLowerCase())
       .forEach((s) => {
-        const r = Number(s.round ?? s.round_number ?? 1);
-        const h = Number(s.hole_number ?? s.hole ?? 0);
-        const val = Number(s.strokes ?? s.score ?? 0);
+        const r = Number(s.round ?? 1);
+        const h = Number(s.hole_number ?? 0);
+        const val = Number(s.strokes ?? 0);
 
         if ((r === 1 || r === 2) && h >= 1 && h <= 18) {
           scores[r as Round][h - 1] = val;
