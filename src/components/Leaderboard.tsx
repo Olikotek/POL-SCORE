@@ -1,5 +1,12 @@
+// src/components/Leaderboard.tsx
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { ChevronRight, ClipboardList, TrendingUp, TrendingDown, Minus, Trophy } from 'lucide-react';
+import {
+  ChevronRight,
+  ClipboardList,
+  ChevronDown,
+  RefreshCw,
+  Check,
+} from 'lucide-react';
 import type { Category, Store } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import {
@@ -12,19 +19,60 @@ import {
   thruLabel,
 } from '@/scoring';
 
+export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
+  Wszystkie: 'Wszystkie (Absolut)',
+  Men: 'Mężczyźni',
+  Women: 'Kobiety',
+  Senior: 'Seniorzy',
+  Junior: 'Juniorzy',
+  'Senior+': 'Seniorzy+',
+};
+
 export function Leaderboard({
   store,
   onEnter,
   onOpenPlayer,
+  onRefresh,
 }: {
   store: Store;
   onEnter: () => void;
   onOpenPlayer: (playerId: string) => void;
+  onRefresh?: () => void;
 }) {
-  const [filter, setFilter] = useState<Category | 'Wszystkie'>('Wszystkie');
+  const [filter, setFilter] = useState<Category | 'Wszystkie'>(() => {
+    const saved = localStorage.getItem('pffg_live_category');
+    return (saved as Category | 'Wszystkie') || 'Wszystkie';
+  });
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const { holesByRound } = store;
-  const holesR1 = holesByRound[1];
-  const holesR2 = holesByRound[2];
+  const holesR1 = holesByRound[1] || [];
+  const holesR2 = holesByRound[2] || [];
+
+  const handleSelectCategory = async (cat: Category | 'Wszystkie') => {
+    setFilter(cat);
+    localStorage.setItem('pffg_live_category', cat);
+    setDropdownOpen(false);
+
+    if (onRefresh) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setTimeout(() => setIsRefreshing(false), 400);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const activePlayers = useMemo(
     () => store.players.filter((p) => p.isActive !== false),
@@ -49,169 +97,385 @@ export function Leaderboard({
     return computeRanks(values, true);
   }, [sorted, holesR1, holesR2]);
 
-  const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const [trends, setTrends] = useState<Map<string, 'up' | 'down' | 'same'>>(new Map());
+  const [positionDeltas, setPositionDeltas] = useState<Map<string, { type: 'up' | 'down' | 'same'; diff: number }>>(new Map());
 
   useEffect(() => {
-    const prev = prevRanksRef.current;
-    const next = new Map<string, 'up' | 'down' | 'same'>();
+    const storageKey = `pffg_tourney_ranks_${store.tournamentName}_${filter}`;
+    let previousRanks: Record<string, number> = {};
+
+    try {
+      const cached = sessionStorage.getItem(storageKey);
+      if (cached) previousRanks = JSON.parse(cached);
+    } catch {
+      previousRanks = {};
+    }
+
+    const currentRanksObj: Record<string, number> = {};
+    const nextDeltas = new Map<string, { type: 'up' | 'down' | 'same'; diff: number }>();
+
     sorted.forEach((p, index) => {
       const currentRank = ranks[index];
-      const prevRank = prev.get(p.id);
+      currentRanksObj[p.id] = currentRank;
+
+      const prevRank = previousRanks[p.id];
       if (prevRank === undefined) {
-        next.set(p.id, 'same');
+        nextDeltas.set(p.id, { type: 'same', diff: 0 });
       } else if (currentRank < prevRank) {
-        next.set(p.id, 'up');
+        nextDeltas.set(p.id, { type: 'up', diff: prevRank - currentRank });
       } else if (currentRank > prevRank) {
-        next.set(p.id, 'down');
+        nextDeltas.set(p.id, { type: 'down', diff: currentRank - prevRank });
       } else {
-        next.set(p.id, 'same');
+        nextDeltas.set(p.id, { type: 'same', diff: 0 });
       }
     });
-    setTrends(next);
-    const newPrev = new Map<string, number>();
-    sorted.forEach((p, index) => newPrev.set(p.id, ranks[index]));
-    prevRanksRef.current = newPrev;
-  }, [sorted, ranks]);
 
-  // Szablon kolumn tabeli dynamiczny w zależności od startu Rundy 2
-  const gridTemplate = store.round2Started
-    ? '70px minmax(180px, 1fr) 80px 70px 70px 70px 90px 40px'
-    : '70px minmax(180px, 1fr) 80px 70px 70px 90px 40px';
+    setPositionDeltas(nextDeltas);
+    sessionStorage.setItem(storageKey, JSON.stringify(currentRanksObj));
+  }, [sorted, ranks, filter, store.tournamentName]);
 
   return (
-    <section className="leaderboard-section-wrap">
-      <div className="section-intro">
+    <section style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
+      {/* NAGŁÓWEK */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '18px' }}>
         <div>
-          <p className="eyebrow">
-            <span className="eyebrow-line" /> {store.tournamentName.toUpperCase()}
+          <p style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: '#1b88cc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {store.tournamentName}
           </p>
-          <h1 className="tournament-title">Tabela na żywo</h1>
-          <p className="intro-copy">
-            Klasyfikacja turnieju aktualizowana na żywo po każdym zapisanym dołku.
+          <h1 style={{ margin: '4px 0 0 0', fontSize: '26px', fontWeight: 900, color: '#0f172a' }}>
+            Tabela na żywo
+          </h1>
+          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+            Oficjalna klasyfikacja turnieju aktualizowana w czasie rzeczywistym.
           </p>
         </div>
-        <button className="primary-button pffg-action-btn" onClick={onEnter}>
-          <ClipboardList size={17} /> Wprowadź wynik <ChevronRight size={16} />
-        </button>
-      </div>
 
-      <div className="filter-bar">
-        <span className="filter-label">KATEGORIA</span>
         <button
-          className={`filter-chip ${filter === 'Wszystkie' ? 'active' : ''}`}
-          onClick={() => setFilter('Wszystkie')}
+          onClick={onEnter}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '10px 18px',
+            fontSize: '13px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(11, 19, 41, 0.15)',
+          }}
         >
-          Wszystkie
+          <ClipboardList size={16} /> Wprowadź wynik <ChevronRight size={15} />
         </button>
-        {CATEGORIES.map((c) => (
-          <button
-            key={c}
-            className={`filter-chip ${filter === c ? 'active' : ''}`}
-            onClick={() => setFilter(c)}
-          >
-            {c}
-          </button>
-        ))}
       </div>
 
-      <div className="leaderboard-card">
-        <div className="table-head" style={{ display: 'grid', gridTemplateColumns: gridTemplate }}>
-          <span className="col-center">MIEJSCE</span>
-          <span>ZAWODNIK</span>
-          <span className="desktop-cell col-center">TOTAL</span>
-          <span className="desktop-cell col-center">THRU</span>
-          <span className="desktop-cell col-center">R1</span>
-          {store.round2Started && <span className="desktop-cell col-center">R2</span>}
-          <span className="desktop-cell col-center">UDERZENIA</span>
-          <span className="col-center" />
-        </div>
-        {sorted.map((player, index) => {
-          const total = combinedRelative(player, holesR1, holesR2);
-          const r1Rel = relative(player.scores[1], holesR1);
-          const r2Rel = relative(player.scores[2], holesR2);
-          const strokes = totalStrokes(player.scores[1]) + (store.round2Started ? totalStrokes(player.scores[2]) : 0);
-          const thru = thruLabel(player);
-          const rank = ranks[index];
-          const tiedCount = ranks.filter((r) => r === rank).length;
-          const isTied = tiedCount > 1;
-          const isLeader = rank === 1 && !isTied;
-          const isTop10 = rank <= 10;
-          const display = isTied ? `T${rank}` : ordinalLabel(rank);
-          const trend = trends.get(player.id) ?? 'same';
+      {/* WYBÓR KATEGORII */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Kategoria:
+          </span>
 
-          return (
+          <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button
-              className={`leader-row ${isLeader ? 'leader-first-place' : ''}`}
-              key={player.id}
-              style={{ display: 'grid', gridTemplateColumns: gridTemplate }}
-              onClick={() => onOpenPlayer(player.id)}
+              type="button"
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#ffffff',
+                border: '1px solid #94a3b8',
+                borderRadius: '8px',
+                padding: '7px 14px',
+                fontSize: '13px',
+                fontWeight: 800,
+                color: '#0f172a',
+                cursor: 'pointer',
+              }}
             >
-              <span className="rank-cell col-center">
-                <span className={`rank ${isTop10 ? 'top10' : ''} ${isLeader ? 'gold' : ''}`}>
-                  {display}
-                </span>
-                {trend === 'up' && <span className="trend-up" title="Awans"><TrendingUp size={12} /></span>}
-                {trend === 'down' && <span className="trend-down" title="Spadek"><TrendingDown size={12} /></span>}
-                {trend === 'same' && <span className="trend-same" title="Bez zmian"><Minus size={12} /></span>}
-              </span>
-
-              <span className="player-cell">
-                {player.avatar ? (
-                  <img src={player.avatar} alt={player.name} className="avatar avatar-img" />
-                ) : (
-                  <span className="avatar">{initialsLocal(player.name)}</span>
-                )}
-                
-                <div className="player-info-container">
-                  <div className="player-identity">
-                    {player.flagImage ? (
-                      <img src={player.flagImage} alt={player.flag} className="flag-img-inline" />
-                    ) : (
-                      <span className="flag-emoji">{flagEmoji(player.flag)}</span>
-                    )}
-                    <span className="player-name-fixed" title={player.name}>
-                      {player.name}
-                    </span>
-                    {player.isAmateur && <span className="am-badge">AM</span>}
-                  </div>
-
-                  {player.club ? (
-                    <span className="player-club-slot" title={player.club}>
-                      {player.club}
-                    </span>
-                  ) : (
-                    <span className="player-club-slot-empty" />
-                  )}
-                </div>
-              </span>
-
-              <span className={`desktop-cell to-par-cell col-center ${total < 0 ? 'neg' : ''}`}>
-                {total < 0 ? <span className="neg-badge">{relativeLabel(total)}</span> : (total === 0 ? 'E' : relativeLabel(total))}
-              </span>
-
-              <span className="desktop-cell thru-cell col-center">{thru}</span>
-
-              <span className="desktop-cell col-center">
-                {totalStrokes(player.scores[1]) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
-              </span>
-
-              {store.round2Started && (
-                <span className="desktop-cell col-center">
-                  {totalStrokes(player.scores[2]) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
-                </span>
-              )}
-
-              <span className="desktop-cell strokes col-center font-bold">{strokes || '–'}</span>
-
-              <span className="chevron col-center">
-                <ChevronRight size={17} />
-              </span>
+              <span>{CATEGORY_NAMES_PL[filter]}</span>
+              <ChevronDown size={14} style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
             </button>
-          );
-        })}
+
+            {dropdownOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  left: 0,
+                  zIndex: 50,
+                  minWidth: '220px',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
+                  padding: '4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                }}
+              >
+                {(['Wszystkie', ...CATEGORIES] as (Category | 'Wszystkie')[]).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => handleSelectCategory(cat)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: filter === cat ? '#eff6ff' : 'transparent',
+                      color: filter === cat ? '#1b88cc' : '#334155',
+                      fontSize: '13px',
+                      fontWeight: filter === cat ? 800 : 600,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span>{CATEGORY_NAMES_PL[cat]}</span>
+                    {filter === cat && <Check size={14} color="#1b88cc" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={async () => {
+                setIsRefreshing(true);
+                await onRefresh();
+                setTimeout(() => setIsRefreshing(false), 400);
+              }}
+              title="Odśwież wyniki"
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '7px 12px',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#475569',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+              Odśwież
+            </button>
+          )}
+        </div>
+
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
+          Zawodników: <b>{sorted.length}</b>
+        </span>
+      </div>
+
+      {/* TABELA LIVE */}
+      <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <th style={{ padding: '12px 10px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POZ</th>
+              <th style={{ padding: '12px 8px', width: '56px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>+/-</th>
+              <th style={{ padding: '12px 8px', width: '54px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
+              <th style={{ padding: '12px 14px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+              <th style={{ padding: '12px 10px', width: '75px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>WYNIK</th>
+              <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+              <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
+              {store.round2Started && (
+                <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R2</th>
+              )}
+              <th style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+              <th style={{ padding: '12px 8px', width: '36px', textAlign: 'center' }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((player, index) => {
+              const total = combinedRelative(player, holesR1, holesR2);
+              const r1Rel = relative(player.scores[1] || [], holesR1);
+              const r2Rel = relative(player.scores[2] || [], holesR2);
+              const strokes = totalStrokes(player.scores[1] || []) + (store.round2Started ? totalStrokes(player.scores[2] || []) : 0);
+              const thru = thruLabel(player);
+              const rank = ranks[index];
+              const tiedCount = ranks.filter((r) => r === rank).length;
+              const isTied = tiedCount > 1;
+              const display = isTied ? `T${rank}` : ordinalLabel(rank);
+              const delta = positionDeltas.get(player.id) ?? { type: 'same', diff: 0 };
+              const isEven = index % 2 === 0;
+
+              return (
+                <tr
+                  key={player.id}
+                  onClick={() => onOpenPlayer(player.id)}
+                  style={{
+                    background: isEven ? '#ffffff' : '#f8fafc',
+                    borderBottom: '1px solid #e2e8f0',
+                    cursor: 'pointer',
+                    transition: 'background 0.1s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
+                >
+                  {/* POZYCJA */}
+                  <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 800, fontSize: '13px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                    {display}
+                  </td>
+
+                  {/* ZMIANA POZYCJI (+/-) */}
+                  <td style={{ padding: '10px 6px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      {delta.type === 'up' ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#16a34a', fontWeight: 800, fontSize: '12px' }}>
+                          <span style={{ fontSize: '10px' }}>▲</span> {delta.diff}
+                        </span>
+                      ) : delta.type === 'down' ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#dc2626', fontWeight: 800, fontSize: '12px' }}>
+                          <span style={{ fontSize: '10px' }}>▼</span> {delta.diff}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#94a3b8', fontWeight: 700, fontSize: '14px', lineHeight: 1 }}>
+                          -
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* FLAGA */}
+                  <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      {player.flagImage ? (
+                        <img src={player.flagImage} alt={player.flag} style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
+                      ) : (
+                        <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 3px', fontSize: '13px', lineHeight: 1, display: 'inline-block' }}>{flagEmoji(player.flag)}</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* ZAWODNIK + AVATAR + KLUB */}
+                  <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
+                      {/* ZDJĘCIE PROFILOWE */}
+                      {player.avatar ? (
+                        <img
+                          src={player.avatar}
+                          alt={player.name}
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '1px solid #cbd5e1',
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: '#e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#475569',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {initialsLocal(player.name)}
+                        </span>
+                      )}
+
+                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
+                        {player.name}
+                      </span>
+
+                      {player.isAmateur && (
+                        <span style={{ fontSize: '9px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 5px', borderRadius: '3px' }}>
+                          AM
+                        </span>
+                      )}
+
+                      {player.club && (
+                        <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap' }}>
+                          {player.club}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* WYNIK DO PAR */}
+                  <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      {total < 0 ? (
+                        <span style={{ color: '#dc2626', background: '#fee2e2', padding: '3px 7px', borderRadius: '4px' }}>
+                          {relativeLabel(total)}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#0f172a' }}>
+                          {total === 0 ? 'E' : relativeLabel(total)}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* DOŁKI (THRU) */}
+                  <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      {thru}
+                    </div>
+                  </td>
+
+                  {/* RUNDA 1 */}
+                  <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      {totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
+                    </div>
+                  </td>
+
+                  {/* RUNDA 2 */}
+                  {store.round2Started && (
+                    <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        {totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
+                      </div>
+                    </td>
+                  )}
+
+                  {/* UDERZENIA */}
+                  <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      {strokes || '–'}
+                    </div>
+                  </td>
+
+                  {/* STRZAŁKA */}
+                  <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      <ChevronRight size={15} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
         {sorted.length === 0 && (
-          <div className="empty-state">Brak aktywnych zawodników w tej kategorii.</div>
+          <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>
+            Brak aktywnych zawodników w wybranej kategorii.
+          </div>
         )}
       </div>
     </section>
@@ -220,7 +484,8 @@ export function Leaderboard({
 
 function initialsLocal(name: string) {
   return name
-    .split(' ')
+    .trim()
+    .split(/\s+/)
     .map((p) => p[0])
     .join('')
     .slice(0, 2)

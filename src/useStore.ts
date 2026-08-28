@@ -1,7 +1,9 @@
+// src/useStore.ts
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 
+<<<<<<< HEAD
 async function fetchStore(activeTournamentId?: string | null): Promise<{ store: Store; tournaments: Tournament[]; activeTournament: Tournament | null; leaguePoints: any[]; registrations: any[]; logoUrl: string | null }> {
   const [
     coursesRes,
@@ -32,6 +34,15 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
     flightPlayersRes.error || scoresRes.error || settingsRes.error || tournamentsRes.error || leaguePointsRes.error || registrationsRes.error;
   if (firstError) throw firstError;
 
+=======
+async function fetchStore(activeTournamentId?: string | null): Promise<{ store: Store; tournaments: Tournament[]; activeTournament: Tournament | null; leaguePoints: any[] }> {
+  // 1. Najpierw pobieramy turnieje i ustawienia, aby znać ID aktywnego turnieju
+  const [tournamentsRes, settingsRes] = await Promise.all([
+    supabase.from('tournaments').select('*').order('date', { ascending: false }),
+    supabase.from('tournament_settings').select('*').maybeSingle(),
+  ]);
+
+>>>>>>> 57bb9bf (Fix build and sync all components)
   const tournaments: Tournament[] = (tournamentsRes.data ?? []).map((t) => ({
     id: t.id,
     name: t.name,
@@ -50,6 +61,40 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
   if (tournaments.length > 0) {
     activeTournament = tournaments.find((t) => t.id === activeTournamentId) || tournaments.find((t) => t.status === 'active') || tournaments[0];
   }
+
+  // 2. Pobieramy pozostałe tabele – dla `scores` filtrujemy konkretny turniej, aby nie przekroczyć limitu 1000 wierszy
+  let scoresQuery = supabase.from('scores').select('*');
+  if (activeTournament?.id) {
+    scoresQuery = scoresQuery.or(`tournament_id.eq.${activeTournament.id},tournament_id.is.null`);
+  }
+
+  let flightsQuery = supabase.from('flights').select('*').order('name');
+  if (activeTournament?.id) {
+    flightsQuery = flightsQuery.or(`tournament_id.eq.${activeTournament.id},tournament_id.is.null`);
+  }
+
+  const [
+    coursesRes,
+    courseHolesRes,
+    playersRes,
+    flightsRes,
+    flightPlayersRes,
+    scoresRes,
+    leaguePointsRes,
+  ] = await Promise.all([
+    supabase.from('courses').select('*').order('name'),
+    supabase.from('course_holes').select('*').order('course_id, number'),
+    supabase.from('players').select('*').order('name'),
+    flightsQuery,
+    supabase.from('flight_players').select('*'),
+    scoresQuery,
+    supabase.from('league_points').select('*'),
+  ]);
+
+  const firstError =
+    coursesRes.error || courseHolesRes.error || playersRes.error || flightsRes.error ||
+    flightPlayersRes.error || scoresRes.error || settingsRes.error || tournamentsRes.error || leaguePointsRes.error;
+  if (firstError) throw firstError;
 
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const courseHoles = courseHolesRes.data ?? [];
@@ -75,34 +120,31 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
   const holesR1 = holesForCourse(round1CourseId);
   const holesR2 = holesForCourse(round2CourseId);
 
-  const allFlightsRows = flightsRes.data ?? [];
-  const flightsRows = activeTournament 
-    ? allFlightsRows.filter((f) => !f.tournament_id || f.tournament_id === activeTournament.id)
-    : allFlightsRows;
-
-  const allScoresRows = scoresRes.data ?? [];
-  const scoresRows = activeTournament
-    ? allScoresRows.filter((s) => !s.tournament_id || s.tournament_id === activeTournament.id)
-    : allScoresRows;
-
+  const flightsRows = flightsRes.data ?? [];
+  const scoresRows = scoresRes.data ?? [];
   const flightPlayers = flightPlayersRes.data ?? [];
 
   const players: Player[] = (playersRes.data ?? []).map((p) => {
     const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
+
     scoresRows
       .filter((s) => s.player_id === p.id)
       .forEach((s) => {
-        if (s.round === 1 || s.round === 2) {
-          if (s.hole_number >= 1 && s.hole_number <= 18) {
-            scores[s.round as Round][s.hole_number - 1] = s.strokes;
-          }
+        const r = Number(s.round ?? s.round_number);
+        const h = Number(s.hole_number ?? s.hole);
+        const val = Number(s.strokes ?? s.score ?? 0);
+
+        if ((r === 1 || r === 2) && h >= 1 && h <= 18) {
+          scores[r as Round][h - 1] = val;
         }
       });
+
     const linkedFlightIds = flightPlayers.filter((fp) => fp.player_id === p.id).map((fp) => fp.flight_id);
     const flightId: Record<Round, string | null> = {
       1: flightsRows.find((f) => f.round === 1 && linkedFlightIds.includes(f.id))?.id ?? null,
       2: flightsRows.find((f) => f.round === 2 && linkedFlightIds.includes(f.id))?.id ?? null,
     };
+
     return {
       id: p.id,
       name: p.name,
@@ -178,7 +220,8 @@ export function useStore() {
       setRegistrations(res.registrations);
       setLogoUrl(res.logoUrl);
       setError(null);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError('Nie udało się połączyć z bazą danych turnieju.');
     } finally {
       setLoading(false);

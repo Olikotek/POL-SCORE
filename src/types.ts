@@ -1,3 +1,4 @@
+// src/types.ts
 export type View = 'wyniki' | 'admin' | 'karta';
 export type Category = 'Men' | 'Women' | 'Senior' | 'Junior' | 'Senior+';
 export const CATEGORIES: Category[] = ['Men', 'Women', 'Senior', 'Junior', 'Senior+'];
@@ -90,6 +91,13 @@ export type LeaguePointRecord = {
   strokes: number;
   points: number;
   category: Category | string;
+};
+
+export type ClubInfo = {
+  id?: string;
+  name: string;
+  logoUrl?: string;
+  city?: string;
 };
 
 export type Store = {

@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useState } from 'react';
 import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, CreditCard as Edit } from 'lucide-react';
 import type { Flight, View, Tournament } from '@/types';
@@ -53,9 +54,9 @@ function App() {
   if (loading) {
     return (
       <div className="app-shell">
-        <div className="loading-screen">
+        <div className="loading-screen" style={{ textAlign: 'center', padding: '60px' }}>
           <Flag size={32} />
-          <p>Ładowanie turnieju...</p>
+          <p>Ładowanie systemu PFFG...</p>
         </div>
       </div>
     );
@@ -64,7 +65,7 @@ function App() {
   if (error || !store) {
     return (
       <div className="app-shell">
-        <div className="loading-screen">
+        <div className="loading-screen" style={{ textAlign: 'center', padding: '60px' }}>
           <p className="error-text">{error ?? 'Nie udało się załadować danych.'}</p>
         </div>
       </div>
@@ -97,7 +98,7 @@ function App() {
               )}
             </span>
             <span style={{ textAlign: 'left' }}>
-              <b style={{ color: '#fff', fontSize: '15px' }}>PFFG</b>
+              <b style={{ color: '#fff', fontSize: '16px', letterSpacing: '0.02em' }}>PFFG</b>
               <small style={{ display: 'block', color: '#94a3b8', fontSize: '10px' }}>{store.tournamentName.toUpperCase()}</small>
             </span>
           </button>
@@ -157,18 +158,18 @@ function App() {
               <button
                 onClick={() => setAuthModalConfig({ open: true, mode: 'login' })}
                 style={{
-                  background: '#ef4444',
+                  background: '#1b88cc',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '6px',
-                  padding: '5px 12px',
+                  padding: '6px 14px',
                   fontSize: '12px',
                   fontWeight: 800,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  boxShadow: '0 2px 4px rgba(27,136,204,0.3)',
                 }}
               >
                 <LogIn size={13} /> ZALOGUJ SIĘ
@@ -179,14 +180,14 @@ function App() {
               className="icon-button"
               onClick={openAdmin}
               title="Panel administratora"
-              style={{ width: '32px', height: '32px' }}
+              style={{ width: '32px', height: '32px', background: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <LockKeyhole size={15} />
             </button>
           </div>
         </div>
 
-        {/* DOLNY PASEK NAWIGACJI – 4 RÓWNE ZAKŁADKI W JEDNYM RZĘDZIE */}
+        {/* DOLNY PASEK NAWIGACJI */}
         <div style={{ width: '100%', background: '#0f172a', padding: '6px 20px', display: 'flex', alignItems: 'center' }}>
           <nav className="desktop-nav" style={{ display: 'flex', gap: '6px', width: '100%' }}>
             <Nav
@@ -227,18 +228,17 @@ function App() {
         )}
         {view === 'standings' && (
           <LeagueStandings
-            players={store.players}
-            leaguePoints={leaguePoints}
+            store={store}
             tournaments={tournaments}
+            leaguePoints={leaguePoints}
+            onOpenPlayer={(id) => setModalPlayerId(id)}
           />
         )}
         {view === 'archive' && (
           <Archive
             tournaments={tournaments}
-            onSelectTournament={(t) => {
-              setActiveTournamentId(t.id);
-              setView('wyniki');
-            }}
+            store={store}
+            onOpenPlayer={(id) => setModalPlayerId(id)}
           />
         )}
         {view === 'tournaments' && (
@@ -279,8 +279,8 @@ function App() {
       </main>
 
       <footer className="footer">
-        <span>© 2026 PFFG</span>
-        <span>System wyników turniejowych</span>
+        <span>© 2026 Polska Federacja Footgolfa (PFFG)</span>
+        <span>Oficjalny system scoringowy</span>
       </footer>
 
       {modalPlayer && (
@@ -288,6 +288,10 @@ function App() {
           player={modalPlayer}
           store={store}
           rank={modalRank}
+          initialTab="scorecard"
+          hideScorecardTab={false}
+          tournaments={tournaments}
+          leaguePoints={leaguePoints}
           onClose={() => setModalPlayerId(null)}
         />
       )}

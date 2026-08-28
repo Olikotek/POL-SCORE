@@ -1,5 +1,6 @@
+// src/actions.ts
 import { supabase } from '@/lib/supabase';
-import type { Category, Course, Flight, Hole, Player, Round, Tournament } from '@/types';
+import type { Category, Course, Flight, Hole, Player, Round, Tournament, ClubInfo } from '@/types';
 import { randomCode, relative } from '@/scoring';
 
 // --- ZARZĄDZANIE TURNIEJAMI ---
@@ -109,8 +110,16 @@ export async function completeTournament(
     throw tError;
   }
 }
-// ---------------------------------------
 
+export async function deleteTournament(id: string) {
+  const { error } = await supabase.from('tournaments').delete().eq('id', id);
+  if (error) {
+    alert(`Błąd usuwania turnieju: ${error.message}`);
+    throw error;
+  }
+}
+
+// --- ZARZĄDZANIE POLEM ---
 export async function createCourse(name: string): Promise<Course> {
   const { data, error } = await supabase.from('courses').insert({ name }).select().single();
   if (error) throw error;
@@ -166,6 +175,7 @@ export async function setTournamentName(name: string, activeTournamentId?: strin
   }
 }
 
+// --- ZARZĄDZANIE ZAWODNIKAMI ---
 export async function addPlayer(data: {
   name: string;
   category: Category;
@@ -175,24 +185,36 @@ export async function addPlayer(data: {
   flagImage?: string;
   isAmateur: boolean;
   isActive?: boolean;
+  ball_model?: string;
+  city?: string;
+  gender?: string;
+  preferred_foot?: string;
+  birth_date?: string;
+  email?: string;
 }) {
   const payload = {
     name: data.name,
     category: data.category,
     avatar: data.avatar || null,
     club: data.club || null,
-    flag: data.flag,
+    ball_model: data.ball_model || null,
+    city: data.city || null,
+    gender: data.gender || 'Male',
+    preferred_foot: data.preferred_foot || 'Right',
+    birth_date: data.birth_date || null,
+    email: data.email || null,
+    flag: data.flag || 'PL',
     flag_image: data.flagImage || null,
     is_amateur: data.isAmateur,
     is_active: data.isActive ?? true,
   };
 
-  const { error } = await supabase.from('players').insert(payload);
+  const { data: inserted, error } = await supabase.from('players').insert(payload).select().single();
   if (error) {
-    alert(`[BŁĄD DODAWANIA ZAWODNIKA]\nKod: ${error.code}\nWiadomość: ${error.message}\nSzczegóły: ${error.details}\nWskazówka: ${error.hint}`);
-    console.error('Błąd addPlayer:', error);
+    alert(`[BŁĄD DODAWANIA ZAWODNIKA]\n${error.message}`);
     throw error;
   }
+  return inserted;
 }
 
 export async function updatePlayer(id: string, data: {
@@ -204,13 +226,25 @@ export async function updatePlayer(id: string, data: {
   flagImage?: string;
   isAmateur: boolean;
   isActive?: boolean;
+  ball_model?: string;
+  city?: string;
+  gender?: string;
+  preferred_foot?: string;
+  birth_date?: string;
+  email?: string;
 }) {
   const payload = {
     name: data.name,
     category: data.category,
     avatar: data.avatar || null,
     club: data.club || null,
-    flag: data.flag,
+    ball_model: data.ball_model || null,
+    city: data.city || null,
+    gender: data.gender || 'Male',
+    preferred_foot: data.preferred_foot || 'Right',
+    birth_date: data.birth_date || null,
+    email: data.email || null,
+    flag: data.flag || 'PL',
     flag_image: data.flagImage || null,
     is_amateur: data.isAmateur,
     is_active: data.isActive ?? true,
@@ -222,8 +256,7 @@ export async function updatePlayer(id: string, data: {
     .eq('id', id);
 
   if (error) {
-    alert(`[BŁĄD EDYCJI ZAWODNIKA ID: ${id}]\nKod: ${error.code}\nWiadomość: ${error.message}\nSzczegóły: ${error.details}\nWskazówka: ${error.hint}`);
-    console.error('Błąd updatePlayer:', error);
+    alert(`[BŁĄD EDYCJI ZAWODNIKA ID: ${id}]\n${error.message}`);
     throw error;
   }
 }
@@ -235,8 +268,7 @@ export async function togglePlayerActive(id: string, isActive: boolean) {
     .eq('id', id);
 
   if (error) {
-    alert(`[BŁĄD ZMIANY STATUSU ID: ${id}]\nKod: ${error.code}\nWiadomość: ${error.message}\nSzczegóły: ${error.details}\nWskazówka: ${error.hint}`);
-    console.error('Błąd togglePlayerActive:', error);
+    alert(`[BŁĄD ZMIANY STATUSU ID: ${id}]\n${error.message}`);
     throw error;
   }
 }
@@ -244,11 +276,107 @@ export async function togglePlayerActive(id: string, isActive: boolean) {
 export async function deletePlayer(id: string) {
   const { error } = await supabase.from('players').delete().eq('id', id);
   if (error) {
-    alert(`[BŁĄD USUWANIA ZAWODNIKA ID: ${id}]\nKod: ${error.code}\nWiadomość: ${error.message}`);
+    alert(`[BŁĄD USUWANIA ZAWODNIKA ID: ${id}]\n${error.message}`);
     throw error;
   }
 }
 
+export async function removePlayerFromTournament(playerId: string, tournamentId?: string | null) {
+  if (!tournamentId) return;
+
+  await supabase
+    .from('scores')
+    .delete()
+    .eq('player_id', playerId)
+    .eq('tournament_id', tournamentId);
+
+  const { data: flightRows } = await supabase
+    .from('flights')
+    .select('id')
+    .eq('tournament_id', tournamentId);
+
+  if (flightRows && flightRows.length > 0) {
+    const flightIds = flightRows.map((f: any) => f.id);
+    await supabase
+      .from('flight_players')
+      .delete()
+      .eq('player_id', playerId)
+      .in('flight_id', flightIds);
+  }
+}
+
+// --- ZARZĄDZANIE KLUBAMI I LOGOTYPAMI ---
+export async function saveClubLogo(clubName: string, logoUrl: string) {
+  const cleanName = clubName.trim();
+  if (!cleanName) return;
+
+  // 1. Zapis natychmiastowy w pamięci lokalnej (fallback)
+  try {
+    localStorage.setItem(`pffg_club_logo_${cleanName}`, logoUrl);
+  } catch (e) {
+    console.error('LocalStorage write error:', e);
+  }
+
+  // 2. Próba zapisu do tabeli clubs w Supabase
+  try {
+    const { error: upsertError } = await supabase
+      .from('clubs')
+      .upsert({ name: cleanName, logo_url: logoUrl }, { onConflict: 'name' });
+
+    if (upsertError) {
+      console.warn('Tabela clubs nie istnieje lub brak RLS, zapisuję fallback w profilach zawodników:', upsertError);
+    }
+  } catch (err) {
+    console.warn('Błąd podczas zapisu do tabeli clubs:', err);
+  }
+
+  // 3. Zapis w profilach graczy należących do danego klubu (gwarancja spójności)
+  try {
+    await supabase
+      .from('players')
+      .update({ flag_image: logoUrl })
+      .eq('club', cleanName);
+  } catch (e) {
+    console.error('Błąd aktualizacji flag_image u graczy:', e);
+  }
+}
+
+export async function fetchClubs(): Promise<Record<string, string>> {
+  const map: Record<string, string> = {};
+
+  // 1. Wczytaj z localStorage (najszybszy fallback)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('pffg_club_logo_')) {
+        const clubName = key.replace('pffg_club_logo_', '');
+        const url = localStorage.getItem(key);
+        if (url) map[clubName] = url;
+      }
+    }
+  } catch (e) {
+    console.error('LocalStorage read error:', e);
+  }
+
+  // 2. Wczytaj z tabeli clubs w Supabase
+  try {
+    const { data, error } = await supabase.from('clubs').select('name, logo_url');
+    if (!error && data) {
+      data.forEach((c: any) => {
+        if (c.name && c.logo_url) {
+          map[c.name.trim()] = c.logo_url;
+          localStorage.setItem(`pffg_club_logo_${c.name.trim()}`, c.logo_url);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Tabela clubs niedostępna, używam danych z profili/local storage.');
+  }
+
+  return map;
+}
+
+// --- FLIGHTY ---
 export async function createFlight(data: {
   name: string;
   round: Round;
@@ -308,21 +436,90 @@ export async function assignPlayerToFlight(
   }
 }
 
-export async function saveScore(playerId: string, round: Round, holeNumber: number, strokes: number, tournamentId?: string | null) {
-  const { error } = await supabase
+// --- ZAPIS WYNIKÓW ---
+export async function saveScore(
+  playerId: string,
+  round: Round,
+  holeNumber: number,
+  strokes: number,
+  tournamentId?: string | null
+) {
+  if (!tournamentId) return;
+
+  const tId = tournamentId;
+  const rNum = Number(round);
+  const hNum = Number(holeNumber);
+  const val = Number(strokes) || 0;
+
+  await supabase
     .from('scores')
-    .upsert(
-      {
+    .delete()
+    .eq('tournament_id', tId)
+    .eq('player_id', playerId)
+    .eq('round', rNum)
+    .eq('hole_number', hNum);
+
+  if (val > 0) {
+    const { error } = await supabase
+      .from('scores')
+      .insert({
+        tournament_id: tId,
         player_id: playerId,
-        round,
-        hole_number: holeNumber,
-        strokes,
-        tournament_id: tournamentId || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'player_id,round,hole_number' }
-    );
-  if (error) throw error;
+        round: rNum,
+        hole_number: hNum,
+        strokes: val,
+      });
+
+    if (error) {
+      console.error('Błąd saveScore:', error);
+      throw error;
+    }
+  }
+}
+
+export async function saveBatchScores(
+  playerId: string,
+  round: Round,
+  scoresArray: number[],
+  tournamentId?: string | null
+) {
+  if (!tournamentId) return;
+
+  const tId = tournamentId;
+  const rNum = Number(round);
+
+  const { error: delError } = await supabase
+    .from('scores')
+    .delete()
+    .eq('tournament_id', tId)
+    .eq('player_id', playerId)
+    .eq('round', rNum);
+
+  if (delError) {
+    console.error('Błąd usuwania starych wyników (batch):', delError);
+    throw delError;
+  }
+
+  const rows = scoresArray
+    .map((strokes, index) => ({
+      tournament_id: tId,
+      player_id: playerId,
+      round: rNum,
+      hole_number: index + 1,
+      strokes: Number(strokes) || 0,
+    }))
+    .filter((row) => row.strokes > 0);
+
+  if (rows.length === 0) return;
+
+  const { error: insError } = await supabase
+    .from('scores')
+    .insert(rows);
+
+  if (insError) {
+    console.error('Błąd zapisu nowych wyników (batch):', insError);
+    throw insError;
+  }
 }
 
 export async function saveHoleScores(
@@ -331,20 +528,37 @@ export async function saveHoleScores(
   holeIndex: number,
   tournamentId?: string | null
 ) {
+  if (!tournamentId) return;
+
+  const tId = tournamentId;
+  const rNum = Number(round);
+  const hNum = holeIndex + 1;
+  const playerIds = players.map((p) => p.id);
+
+  await supabase
+    .from('scores')
+    .delete()
+    .eq('tournament_id', tId)
+    .eq('round', rNum)
+    .eq('hole_number', hNum)
+    .in('player_id', playerIds);
+
   const rows = players
     .filter((p) => p.scores[holeIndex] > 0)
     .map((p) => ({
+      tournament_id: tId,
       player_id: p.id,
-      round,
-      hole_number: holeIndex + 1,
-      strokes: p.scores[holeIndex],
-      tournament_id: tournamentId || null,
-      updated_at: new Date().toISOString(),
+      round: rNum,
+      hole_number: hNum,
+      strokes: Number(p.scores[holeIndex]),
     }));
+
   if (rows.length === 0) return;
+
   const { error } = await supabase
     .from('scores')
-    .upsert(rows, { onConflict: 'player_id,round,hole_number' });
+    .insert(rows);
+
   if (error) throw error;
 }
 
@@ -438,6 +652,7 @@ export async function resetRoundScores(round: Round) {
     alert(`Błąd czyszczenia wyników rundy: ${error.message}`);
     throw error;
   }
+<<<<<<< HEAD
 }
 export async function deleteTournament(id: string) {
   const { error } = await supabase.from('tournaments').delete().eq('id', id);
@@ -497,4 +712,6 @@ export async function registerPlayerForTournament(tournamentId: string, playerId
       payment_method: paymentMethod,
     });
   if (error && !error.message.includes('duplicate key')) throw error;
+=======
+>>>>>>> 57bb9bf (Fix build and sync all components)
 }

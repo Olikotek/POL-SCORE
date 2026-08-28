@@ -1,64 +1,95 @@
 // src/leagueScoring.ts
 import type { Category } from '@/types';
 
-// Tabela punktów (reguła 92% z regulaminu)
-export const POINTS_TABLE: number[] = [
-  100, 92, 85, 78, 72, 66, 61, 56, 52, 48,
-  44, 40, 37, 34, 31, 29, 27, 25, 23, 21,
-  19, 17, 15, 13, 11, 9, 8, 7, 6, 5, 4, 3, 2, 1
-];
+// Oficjalna tabela punktowa PFFG (reguła 92%)
+export const POSITION_POINTS: Record<number, number> = {
+  1: 100, 2: 92, 3: 85, 4: 78, 5: 72, 6: 66, 7: 61, 8: 56, 9: 52, 10: 48,
+  11: 44, 12: 40, 13: 37, 14: 34, 15: 31, 16: 28, 17: 26, 18: 24, 19: 22, 20: 20,
+  21: 18, 22: 16, 23: 15, 24: 14, 25: 13, 26: 12, 27: 11, 28: 10, 29: 9, 30: 8,
+  31: 7, 32: 6, 33: 5, 34: 4, 35: 3, 36: 2, 37: 1,
+};
 
-export function getPointsForRank(rank: number): number {
-  if (rank < 1) return 0;
-  if (rank <= POINTS_TABLE.length) return POINTS_TABLE[rank - 1];
-  return 0;
+export function getBasePointsForPosition(pos: number): number {
+  if (pos <= 0) return 0;
+  return POSITION_POINTS[pos] ?? (pos <= 50 ? 1 : 0);
 }
 
-// Obliczanie punktów za turniej z podziałem remisów
-export function calculateTournamentPoints(
-  sortedPlayers: { id: string; rank: number; strokes: number; category: Category; club?: string }[]
-): { playerId: string; rank: number; strokes: number; points: number; category: Category; club?: string }[] {
-  const rankGroups = new Map<number, typeof sortedPlayers>();
+// Obliczenie sumy uderzeń na ostatnich N dołkach (Countback: 9, 6, 3, 2, 1)
+export function getCountbackStrokes(scoresR1: number[] = [], scoresR2: number[] = [], lastHolesCount: number): number {
+  const activeRoundScores = scoresR2.some((s) => s > 0) ? scoresR2 : scoresR1;
+  const played = activeRoundScores.filter((s) => s > 0);
+  if (played.length < lastHolesCount) return 9999;
+  return played.slice(-lastHolesCount).reduce((a, b) => a + b, 0);
+}
 
-  sortedPlayers.forEach((p) => {
-    const list = rankGroups.get(p.rank) || [];
-    list.push(p);
-    rankGroups.set(p.rank, list);
-  });
+// Porównanie dwóch graczy wg regulaminu tie-breakera: 9, 6, 3, 2, 1 ostatni dołek
+export function compareCountback(
+  pA: { scoresR1?: number[]; scoresR2?: number[] },
+  pB: { scoresR1?: number[]; scoresR2?: number[] }
+): number {
+  const r1A = pA.scoresR1 || [];
+  const r2A = pA.scoresR2 || [];
+  const r1B = pB.scoresR1 || [];
+  const r2B = pB.scoresR2 || [];
 
-  const result: { playerId: string; rank: number; strokes: number; points: number; category: Category; club?: string }[] = [];
-
-  rankGroups.forEach((players, rank) => {
-    const count = players.length;
-    let totalPointsForGroup = 0;
-    for (let i = 0; i < count; i++) {
-      totalPointsForGroup += getPointsForRank(rank + i);
+  const intervals = [9, 6, 3, 2, 1];
+  for (const n of intervals) {
+    const sumA = getCountbackStrokes(r1A, r2A, n);
+    const sumB = getCountbackStrokes(r1B, r2B, n);
+    if (sumA !== sumB) {
+      return sumA - sumB; // Mniej uderzeń = wyższa pozycja
     }
-    const pointsPerPlayer = count > 0 ? totalPointsForGroup / count : 0;
-    players.forEach((p) => {
-      result.push({
-        playerId: p.id,
-        rank: p.rank,
-        strokes: p.strokes,
-        points: Number(pointsPerPlayer.toFixed(2)),
-        category: p.category,
-        club: p.club,
-      });
-    });
-  });
-
-  return result;
+  }
+  return 0; // Idealny remis
 }
 
-// Zliczanie rankingu generalnego zawodnika (TOP 6 rund regularnych + Polish Open)
-export function computeSeasonStanding(
-  playerLeagueResults: { isPolishOpen: boolean; points: number }[]
-): { totalPoints: number; roundsCount: number; countedPoints: number } {
-  const regular = playerLeagueResults
-    .filter((r) => !r.isPolishOpen)
-    .map((r) => r.points)
-    .sort((a, b) => b - a);
+export interface PlayerRankResult {
+  playerId: string;
+  rank: number;
+  strokes: number;
+  points: number;
+  category?: Category;
+  club?: string;
+  isPlayoffCandidate?: boolean;
+}
 
+// Pełne rozstrzygnięcie pozycji i punktów
+export function calculateOfficialLeaguePoints(
+  players: {
+    id: string;
+    strokes: number;
+    scoresR1?: number[];
+    scoresR2?: number[];
+    category?: Category;
+    club?: string;
+    overrideRank?: number; // Ręczna dogrywka ustalona w Adminie
+  }[]
+): PlayerRankResult[] {
+  // Sortowanie: 1. Wymuszone miejsce z dogrywki, 2. Suma uderzeń, 3. Countback (9,6,3,2,1)
+  const sorted = [...players].sort((a, b) => {
+    if (a.overrideRank !== undefined && b.overrideRank !== undefined) {
+      return a.overrideRank - b.overrideRank;
+    }
+    if (a.overrideRank !== undefined) return -1;
+    if (b.overrideRank !== undefined) return 1;
+
+    if (a.strokes !== b.strokes) {
+      return a.strokes - b.strokes;
+    }
+
+    return compareCountback(a, b);
+  });
+
+  return sorted.map((p, idx) => {
+    const finalRank = p.overrideRank !== undefined ? p.overrideRank : idx + 1;
+    const points = getBasePointsForPosition(finalRank);
+
+    // Gracz kwalifikuje się do dogrywki o podium (TOP 3), jeśli ma taki sam wynik uderzeń jak ktoś z podium
+    const isPlayoffCandidate =
+      finalRank <= 3 ||
+      sorted.some((other, oIdx) => oIdx <= 2 && other.id !== p.id && other.strokes === p.strokes);
+
+<<<<<<< HEAD
   const best6 = regular.slice(0, 6).reduce((sum, val) => sum + val, 0);
 
   const polishOpen = playerLeagueResults
@@ -84,3 +115,16 @@ export const MIN_ROUNDS_REQUIRED: Record<Category, number> = {
   Junior: 3,
   'Senior+': 3,
 };
+=======
+    return {
+      playerId: p.id,
+      rank: finalRank,
+      strokes: p.strokes,
+      points,
+      category: p.category,
+      club: p.club,
+      isPlayoffCandidate,
+    };
+  });
+}
+>>>>>>> 57bb9bf (Fix build and sync all components)
