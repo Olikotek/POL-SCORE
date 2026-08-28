@@ -3,6 +3,41 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 
+// Funkcja pomocnicza pobierająca WSZYSTKIE rekordy (omija limit 1000 PostgREST)
+async function fetchAllScores(tournamentId?: string | null) {
+  let allScores: any[] = [];
+  let from = 0;
+  const step = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from('scores')
+      .select('*')
+      .range(from, from + step - 1);
+
+    if (tournamentId) {
+      query = query.eq('tournament_id', tournamentId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allScores = allScores.concat(data);
+      if (data.length < step) {
+        hasMore = false;
+      } else {
+        from += step;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allScores;
+}
+
 async function fetchStore(activeTournamentId?: string | null): Promise<{
   store: Store;
   tournaments: Tournament[];
@@ -40,44 +75,28 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       tournaments[0];
   }
 
-  // 2. Filtrowanie tabel scores i flights dla wybranego turnieju
-  let scoresQuery = supabase
-    .from('scores')
-    .select('*')
-    .order('round', { ascending: true })
-    .order('hole_number', { ascending: true })
-    .limit(10000);
-
-  if (activeTournament?.id) {
-    scoresQuery = scoresQuery.eq('tournament_id', activeTournament.id);
-  }
-
-  let flightsQuery = supabase
-    .from('flights')
-    .select('*')
-    .order('name')
-    .limit(1000);
-
+  let flightsQuery = supabase.from('flights').select('*').order('name');
   if (activeTournament?.id) {
     flightsQuery = flightsQuery.eq('tournament_id', activeTournament.id);
   }
 
+  // 2. Pobieramy pozostałe tabele oraz WSZYSTKIE wyniki przez stronicowanie
   const [
     coursesRes,
     courseHolesRes,
     playersRes,
     flightsRes,
     flightPlayersRes,
-    scoresRes,
+    scoresRows,
     leaguePointsRes,
   ] = await Promise.all([
-    supabase.from('courses').select('*').order('name').limit(500),
-    supabase.from('course_holes').select('*').order('course_id, number').limit(2000),
-    supabase.from('players').select('*').order('name').limit(2000),
+    supabase.from('courses').select('*').order('name'),
+    supabase.from('course_holes').select('*').order('course_id, number'),
+    supabase.from('players').select('*').order('name'),
     flightsQuery,
-    supabase.from('flight_players').select('*').limit(5000),
-    scoresQuery,
-    supabase.from('league_points').select('*').limit(5000),
+    supabase.from('flight_players').select('*'),
+    fetchAllScores(activeTournament?.id),
+    supabase.from('league_points').select('*'),
   ]);
 
   const firstError =
@@ -86,7 +105,6 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     playersRes.error ||
     flightsRes.error ||
     flightPlayersRes.error ||
-    scoresRes.error ||
     settingsRes.error ||
     tournamentsRes.error ||
     leaguePointsRes.error ||
@@ -119,7 +137,6 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const holesR2 = holesForCourse(round2CourseId);
 
   const flightsRows = flightsRes.data ?? [];
-  const scoresRows = scoresRes.data ?? [];
   const flightPlayers = flightPlayersRes.data ?? [];
 
   const players: Player[] = (playersRes.data ?? []).map((p) => {
