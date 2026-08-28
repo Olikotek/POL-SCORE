@@ -472,8 +472,8 @@ export async function saveScore(
       round: rNum,
       hole_number: hNum,
       strokes: val,
+      tournament_id: tId || null,
     };
-    if (tId) payload.tournament_id = tId;
 
     const { error } = await supabase.from('scores').insert(payload);
     if (error) {
@@ -502,16 +502,13 @@ export async function saveBatchScores(
   }
 
   const rows = scoresArray
-    .map((strokes, index) => {
-      const row: any = {
-        player_id: playerId,
-        round: rNum,
-        hole_number: index + 1,
-        strokes: Number(strokes) || 0,
-      };
-      if (tId) row.tournament_id = tId;
-      return row;
-    })
+    .map((strokes, index) => ({
+      player_id: playerId,
+      round: rNum,
+      hole_number: index + 1,
+      strokes: Number(strokes) || 0,
+      tournament_id: tId || null,
+    }))
     .filter((row) => row.strokes > 0);
 
   if (rows.length === 0) return;
@@ -532,42 +529,10 @@ export async function saveHoleScores(
   const tId = await resolveTournamentId(tournamentId);
   const rNum = Number(round);
   const hNum = holeIndex + 1;
-  const playerIds = players.map((p) => p.id);
 
-  let delQuery = supabase
-    .from('scores')
-    .delete()
-    .eq('round', rNum)
-    .eq('hole_number', hNum)
-    .in('player_id', playerIds);
-
-  if (tId) delQuery = delQuery.eq('tournament_id', tId);
-  const { error: delError } = await delQuery;
-
-  if (delError) {
-    alert(`Błąd usuwania poprzednich wyników dołka: ${delError.message}`);
-    throw delError;
-  }
-
-  const rows = players
-    .filter((p) => Number(p.scores[holeIndex]) > 0)
-    .map((p) => {
-      const row: any = {
-        player_id: p.id,
-        round: rNum,
-        hole_number: hNum,
-        strokes: Number(p.scores[holeIndex]),
-      };
-      if (tId) row.tournament_id = tId;
-      return row;
-    });
-
-  if (rows.length === 0) return;
-
-  const { error: insError } = await supabase.from('scores').insert(rows);
-  if (insError) {
-    alert(`Błąd zapisu wyników dołka: ${insError.message}`);
-    throw insError;
+  for (const p of players) {
+    const strokes = Number(p.scores[holeIndex]) || 0;
+    await saveScore(p.id, rNum as Round, hNum, strokes, tId);
   }
 }
 
