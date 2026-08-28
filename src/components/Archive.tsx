@@ -102,20 +102,48 @@ export function Archive({
 
     async function fetchArchivedData() {
       try {
-        // Pobieramy R1 i R2 osobno, aby ominąć 1000-rekordowy limit PostgREST
-        const [scoresR1Res, scoresR2Res, playersRes, leaguePointsRes] = await Promise.all([
-          supabase.from('scores').select('*').eq('tournament_id', selectedTournament.id).eq('round', 1).limit(1000),
-          supabase.from('scores').select('*').eq('tournament_id', selectedTournament.id).eq('round', 2).limit(1000),
-          supabase.from('players').select('*').order('name').limit(2000),
-          supabase.from('league_points').select('*').eq('tournament_id', selectedTournament.id),
+        const tournId = selectedTournament.id;
+
+        // 1. Pobieramy WSZYSTKIE dołki turnieju partiami po 1000 w pętli stronicowania
+        let allScores: any[] = [];
+        let from = 0;
+        const step = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('scores')
+            .select('*')
+            .eq('tournament_id', tournId)
+            .range(from, from + step - 1);
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allScores = allScores.concat(data);
+            if (data.length < step) {
+              hasMore = false;
+            } else {
+              from += step;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // 2. Pobieramy zawodników i punkty
+        const [playersRes, leaguePointsRes] = await Promise.all([
+          supabase.from('players').select('*').order('name').limit(3000),
+          supabase.from('league_points').select('*').eq('tournament_id', tournId),
         ]);
 
         if (!isMounted) return;
 
-        const scoresData = [...(scoresR1Res.data || []), ...(scoresR2Res.data || [])];
+        const scoresData = allScores;
         const playersData = playersRes.data || [];
         const lpData = leaguePointsRes.data || [];
 
+        // 3. Mapowanie graczy
         const playersBase = playersData.map((p: any) => {
           const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
@@ -151,11 +179,12 @@ export function Archive({
           };
         });
 
+        // 4. Pokazujemy tylko zawodników mających wyniki w tym turnieju
         const participants = playersBase.filter((p) =>
           p.scores[1].some((s) => s > 0) || p.scores[2].some((s) => s > 0)
         );
 
-        setArchivedPlayers(participants.length > 0 ? participants : playersBase);
+        setArchivedPlayers(participants);
       } catch (err) {
         console.error('Błąd wczytywania archiwum:', err);
       } finally {
