@@ -434,7 +434,13 @@ export async function assignPlayerToFlight(
 // --- ZAPIS WYNIKÓW ---
 async function resolveTournamentId(providedId?: string | null): Promise<string | null> {
   if (providedId) return providedId;
-  const { data } = await supabase.from('tournaments').select('id').eq('status', 'active').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const { data } = await supabase
+    .from('tournaments')
+    .select('id')
+    .eq('status', 'active')
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
   return data?.id || null;
 }
 
@@ -450,7 +456,13 @@ export async function saveScore(
   const hNum = Number(holeNumber);
   const val = Number(strokes) || 0;
 
-  let query = supabase.from('scores').delete().eq('player_id', playerId).eq('round', rNum).eq('hole_number', hNum);
+  let query = supabase
+    .from('scores')
+    .delete()
+    .eq('player_id', playerId)
+    .eq('round', rNum)
+    .eq('hole_number', hNum);
+
   if (tId) query = query.eq('tournament_id', tId);
   await query;
 
@@ -465,7 +477,7 @@ export async function saveScore(
 
     const { error } = await supabase.from('scores').insert(payload);
     if (error) {
-      console.error('Błąd saveScore:', error);
+      alert(`Błąd zapisu pojedynczego wyniku: ${error.message}`);
       throw error;
     }
   }
@@ -485,7 +497,7 @@ export async function saveBatchScores(
   const { error: delError } = await query;
 
   if (delError) {
-    console.error('Błąd usuwania starych wyników (batch):', delError);
+    alert(`Błąd czyszczenia wyników gracza: ${delError.message}`);
     throw delError;
   }
 
@@ -506,7 +518,7 @@ export async function saveBatchScores(
 
   const { error: insError } = await supabase.from('scores').insert(rows);
   if (insError) {
-    console.error('Błąd zapisu nowych wyników (batch):', insError);
+    alert(`Błąd zapisu serii wyników: ${insError.message}`);
     throw insError;
   }
 }
@@ -530,10 +542,15 @@ export async function saveHoleScores(
     .in('player_id', playerIds);
 
   if (tId) delQuery = delQuery.eq('tournament_id', tId);
-  await delQuery;
+  const { error: delError } = await delQuery;
+
+  if (delError) {
+    alert(`Błąd usuwania poprzednich wyników dołka: ${delError.message}`);
+    throw delError;
+  }
 
   const rows = players
-    .filter((p) => p.scores[holeIndex] > 0)
+    .filter((p) => Number(p.scores[holeIndex]) > 0)
     .map((p) => {
       const row: any = {
         player_id: p.id,
@@ -547,8 +564,11 @@ export async function saveHoleScores(
 
   if (rows.length === 0) return;
 
-  const { error } = await supabase.from('scores').insert(rows);
-  if (error) throw error;
+  const { error: insError } = await supabase.from('scores').insert(rows);
+  if (insError) {
+    alert(`Błąd zapisu wyników dołka: ${insError.message}`);
+    throw insError;
+  }
 }
 
 export async function setRound1Approved(approved: boolean, activeTournamentId?: string | null) {

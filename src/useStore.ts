@@ -3,46 +3,21 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 
-<<<<<<< HEAD
-async function fetchStore(activeTournamentId?: string | null): Promise<{ store: Store; tournaments: Tournament[]; activeTournament: Tournament | null; leaguePoints: any[]; registrations: any[]; logoUrl: string | null }> {
-  const [
-    coursesRes,
-    courseHolesRes,
-    playersRes,
-    flightsRes,
-    flightPlayersRes,
-    scoresRes,
-    settingsRes,
-    tournamentsRes,
-    leaguePointsRes,
-    registrationsRes,
-  ] = await Promise.all([
-    supabase.from('courses').select('*').order('name'),
-    supabase.from('course_holes').select('*').order('course_id, number'),
-    supabase.from('players').select('*').order('name'),
-    supabase.from('flights').select('*').order('name'),
-    supabase.from('flight_players').select('*'),
-    supabase.from('scores').select('*'),
-    supabase.from('tournament_settings').select('*').maybeSingle(),
+async function fetchStore(activeTournamentId?: string | null): Promise<{
+  store: Store;
+  tournaments: Tournament[];
+  activeTournament: Tournament | null;
+  leaguePoints: any[];
+  registrations: any[];
+  logoUrl: string | null;
+}> {
+  // 1. Turnieje, ustawienia i rejestracje
+  const [tournamentsRes, settingsRes, registrationsRes] = await Promise.all([
     supabase.from('tournaments').select('*').order('date', { ascending: false }),
-    supabase.from('league_points').select('*'),
+    supabase.from('tournament_settings').select('*').maybeSingle(),
     supabase.from('tournament_registrations').select('*'),
   ]);
 
-  const firstError =
-    coursesRes.error || courseHolesRes.error || playersRes.error || flightsRes.error ||
-    flightPlayersRes.error || scoresRes.error || settingsRes.error || tournamentsRes.error || leaguePointsRes.error || registrationsRes.error;
-  if (firstError) throw firstError;
-
-=======
-async function fetchStore(activeTournamentId?: string | null): Promise<{ store: Store; tournaments: Tournament[]; activeTournament: Tournament | null; leaguePoints: any[] }> {
-  // 1. Najpierw pobieramy turnieje i ustawienia, aby znać ID aktywnego turnieju
-  const [tournamentsRes, settingsRes] = await Promise.all([
-    supabase.from('tournaments').select('*').order('date', { ascending: false }),
-    supabase.from('tournament_settings').select('*').maybeSingle(),
-  ]);
-
->>>>>>> 57bb9bf (Fix build and sync all components)
   const tournaments: Tournament[] = (tournamentsRes.data ?? []).map((t) => ({
     id: t.id,
     name: t.name,
@@ -59,10 +34,13 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
 
   let activeTournament: Tournament | null = null;
   if (tournaments.length > 0) {
-    activeTournament = tournaments.find((t) => t.id === activeTournamentId) || tournaments.find((t) => t.status === 'active') || tournaments[0];
+    activeTournament =
+      tournaments.find((t) => t.id === activeTournamentId) ||
+      tournaments.find((t) => t.status === 'active') ||
+      tournaments[0];
   }
 
-  // 2. Pobieramy pozostałe tabele – dla `scores` filtrujemy konkretny turniej, aby nie przekroczyć limitu 1000 wierszy
+  // 2. Filtrowanie tabel scores i flights dla aktywnego turnieju
   let scoresQuery = supabase.from('scores').select('*');
   if (activeTournament?.id) {
     scoresQuery = scoresQuery.or(`tournament_id.eq.${activeTournament.id},tournament_id.is.null`);
@@ -92,8 +70,17 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{ store: 
   ]);
 
   const firstError =
-    coursesRes.error || courseHolesRes.error || playersRes.error || flightsRes.error ||
-    flightPlayersRes.error || scoresRes.error || settingsRes.error || tournamentsRes.error || leaguePointsRes.error;
+    coursesRes.error ||
+    courseHolesRes.error ||
+    playersRes.error ||
+    flightsRes.error ||
+    flightPlayersRes.error ||
+    scoresRes.error ||
+    settingsRes.error ||
+    tournamentsRes.error ||
+    leaguePointsRes.error ||
+    registrationsRes.error;
+
   if (firstError) throw firstError;
 
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
