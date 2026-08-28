@@ -1,3 +1,4 @@
+// src/components/Scorecard.tsx
 import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
@@ -228,7 +229,15 @@ export function Scorecard({
         id: p.id,
         scores: drafts[p.id] ?? p.scores[round],
       }));
-      await saveHoleScores(playersWithDrafts, round, currentHoleIndex);
+      
+      const targetTournamentId =
+        (activeFlight as any).tournament_id ||
+        (activeFlight as any).tournamentId ||
+        (store as any).activeTournamentId ||
+        (store as any).tournamentId ||
+        null;
+
+      await saveHoleScores(playersWithDrafts, round, currentHoleIndex, targetTournamentId);
       setFeedback(true);
       window.setTimeout(() => {
         setFeedback(false);

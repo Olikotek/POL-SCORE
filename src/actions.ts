@@ -310,27 +310,24 @@ export async function saveClubLogo(clubName: string, logoUrl: string) {
   const cleanName = clubName.trim();
   if (!cleanName) return;
 
-  // 1. Zapis natychmiastowy w pamięci lokalnej (fallback)
   try {
     localStorage.setItem(`pffg_club_logo_${cleanName}`, logoUrl);
   } catch (e) {
     console.error('LocalStorage write error:', e);
   }
 
-  // 2. Próba zapisu do tabeli clubs w Supabase
   try {
     const { error: upsertError } = await supabase
       .from('clubs')
       .upsert({ name: cleanName, logo_url: logoUrl }, { onConflict: 'name' });
 
     if (upsertError) {
-      console.warn('Tabela clubs nie istnieje lub brak RLS, zapisuję fallback w profilach zawodników:', upsertError);
+      console.warn('Tabela clubs nie istnieje lub brak RLS:', upsertError);
     }
   } catch (err) {
     console.warn('Błąd podczas zapisu do tabeli clubs:', err);
   }
 
-  // 3. Zapis w profilach graczy należących do danego klubu (gwarancja spójności)
   try {
     await supabase
       .from('players')
@@ -344,7 +341,6 @@ export async function saveClubLogo(clubName: string, logoUrl: string) {
 export async function fetchClubs(): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
 
-  // 1. Wczytaj z localStorage (najszybszy fallback)
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -358,7 +354,6 @@ export async function fetchClubs(): Promise<Record<string, string>> {
     console.error('LocalStorage read error:', e);
   }
 
-  // 2. Wczytaj z tabeli clubs w Supabase
   try {
     const { data, error } = await supabase.from('clubs').select('name, logo_url');
     if (!error && data) {
@@ -437,6 +432,12 @@ export async function assignPlayerToFlight(
 }
 
 // --- ZAPIS WYNIKÓW ---
+async function resolveTournamentId(providedId?: string | null): Promise<string | null> {
+  if (providedId) return providedId;
+  const { data } = await supabase.from('tournaments').select('id').eq('status', 'active').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  return data?.id || null;
+}
+
 export async function saveScore(
   playerId: string,
   round: Round,
@@ -444,32 +445,25 @@ export async function saveScore(
   strokes: number,
   tournamentId?: string | null
 ) {
-  if (!tournamentId) return;
-
-  const tId = tournamentId;
+  const tId = await resolveTournamentId(tournamentId);
   const rNum = Number(round);
   const hNum = Number(holeNumber);
   const val = Number(strokes) || 0;
 
-  await supabase
-    .from('scores')
-    .delete()
-    .eq('tournament_id', tId)
-    .eq('player_id', playerId)
-    .eq('round', rNum)
-    .eq('hole_number', hNum);
+  let query = supabase.from('scores').delete().eq('player_id', playerId).eq('round', rNum).eq('hole_number', hNum);
+  if (tId) query = query.eq('tournament_id', tId);
+  await query;
 
   if (val > 0) {
-    const { error } = await supabase
-      .from('scores')
-      .insert({
-        tournament_id: tId,
-        player_id: playerId,
-        round: rNum,
-        hole_number: hNum,
-        strokes: val,
-      });
+    const payload: any = {
+      player_id: playerId,
+      round: rNum,
+      hole_number: hNum,
+      strokes: val,
+    };
+    if (tId) payload.tournament_id = tId;
 
+    const { error } = await supabase.from('scores').insert(payload);
     if (error) {
       console.error('Błąd saveScore:', error);
       throw error;
@@ -483,17 +477,12 @@ export async function saveBatchScores(
   scoresArray: number[],
   tournamentId?: string | null
 ) {
-  if (!tournamentId) return;
-
-  const tId = tournamentId;
+  const tId = await resolveTournamentId(tournamentId);
   const rNum = Number(round);
 
-  const { error: delError } = await supabase
-    .from('scores')
-    .delete()
-    .eq('tournament_id', tId)
-    .eq('player_id', playerId)
-    .eq('round', rNum);
+  let query = supabase.from('scores').delete().eq('player_id', playerId).eq('round', rNum);
+  if (tId) query = query.eq('tournament_id', tId);
+  const { error: delError } = await query;
 
   if (delError) {
     console.error('Błąd usuwania starych wyników (batch):', delError);
@@ -501,21 +490,21 @@ export async function saveBatchScores(
   }
 
   const rows = scoresArray
-    .map((strokes, index) => ({
-      tournament_id: tId,
-      player_id: playerId,
-      round: rNum,
-      hole_number: index + 1,
-      strokes: Number(strokes) || 0,
-    }))
+    .map((strokes, index) => {
+      const row: any = {
+        player_id: playerId,
+        round: rNum,
+        hole_number: index + 1,
+        strokes: Number(strokes) || 0,
+      };
+      if (tId) row.tournament_id = tId;
+      return row;
+    })
     .filter((row) => row.strokes > 0);
 
   if (rows.length === 0) return;
 
-  const { error: insError } = await supabase
-    .from('scores')
-    .insert(rows);
-
+  const { error: insError } = await supabase.from('scores').insert(rows);
   if (insError) {
     console.error('Błąd zapisu nowych wyników (batch):', insError);
     throw insError;
@@ -528,37 +517,37 @@ export async function saveHoleScores(
   holeIndex: number,
   tournamentId?: string | null
 ) {
-  if (!tournamentId) return;
-
-  const tId = tournamentId;
+  const tId = await resolveTournamentId(tournamentId);
   const rNum = Number(round);
   const hNum = holeIndex + 1;
   const playerIds = players.map((p) => p.id);
 
-  await supabase
+  let delQuery = supabase
     .from('scores')
     .delete()
-    .eq('tournament_id', tId)
     .eq('round', rNum)
     .eq('hole_number', hNum)
     .in('player_id', playerIds);
 
+  if (tId) delQuery = delQuery.eq('tournament_id', tId);
+  await delQuery;
+
   const rows = players
     .filter((p) => p.scores[holeIndex] > 0)
-    .map((p) => ({
-      tournament_id: tId,
-      player_id: p.id,
-      round: rNum,
-      hole_number: hNum,
-      strokes: Number(p.scores[holeIndex]),
-    }));
+    .map((p) => {
+      const row: any = {
+        player_id: p.id,
+        round: rNum,
+        hole_number: hNum,
+        strokes: Number(p.scores[holeIndex]),
+      };
+      if (tId) row.tournament_id = tId;
+      return row;
+    });
 
   if (rows.length === 0) return;
 
-  const { error } = await supabase
-    .from('scores')
-    .insert(rows);
-
+  const { error } = await supabase.from('scores').insert(rows);
   if (error) throw error;
 }
 
@@ -652,14 +641,6 @@ export async function resetRoundScores(round: Round) {
     alert(`Błąd czyszczenia wyników rundy: ${error.message}`);
     throw error;
   }
-<<<<<<< HEAD
-}
-export async function deleteTournament(id: string) {
-  const { error } = await supabase.from('tournaments').delete().eq('id', id);
-  if (error) {
-    alert(`Błąd usuwania turnieju: ${error.message}`);
-    throw error;
-  }
 }
 
 export async function setLogoUrl(url: string | null) {
@@ -693,25 +674,4 @@ export async function fetchRegistrations(tournamentId?: string | null) {
   const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
-}
-
-export async function setLogoUrl(url: string | null) {
-  const { error } = await supabase
-    .from('tournament_settings')
-    .update({ logo_url: url })
-    .eq('id', 1);
-  if (error) throw error;
-}
-
-export async function registerPlayerForTournament(tournamentId: string, playerId: string, paymentMethod: string = 'on_site') {
-  const { error } = await supabase
-    .from('tournament_registrations')
-    .insert({
-      tournament_id: tournamentId,
-      player_id: playerId,
-      payment_method: paymentMethod,
-    });
-  if (error && !error.message.includes('duplicate key')) throw error;
-=======
->>>>>>> 57bb9bf (Fix build and sync all components)
 }
