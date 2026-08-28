@@ -40,15 +40,26 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       tournaments[0];
   }
 
-  // 2. Filtrowanie tabel scores i flights dla aktywnego turnieju
-  let scoresQuery = supabase.from('scores').select('*').limit(10000);
+  // 2. Filtrowanie tabel scores i flights dla wybranego turnieju
+  let scoresQuery = supabase
+    .from('scores')
+    .select('*')
+    .order('round', { ascending: true })
+    .order('hole_number', { ascending: true })
+    .limit(10000);
+
   if (activeTournament?.id) {
-    scoresQuery = scoresQuery.or(`tournament_id.eq.${activeTournament.id},tournament_id.is.null`);
+    scoresQuery = scoresQuery.eq('tournament_id', activeTournament.id);
   }
 
-  let flightsQuery = supabase.from('flights').select('*').order('name');
+  let flightsQuery = supabase
+    .from('flights')
+    .select('*')
+    .order('name')
+    .limit(1000);
+
   if (activeTournament?.id) {
-    flightsQuery = flightsQuery.or(`tournament_id.eq.${activeTournament.id},tournament_id.is.null`);
+    flightsQuery = flightsQuery.eq('tournament_id', activeTournament.id);
   }
 
   const [
@@ -60,13 +71,13 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     scoresRes,
     leaguePointsRes,
   ] = await Promise.all([
-    supabase.from('courses').select('*').order('name'),
-    supabase.from('course_holes').select('*').order('course_id, number'),
-    supabase.from('players').select('*').order('name'),
+    supabase.from('courses').select('*').order('name').limit(500),
+    supabase.from('course_holes').select('*').order('course_id, number').limit(2000),
+    supabase.from('players').select('*').order('name').limit(2000),
     flightsQuery,
-    supabase.from('flight_players').select('*'),
+    supabase.from('flight_players').select('*').limit(5000),
     scoresQuery,
-    supabase.from('league_points').select('*'),
+    supabase.from('league_points').select('*').limit(5000),
   ]);
 
   const firstError =
