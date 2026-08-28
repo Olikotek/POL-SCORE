@@ -69,7 +69,7 @@ export function Archive({
   }, []);
 
   const completed = useMemo(() => {
-    return tournaments.filter((t) => t.status === 'completed');
+    return tournaments.filter((t) => t.status === 'completed' || t.status === 'finished');
   }, [tournaments]);
 
   const filtered = useMemo(() => {
@@ -102,15 +102,17 @@ export function Archive({
 
     async function fetchArchivedData() {
       try {
-        const [scoresRes, playersRes, leaguePointsRes] = await Promise.all([
-          supabase.from('scores').select('*').eq('tournament_id', selectedTournament.id).range(0, 49999),
-          supabase.from('players').select('*').order('name').range(0, 5000),
+        // Pobieramy R1 i R2 osobno, aby ominąć 1000-rekordowy limit PostgREST
+        const [scoresR1Res, scoresR2Res, playersRes, leaguePointsRes] = await Promise.all([
+          supabase.from('scores').select('*').eq('tournament_id', selectedTournament.id).eq('round', 1).limit(1000),
+          supabase.from('scores').select('*').eq('tournament_id', selectedTournament.id).eq('round', 2).limit(1000),
+          supabase.from('players').select('*').order('name').limit(2000),
           supabase.from('league_points').select('*').eq('tournament_id', selectedTournament.id),
         ]);
 
         if (!isMounted) return;
 
-        const scoresData = scoresRes.data || [];
+        const scoresData = [...(scoresR1Res.data || []), ...(scoresR2Res.data || [])];
         const playersData = playersRes.data || [];
         const lpData = leaguePointsRes.data || [];
 
@@ -118,17 +120,17 @@ export function Archive({
           const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
           scoresData
-            .filter((s: any) => s.player_id === p.id)
+            .filter((s: any) => String(s.player_id).toLowerCase() === String(p.id).toLowerCase())
             .forEach((s: any) => {
-              const r = s.round ?? s.round_number;
-              const h = s.hole_number ?? s.hole;
-              const val = s.strokes ?? s.score ?? 0;
+              const r = Number(s.round ?? s.round_number ?? 1);
+              const h = Number(s.hole_number ?? s.hole ?? 0);
+              const val = Number(s.strokes ?? s.score ?? 0);
               if ((r === 1 || r === 2) && h >= 1 && h <= 18) {
-                scores[r as Round][h - 1] = Number(val) || 0;
+                scores[r as Round][h - 1] = val;
               }
             });
 
-          const savedLp = lpData.find((lp: any) => lp.player_id === p.id);
+          const savedLp = lpData.find((lp: any) => String(lp.player_id).toLowerCase() === String(p.id).toLowerCase());
 
           return {
             id: p.id,
@@ -387,7 +389,7 @@ export function Archive({
                       onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                     >
-                      {/* POZYCJA PODŚWIETLONA 1, 2, 3 */}
+                      {/* POZYCJA */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {rank === 1 ? (
@@ -410,7 +412,7 @@ export function Archive({
                         </div>
                       </td>
 
-                      {/* FLAGA (WYŚRODKOWANA) */}
+                      {/* FLAGA */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {p.flagImage ? (
@@ -421,7 +423,7 @@ export function Archive({
                         </div>
                       </td>
 
-                      {/* ZAWODNIK + AVATAR + KLUB */}
+                      {/* ZAWODNIK */}
                       <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
                           {p.avatar ? (
