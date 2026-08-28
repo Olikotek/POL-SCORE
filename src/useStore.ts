@@ -41,7 +41,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   }
 
   // 2. Filtrowanie tabel scores i flights dla aktywnego turnieju
-  let scoresQuery = supabase.from('scores').select('*');
+  let scoresQuery = supabase.from('scores').select('*').limit(10000);
   if (activeTournament?.id) {
     scoresQuery = scoresQuery.or(`tournament_id.eq.${activeTournament.id},tournament_id.is.null`);
   }
