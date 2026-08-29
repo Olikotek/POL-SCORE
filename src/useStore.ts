@@ -43,57 +43,41 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   const activeTournId = activeTournament?.id;
 
-  // 2. Pobieramy R1 i R2 osobno (każda runda < 1000 wierszy, brak limitu REST)
-  let r1Query = supabase.from('scores').select('*').eq('round', 1).limit(1000);
-  let r2Query = supabase.from('scores').select('*').eq('round', 2).limit(1000);
-  let flightsQuery = supabase.from('flights').select('*').order('name').limit(1000);
-  let lpQuery = supabase.from('league_points').select('*').limit(2000);
+  // 2. Pobieramy WSZYSTKIE dołki pętlą stronnicowania (przełamuje limit 1000 rekordów)
+  let allScores: any[] = [];
+  let from = 0;
+  const step = 1000;
+  while (true) {
+    let query = supabase.from('scores').select('*').range(from, from + step - 1);
+    if (activeTournId) {
+      query = query.eq('tournament_id', activeTournId);
+    }
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) break;
+    allScores = allScores.concat(data);
+    if (data.length < step) break;
+    from += step;
+  }
+
+  let flightsQuery = supabase.from('flights').select('*').order('name').range(0, 1999);
+  let lpQuery = supabase.from('league_points').select('*').range(0, 1999);
 
   if (activeTournId) {
-    r1Query = r1Query.eq('tournament_id', activeTournId);
-    r2Query = r2Query.eq('tournament_id', activeTournId);
     flightsQuery = flightsQuery.eq('tournament_id', activeTournId);
     lpQuery = lpQuery.eq('tournament_id', activeTournId);
   }
 
-  const [
-    coursesRes,
-    courseHolesRes,
-    playersRes,
-    flightsRes,
-    flightPlayersRes,
-    scoresR1Res,
-    scoresR2Res,
-    leaguePointsRes,
-  ] = await Promise.all([
-    supabase.from('courses').select('*').order('name'),
-    supabase.from('course_holes').select('*').order('course_id, number'),
-    supabase.from('players').select('*').order('name').limit(2000),
-    flightsQuery,
-    supabase.from('flight_players').select('*').limit(2000),
-    r1Query,
-    r2Query,
-    lpQuery,
-  ]);
+  const [coursesRes, courseHolesRes, playersRes, flightsRes, flightPlayersRes, leaguePointsRes] =
+    await Promise.all([
+      supabase.from('courses').select('*').order('name'),
+      supabase.from('course_holes').select('*').order('course_id, number'),
+      supabase.from('players').select('*').order('name').range(0, 4999),
+      flightsQuery,
+      supabase.from('flight_players').select('*').range(0, 4999),
+      lpQuery,
+    ]);
 
-  const firstError =
-    coursesRes.error ||
-    courseHolesRes.error ||
-    playersRes.error ||
-    flightsRes.error ||
-    flightPlayersRes.error ||
-    scoresR1Res.error ||
-    scoresR2Res.error ||
-    settingsRes.error ||
-    tournamentsRes.error ||
-    leaguePointsRes.error ||
-    registrationsRes.error;
-
-  if (firstError) throw firstError;
-
-  // Łączymy wyniki R1 i R2
-  const scoresRows = [...(scoresR1Res.data ?? []), ...(scoresR2Res.data ?? [])];
-
+  const scoresRows = allScores;
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const courseHoles = courseHolesRes.data ?? [];
   const settings = settingsRes.data;
@@ -127,20 +111,17 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   const flightsRows = flightsRes.data ?? [];
   const flightPlayers = flightPlayersRes.data ?? [];
+  const rawPlayers = playersRes.data ?? [];
 
-  // Identyfikujemy aktywnych graczy z wyników, flightów lub league_points
+  // Identyfikujemy wszystkich graczy biorących udział w tym turnieju
   const activePlayerIds = new Set<string>();
   scoresRows.forEach((s) => {
     if (s.player_id) activePlayerIds.add(String(s.player_id).toLowerCase());
-  });
-  flightPlayers.forEach((fp) => {
-    if (fp.player_id) activePlayerIds.add(String(fp.player_id).toLowerCase());
   });
   (leaguePointsRes.data ?? []).forEach((lp) => {
     if (lp.player_id) activePlayerIds.add(String(lp.player_id).toLowerCase());
   });
 
-  const rawPlayers = playersRes.data ?? [];
   const participatingPlayers =
     activePlayerIds.size > 0
       ? rawPlayers.filter((p) => activePlayerIds.has(String(p.id).toLowerCase()))
