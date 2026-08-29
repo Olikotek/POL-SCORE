@@ -36,14 +36,25 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   if (tournaments.length > 0) {
     activeTournament =
       tournaments.find((t) => t.id === activeTournamentId) ||
-      tournaments.find((t) => t.status === 'active') ||
+      tournaments.find((t) => t.isPolishOpen) ||
+      tournaments.find((t) => t.status === 'completed' || t.status === 'active') ||
       tournaments[0];
   }
 
-  const activeTournId = activeTournament?.id || '53b07d3c-d274-496c-876c-acfad8b7151d';
+  const activeTournId = activeTournament?.id;
 
-  // 2. Pobieramy WSZYSTKIE dołki przez funkcję RPC (zwraca 100% z 1890 dołków bez limitu wierszy)
-  let flightsQuery = supabase.from('flights').select('*').eq('tournament_id', activeTournId).order('name');
+  // 2. Pobieramy R1 i R2 osobno (każda runda < 1000 wierszy, brak limitu REST)
+  let r1Query = supabase.from('scores').select('*').eq('round', 1).limit(1000);
+  let r2Query = supabase.from('scores').select('*').eq('round', 2).limit(1000);
+  let flightsQuery = supabase.from('flights').select('*').order('name').limit(1000);
+  let lpQuery = supabase.from('league_points').select('*').limit(2000);
+
+  if (activeTournId) {
+    r1Query = r1Query.eq('tournament_id', activeTournId);
+    r2Query = r2Query.eq('tournament_id', activeTournId);
+    flightsQuery = flightsQuery.eq('tournament_id', activeTournId);
+    lpQuery = lpQuery.eq('tournament_id', activeTournId);
+  }
 
   const [
     coursesRes,
@@ -51,7 +62,8 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     playersRes,
     flightsRes,
     flightPlayersRes,
-    rpcScoresRes,
+    scoresR1Res,
+    scoresR2Res,
     leaguePointsRes,
   ] = await Promise.all([
     supabase.from('courses').select('*').order('name'),
@@ -59,8 +71,9 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     supabase.from('players').select('*').order('name').limit(2000),
     flightsQuery,
     supabase.from('flight_players').select('*').limit(2000),
-    supabase.rpc('get_tournament_scores_matrix', { p_tournament_id: activeTournId }),
-    supabase.from('league_points').select('*').eq('tournament_id', activeTournId),
+    r1Query,
+    r2Query,
+    lpQuery,
   ]);
 
   const firstError =
@@ -69,7 +82,8 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     playersRes.error ||
     flightsRes.error ||
     flightPlayersRes.error ||
-    rpcScoresRes.error ||
+    scoresR1Res.error ||
+    scoresR2Res.error ||
     settingsRes.error ||
     tournamentsRes.error ||
     leaguePointsRes.error ||
@@ -77,17 +91,18 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   if (firstError) throw firstError;
 
-  const scoresRows: any[] = rpcScoresRes.data ?? [];
+  // Łączymy wyniki R1 i R2
+  const scoresRows = [...(scoresR1Res.data ?? []), ...(scoresR2Res.data ?? [])];
 
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const courseHoles = courseHolesRes.data ?? [];
   const settings = settingsRes.data;
 
-  const round1CourseId = activeTournament?.round1CourseId ?? settings?.round1_course_id ?? null;
+  const round1CourseId = activeTournament?.round1CourseId ?? settings?.round1_course_id ?? (courses[0]?.id || null);
   const round2CourseId = activeTournament?.round2CourseId ?? settings?.round2_course_id ?? round1CourseId;
-  const round1Approved = activeTournament ? activeTournament.round1Approved : (settings?.round1_approved ?? false);
-  const round2Started = activeTournament ? activeTournament.round2Started : (settings?.round2_started ?? false);
-  const tournamentName = activeTournament ? activeTournament.name : (settings?.tournament_name ?? 'Mistrzostwa Polski');
+  const round1Approved = activeTournament ? activeTournament.round1Approved : (settings?.round1_approved ?? true);
+  const round2Started = activeTournament ? activeTournament.round2Started : (settings?.round2_started ?? true);
+  const tournamentName = activeTournament ? activeTournament.name : (settings?.tournament_name ?? 'Polish Open 2026');
 
   function holesForCourse(courseId: string | null): Hole[] {
     if (!courseId) return [];
@@ -105,20 +120,31 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   if (holesR1.length === 0 && holesR2.length > 0) holesR1 = holesR2;
   if (holesR2.length === 0 && holesR1.length > 0) holesR2 = holesR1;
+  if (holesR1.length === 0) {
+    holesR1 = Array.from({ length: 18 }, (_, i) => ({ number: i + 1, par: 4, meters: 100 }));
+    holesR2 = holesR1;
+  }
 
   const flightsRows = flightsRes.data ?? [];
   const flightPlayers = flightPlayersRes.data ?? [];
 
-  // Filtrujemy tylko graczy, którzy mają wyniki w tym turnieju
+  // Identyfikujemy aktywnych graczy z wyników, flightów lub league_points
   const activePlayerIds = new Set<string>();
   scoresRows.forEach((s) => {
     if (s.player_id) activePlayerIds.add(String(s.player_id).toLowerCase());
   });
+  flightPlayers.forEach((fp) => {
+    if (fp.player_id) activePlayerIds.add(String(fp.player_id).toLowerCase());
+  });
+  (leaguePointsRes.data ?? []).forEach((lp) => {
+    if (lp.player_id) activePlayerIds.add(String(lp.player_id).toLowerCase());
+  });
 
   const rawPlayers = playersRes.data ?? [];
-  const participatingPlayers = activePlayerIds.size > 0
-    ? rawPlayers.filter((p) => activePlayerIds.has(String(p.id).toLowerCase()))
-    : rawPlayers;
+  const participatingPlayers =
+    activePlayerIds.size > 0
+      ? rawPlayers.filter((p) => activePlayerIds.has(String(p.id).toLowerCase()))
+      : rawPlayers;
 
   const players: Player[] = participatingPlayers.map((p) => {
     const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
@@ -126,9 +152,9 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     scoresRows
       .filter((s) => String(s.player_id).toLowerCase() === String(p.id).toLowerCase())
       .forEach((s) => {
-        const r = Number(s.round ?? 1);
-        const h = Number(s.hole_number ?? 0);
-        const val = Number(s.strokes ?? 0);
+        const r = Number(s.round ?? s.round_number ?? 1);
+        const h = Number(s.hole_number ?? s.hole ?? 0);
+        const val = Number(s.strokes ?? s.score ?? 0);
 
         if ((r === 1 || r === 2) && h >= 1 && h <= 18) {
           scores[r as Round][h - 1] = val;
@@ -152,7 +178,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       club: p.club ?? undefined,
       flag: p.flag ?? 'PL',
       flagImage: p.flag_image ?? undefined,
-      isAmateur: p.is_amateur,
+      isAmateur: !!p.is_amateur,
       isActive: p.is_active ?? true,
       userId: p.user_id ?? undefined,
       email: p.email ?? undefined,
