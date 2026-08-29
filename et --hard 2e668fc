@@ -1,0 +1,6 @@
+[33m1de86a4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Restore archive score isolation by tournament_id
+[33mcabd323[m Pass activeTournamentId and onRefresh to Scorecard
+[33mb609e0e[m Update codebase
+[33m7320946[m Direct hole scoring sync with player state and tournament mapping
+[33mfde432c[m Direct hole scoring sync with player state and tournament mapping
+[33m2e668fc[m Fix scorecard save using proven admin scoring action
