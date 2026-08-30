@@ -27,6 +27,7 @@ import {
   Search,
   Award,
   GripVertical,
+  Dices,
 } from 'lucide-react';
 import type { Category, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, COUNTRIES, ROUNDS, flagEmoji } from '@/types';
@@ -1317,10 +1318,11 @@ function PlayerManager({
     }
   };
 
+  // BEZPOŚREDNIE I NIEZAWODNE WŁĄCZANIE / WYŁĄCZANIE Z TURNIEJU
   const handleToggleActive = async (p: Player) => {
     const nextState = p.isActive === false || (p as any).is_active === false ? true : false;
 
-    // Natychmiastowy update w lokalnym stanie UI
+    // 1. Optymistyczny natychmiastowy update w lokalnym stanie UI
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.map((item) =>
@@ -1329,16 +1331,21 @@ function PlayerManager({
     }));
 
     try {
+      // 2. Bezpośredni trwały zapis w bazie danych Supabase
+      await supabase
+        .from('players')
+        .update({ is_active: nextState, is_active_in_tournament: nextState })
+        .eq('id', p.id);
+
       if (!nextState && activeTournament?.id) {
         await removePlayerFromTournament(p.id, activeTournament.id);
         flash(`${p.name} wycofany z turnieju.`);
       } else {
-        await togglePlayerActive(p.id, nextState);
         flash(nextState ? `${p.name} włączony do turnieju.` : `${p.name} przeniesiony do pauzy.`);
       }
     } catch (err) {
       console.error(err);
-      flash('Błąd zmiany statusu.');
+      flash('Błąd zapisu statusu.');
     }
   };
 
@@ -1396,7 +1403,7 @@ function PlayerManager({
 
   return (
     <div className="management-grid" style={{ alignItems: 'start', position: 'relative' }}>
-      {/* LEWA KOLUMNA: PRZYKLEJONY (STICKY) FORMULARZ EDYCJI */}
+      {/* LEWA STRONA: PRZYKLEJONY FORMULARZ */}
       <div
         className="admin-panel compact"
         style={{
@@ -1604,7 +1611,7 @@ function PlayerManager({
         </div>
       </div>
 
-      {/* PRAWA KOLUMNA: NIEZALEŻNIE SCROLLOWANA LISTA ZAWODNIKÓW */}
+      {/* PRAWA STRONA: LISTA Z NIEZALEŻNYM SCROLLEM */}
       <div className="admin-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="panel-heading">
           <div>
@@ -1628,7 +1635,6 @@ function PlayerManager({
           />
         </div>
 
-        {/* Niezależny scroll dla listy uczestników */}
         <div
           className="management-list"
           style={{
@@ -1734,11 +1740,16 @@ function FlightManager({
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverFlightId, setDragOverFlightId] = useState<string | null>(null);
 
+  // Opcje automatycznego/losowego generatora
+  const [autoGroupSize, setAutoGroupSize] = useState(4);
+  const [autoMode, setAutoMode] = useState<'random' | 'score'>('random');
+
   const holesR1 = store.holesByRound[1] || [];
   const holesR2 = store.holesByRound[2] || [];
 
   const roundFlights = store.flights.filter((f) => f.round === round);
   const allFlightIdsInRound = useMemo(() => roundFlights.map((f) => f.id), [roundFlights]);
+  
   const activePlayers = useMemo(
     () => store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false),
     [store.players]
@@ -1798,6 +1809,83 @@ function FlightManager({
       }
     } catch {
       flash('Błąd tworzenia flightu w bazie.');
+    }
+  };
+
+  // GENERATOR FLIGHTÓW (RANDOM LUB WG WYNIKÓW R1)
+  const handleAutoGenerateFlights = async () => {
+    if (activePlayers.length === 0) return;
+    const confirm = window.confirm(
+      `Wygenerować automatyczne flighty dla Rundy ${round} (${autoMode === 'random' ? 'Losowo' : 'Według wyników'}) po ${autoGroupSize} osób?\nDotychczasowe flighty w tej rundzie zostaną zastąpione nowymi.`
+    );
+    if (!confirm) return;
+
+    try {
+      let pool = [...activePlayers];
+      if (autoMode === 'random') {
+        pool.sort(() => Math.random() - 0.5);
+      } else {
+        pool.sort((a, b) => combinedRelative(a, holesR1, holesR2) - combinedRelative(b, holesR1, holesR2));
+      }
+
+      // 1. Usuwamy stare flighty tej rundy
+      const oldFlights = store.flights.filter((f) => f.round === round);
+      for (const oldF of oldFlights) {
+        await deleteFlight(oldF.id);
+      }
+
+      const totalGroups = Math.ceil(pool.length / autoGroupSize);
+      const newFlightsList: Flight[] = [];
+      const updatedPlayers = [...store.players];
+
+      for (let g = 0; g < totalGroups; g++) {
+        const groupPlayers = pool.slice(g * autoGroupSize, (g + 1) * autoGroupSize);
+        const flightName = `Flight ${String.fromCharCode(65 + (g % 26))}${g >= 26 ? Math.floor(g / 26) : ''}`;
+        const flightCode = String(Math.floor(1000 + Math.random() * 9000));
+        const shotHole = (g % 18) + 1;
+
+        const created = await createFlight({
+          name: flightName,
+          round,
+          startHole: shotHole,
+          code: flightCode,
+          tournamentId: activeTournament?.id,
+        });
+
+        const flightId = created?.id || `flight-${Date.now()}-${g}`;
+        const pIds = groupPlayers.map((p) => p.id);
+
+        for (const p of groupPlayers) {
+          await assignPlayerToFlight(p.id, flightId, [], activeTournament?.id);
+          const pIdx = updatedPlayers.findIndex((item) => item.id === p.id);
+          if (pIdx >= 0) {
+            updatedPlayers[pIdx] = {
+              ...updatedPlayers[pIdx],
+              flightId: { ...updatedPlayers[pIdx].flightId, [round]: flightId },
+            };
+          }
+        }
+
+        newFlightsList.push({
+          id: flightId,
+          name: flightName,
+          code: flightCode,
+          round,
+          startHole: shotHole,
+          playerIds: pIds,
+        });
+      }
+
+      onUpdateStore((prev) => ({
+        ...prev,
+        flights: [...prev.flights.filter((f) => f.round !== round), ...newFlightsList],
+        players: updatedPlayers,
+      }));
+
+      flash(`Wygenerowano ${newFlightsList.length} flightów dla Rundy ${round}!`);
+    } catch (err) {
+      console.error(err);
+      flash('Błąd generowania flightów.');
     }
   };
 
@@ -1886,12 +1974,13 @@ function FlightManager({
   };
 
   return (
-    <div className="management-grid" style={{ alignItems: 'start' }}>
-      {/* LEWA STRONA: TWORZENIE FLIGHTU I LISTA DOSTĘPNYCH */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '16px', alignSelf: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '320px 320px 1fr', gap: '16px', alignItems: 'start' }}>
+      
+      {/* KOLUMNA 1: TWORZENIE & GENERATOR RANDOM */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'sticky', top: '16px' }}>
         <div className="admin-panel compact">
           <p className="eyebrow">
-            <span /> NOWY FLIGHT
+            <span /> FLIGHTY RUNDY
           </p>
           <h2>Utwórz grupę</h2>
           <div className="round-switcher">
@@ -1906,6 +1995,7 @@ function FlightManager({
               </button>
             ))}
           </div>
+
           <div className="form-field">
             <label className="form-field-label">Nazwa flightu</label>
             <input
@@ -1935,88 +2025,123 @@ function FlightManager({
             />
           </div>
           <div className="form-actions">
-            <button className="primary-button" onClick={create}>
-              <Plus size={16} /> Utwórz flight
+            <button className="primary-button full" onClick={create}>
+              <Plus size={16} /> Utwórz pojedynczy flight
             </button>
           </div>
         </div>
 
-        <div
-          className="admin-panel compact"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDropUnassign}
-          style={{
-            border: dragOverFlightId === 'unassigned' ? '2px dashed #0284c7' : undefined,
-            background: dragOverFlightId === 'unassigned' ? '#f0f9ff' : undefined,
-          }}
-        >
-          <div className="panel-heading" style={{ marginBottom: '10px' }}>
-            <div>
-              <p className="eyebrow">
-                <span /> DOSTĘPNI ZAWODNICY ({unassignedPlayers.length})
-              </p>
-              <h2 style={{ fontSize: '15px' }}>Chwyć i przeciągnij do flightu</h2>
-            </div>
-            <Users size={16} className="muted-icon" />
+        {/* GENERATOR AUTOMATYCZNY */}
+        <div className="admin-panel compact" style={{ background: '#f8fafc', border: '1px solid #cbd5e1' }}>
+          <p className="eyebrow" style={{ color: '#0284c7' }}>
+            <span style={{ background: '#0284c7' }} /> SZYBKI GENERATOR
+          </p>
+          <h2 style={{ fontSize: '15px' }}>Losuj lub ustaw grupy</h2>
+          
+          <div className="form-field">
+            <label className="form-field-label">Liczba osób w grupie</label>
+            <select value={autoGroupSize} onChange={(e) => setAutoGroupSize(Number(e.target.value))}>
+              <option value={2}>2 graczy</option>
+              <option value={3}>3 graczy</option>
+              <option value={4}>4 graczy</option>
+              <option value={5}>5 graczy</option>
+            </select>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '340px', overflowY: 'auto' }}>
-            {unassignedPlayers.map((p, idx) => {
-              const rel = combinedRelative(p, holesR1, holesR2);
-              return (
-                <div
-                  key={p.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, p.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '6px 10px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    cursor: 'grab',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <GripVertical size={14} style={{ color: '#94a3b8' }} />
-                    <span style={{ fontWeight: 800, color: '#64748b', fontSize: '11px', width: '16px' }}>{idx + 1}.</span>
-                    {p.avatar ? (
-                      <img src={p.avatar} alt={p.name} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>
-                        {initials(p.name)}
-                      </span>
-                    )}
-                    <b>
-                      {p.flagImage || (p as any).flag_image ? (
-                        <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '14px', height: '10px', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} />
-                      ) : (
-                        <span style={{ marginRight: '4px' }}>{flagEmoji(p.flag)}</span>
-                      )}
-                      {p.name}
-                    </b>
-                    <span style={{ fontSize: '10px', color: '#64748b' }}>({p.category})</span>
-                  </div>
-                  <span style={{ fontWeight: 800, fontSize: '11px', color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
-                    {rel > 0 ? `+${rel}` : rel}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="form-field">
+            <label className="form-field-label">Tryb podziału</label>
+            <select value={autoMode} onChange={(e) => setAutoMode(e.target.value as any)}>
+              <option value="random">🎲 Losowo (Random)</option>
+              <option value="score">🏆 Według wyników (Score)</option>
+            </select>
           </div>
+
+          <button className="secondary-button full" onClick={handleAutoGenerateFlights} style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#7dd3fc', fontWeight: 700 }}>
+            <Dices size={16} /> Wygeneruj wszystkie grupy
+          </button>
         </div>
       </div>
 
-      {/* PRAWA STRONA: DWUKOLUMNOWA SIATKA FLIGHTÓW */}
+      {/* KOLUMNA 2: DOSTĘPNI ZAWODNICY (NA SAMEJ GÓRZE, OBOK FLIGHTÓW) */}
+      <div
+        className="admin-panel compact"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDropUnassign}
+        style={{
+          position: 'sticky',
+          top: '16px',
+          maxHeight: 'calc(100vh - 120px)',
+          display: 'flex',
+          flexDirection: 'column',
+          border: dragOverFlightId === 'unassigned' ? '2px dashed #0284c7' : undefined,
+          background: dragOverFlightId === 'unassigned' ? '#f0f9ff' : undefined,
+        }}
+      >
+        <div className="panel-heading" style={{ marginBottom: '8px' }}>
+          <div>
+            <p className="eyebrow">
+              <span /> DOSTĘPNI ({unassignedPlayers.length})
+            </p>
+            <h2 style={{ fontSize: '14px', margin: 0 }}>Przeciągnij do flightu</h2>
+          </div>
+          <Users size={16} className="muted-icon" />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+          {unassignedPlayers.map((p, idx) => {
+            const rel = combinedRelative(p, holesR1, holesR2);
+            return (
+              <div
+                key={p.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, p.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 8px',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  cursor: 'grab',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <GripVertical size={13} style={{ color: '#94a3b8' }} />
+                  <span style={{ fontWeight: 800, color: '#64748b', fontSize: '10px', width: '14px' }}>{idx + 1}.</span>
+                  {p.avatar ? (
+                    <img src={p.avatar} alt={p.name} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>
+                      {initials(p.name)}
+                    </span>
+                  )}
+                  <b>
+                    {p.flagImage || (p as any).flag_image ? (
+                      <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '12px', height: '8px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
+                    ) : (
+                      <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
+                    )}
+                    {p.name}
+                  </b>
+                </div>
+                <span style={{ fontWeight: 800, fontSize: '10px', color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
+                  {rel > 0 ? `+${rel}` : rel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* KOLUMNA 3: KAFELKI FLIGHTÓW W SIATCE DWUKOLUMNOWEJ */}
       <div
         className="flight-list"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
           gap: '12px',
           maxHeight: 'calc(100vh - 120px)',
           overflowY: 'auto',
@@ -2045,30 +2170,27 @@ function FlightManager({
               }}
             >
               <div>
-                <div className="flight-card-head" style={{ marginBottom: '10px' }}>
+                <div className="flight-card-head" style={{ marginBottom: '8px' }}>
                   <div>
-                    <h2 style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                    <h2 style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
                       {flight.name}
                       <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>({flightMembers.length})</span>
                     </h2>
-                    <p style={{ margin: '2px 0 0 0', fontSize: '12px' }}>
-                      KOD <strong>{flight.code}</strong>
-                    </p>
-                    <p className="flight-start" style={{ margin: '2px 0 0 0', fontSize: '11px' }}>
-                      <MapPin size={11} /> Start dołek {flight.startHole ?? 1}
+                    <p style={{ margin: '2px 0 0 0', fontSize: '11px' }}>
+                      KOD <strong>{flight.code}</strong> · <MapPin size={11} className="inline" /> Start {flight.startHole ?? 1}
                     </p>
                   </div>
                   <div className="row-actions">
                     <button onClick={() => editFlight(flight)} title="Edytuj flight">
-                      <Edit3 size={14} />
+                      <Edit3 size={13} />
                     </button>
                     <button onClick={() => removeFlight(flight.id)} title="Usuń flight">
-                      <X size={14} />
+                      <X size={13} />
                     </button>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '8px', minHeight: '35px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px', minHeight: '35px' }}>
                   {flightMembers.map((p) => {
                     const rel = combinedRelative(p, holesR1, holesR2);
                     return (
@@ -2080,50 +2202,44 @@ function FlightManager({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          padding: '5px 8px',
+                          padding: '4px 6px',
                           background: '#f8fafc',
                           border: '1px solid #e2e8f0',
-                          borderRadius: '6px',
+                          borderRadius: '5px',
                           fontSize: '11px',
                           cursor: 'grab',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <GripVertical size={12} style={{ color: '#94a3b8' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <GripVertical size={11} style={{ color: '#94a3b8' }} />
                           {p.avatar ? (
-                            <img src={p.avatar} alt={p.name} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={p.avatar} alt={p.name} style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
                           ) : (
-                            <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 800 }}>
+                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 800 }}>
                               {initials(p.name)}
                             </span>
                           )}
                           <b>
                             {p.flagImage || (p as any).flag_image ? (
-                              <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '12px', height: '8px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
+                              <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '11px', height: '7px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
                             ) : (
                               <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
                             )}
                             {p.name}
                           </b>
-                          <span style={{ fontSize: '10px', fontWeight: 700, color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
-                            ({rel > 0 ? `+${rel}` : rel})
-                          </span>
                         </div>
-                        <button
-                          onClick={() => assignPlayer(p.id, null)}
-                          title="Usuń z tego flightu"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            padding: '1px',
-                            display: 'flex',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <UserMinus size={13} />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
+                            {rel > 0 ? `+${rel}` : rel}
+                          </span>
+                          <button
+                            onClick={() => assignPlayer(p.id, null)}
+                            title="Usuń z tego flightu"
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '1px' }}
+                          >
+                            <UserMinus size={12} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -2131,7 +2247,7 @@ function FlightManager({
               </div>
 
               {unassignedPlayers.length > 0 && (
-                <div style={{ marginTop: '6px' }}>
+                <div style={{ marginTop: '4px' }}>
                   <select
                     defaultValue=""
                     onChange={(e) => {
@@ -2140,7 +2256,7 @@ function FlightManager({
                         e.target.value = '';
                       }
                     }}
-                    style={{ fontSize: '11px', padding: '5px 6px', width: '100%', background: '#f0fdf4', borderColor: '#86efac' }}
+                    style={{ fontSize: '11px', padding: '4px 6px', width: '100%', background: '#f0fdf4', borderColor: '#86efac' }}
                   >
                     <option value="" disabled>
                       + Dodaj gracza...
