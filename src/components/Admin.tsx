@@ -1256,7 +1256,7 @@ function PlayerManager({
   const [city, setCity] = useState('');
   const [gender, setGender] = useState<'Male' | 'Female'>('Male');
   const [preferredFoot, setPreferredFoot] = useState<'Right' | 'Left'>('Right');
-  const [birthDate, setBirthDate] = useState('');
+  const [birthYear, setBirthYear] = useState('');
   const [email, setEmail] = useState('');
   const [flag, setFlag] = useState('PL');
   const [flagImage, setFlagImage] = useState('');
@@ -1276,7 +1276,7 @@ function PlayerManager({
     setCity('');
     setGender('Male');
     setPreferredFoot('Right');
-    setBirthDate('');
+    setBirthYear('');
     setEmail('');
     setFlag('PL');
     setFlagImage('');
@@ -1301,6 +1301,8 @@ function PlayerManager({
 
   const submit = async () => {
     if (!name.trim()) return;
+    const formattedBirthDate = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
+
     const playerData: any = {
       name: name.trim(),
       category,
@@ -1312,8 +1314,8 @@ function PlayerManager({
       gender,
       preferred_foot: preferredFoot,
       preferredFoot: preferredFoot,
-      birth_date: birthDate || undefined,
-      birthDate: birthDate || undefined,
+      birth_date: formattedBirthDate,
+      birthDate: formattedBirthDate,
       email: email.trim() || undefined,
       flag: flag.trim().toUpperCase(),
       flag_image: flagImage.trim() || undefined,
@@ -1354,11 +1356,9 @@ function PlayerManager({
     }
   };
 
-  // BEZPIECZNE PRZEŁĄCZANIE: ZACHOWUJE WSZYSTKIE DANE PROFILU
   const handleToggleActive = async (p: any) => {
     const nextState = p.isActive === false || p.is_active === false ? true : false;
 
-    // 1. Optymistyczny update w lokalnym stanie UI
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.map((item) =>
@@ -1403,7 +1403,12 @@ function PlayerManager({
     setCity(p.city ?? '');
     setGender(p.gender ?? 'Male');
     setPreferredFoot(p.preferred_foot ?? p.preferredFoot ?? 'Right');
-    setBirthDate(p.birth_date ?? p.birthDate ?? '');
+    
+    // Pobranie samego roku z daty urodzenia (np. z '1995-04-12' -> '1995')
+    const rawDate = p.birth_date ?? p.birthDate ?? '';
+    const parsedYear = rawDate ? String(rawDate).slice(0, 4) : '';
+    setBirthYear(parsedYear);
+
     setEmail(p.email ?? '');
     setFlag(p.flag || 'PL');
     setFlagImage(p.flagImage ?? p.flag_image ?? '');
@@ -1501,11 +1506,14 @@ function PlayerManager({
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <div className="form-field">
-            <label className="form-field-label">Data urodzenia</label>
+            <label className="form-field-label">Rok urodzenia</label>
             <input
-              type="date"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
+              type="number"
+              min={1940}
+              max={2030}
+              value={birthYear}
+              onChange={(e) => setBirthYear(e.target.value)}
+              placeholder="np. 2004"
             />
           </div>
           <div className="form-field">
