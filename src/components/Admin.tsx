@@ -1276,8 +1276,11 @@ function PlayerManager({
       birth_date: birthDate || undefined,
       email: email.trim() || undefined,
       flag,
+      flag_image: flagImage.trim() || undefined,
       flagImage: flagImage.trim() || undefined,
+      is_amateur: isAmateur,
       isAmateur,
+      is_active: isActive,
       isActive,
     };
 
@@ -1314,6 +1317,7 @@ function PlayerManager({
   const handleToggleActive = async (p: Player) => {
     const nextState = p.isActive === false ? true : false;
 
+    // Natychmiastowa lokalna zmiana stanu bez blokowania interfejsu
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.map((item) => (item.id === p.id ? { ...item, isActive: nextState } : item)),
@@ -1373,8 +1377,8 @@ function PlayerManager({
     setEmail(p.email ?? '');
     setFlag(p.flag);
     setFlagImage(p.flagImage ?? p.flag_image ?? '');
-    setIsAmateur(p.isAmateur);
-    setIsActive(p.isActive !== false);
+    setIsAmateur(!!p.isAmateur || !!p.is_amateur);
+    setIsActive(p.isActive !== false && p.is_active !== false);
   };
 
   const filteredAndSortedPlayers = useMemo(() => {
@@ -1405,7 +1409,7 @@ function PlayerManager({
           <span /> BAZA ZAWODNIKÓW & PROFILE
         </p>
         <h2>{editing ? 'Edytuj zawodnika' : 'Dodaj zawodnika'}</h2>
-        
+
         <div className="form-field">
           <label className="form-field-label">Imię i nazwisko *</label>
           <input
@@ -1611,7 +1615,7 @@ function PlayerManager({
 
         <div className="management-list">
           {filteredAndSortedPlayers.map((p: any) => {
-            const active = p.isActive !== false;
+            const active = p.isActive !== false && p.is_active !== false;
             return (
               <div
                 className="management-row"
@@ -1625,20 +1629,20 @@ function PlayerManager({
                 )}
                 <div>
                   <b>
-                    {p.flagImage ? (
-                      <img src={p.flagImage} alt={p.flag} className="flag-img-inline" />
+                    {p.flagImage || p.flag_image ? (
+                      <img src={p.flagImage || p.flag_image} alt={p.flag} className="flag-img-inline" />
                     ) : (
                       <span className="flag-emoji">{flagEmoji(p.flag)}</span>
                     )}
                     {p.name}
-                    {p.isAmateur && <span className="am-badge">AM</span>}
+                    {(p.isAmateur || p.is_amateur) && <span className="am-badge">AM</span>}
                   </b>
                   <small>
                     {p.club ?? 'Bez klubu'} · {p.category} {p.city ? `· ${p.city}` : ''}
                   </small>
-                  {p.ball_model && (
+                  {(p.ball_model || p.ballModel) && (
                     <small style={{ color: '#0284c7', display: 'block', fontSize: '11px' }}>
-                      ⚽ Piłka: {p.ball_model}
+                      ⚽ Piłka: {p.ball_model || p.ballModel}
                     </small>
                   )}
                 </div>
@@ -1956,8 +1960,8 @@ function FlightManager({
                       </span>
                     )}
                     <b>
-                      {p.flagImage ? (
-                        <img src={p.flagImage} alt={p.flag} style={{ width: '14px', height: '10px', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} />
+                      {p.flagImage || (p as any).flag_image ? (
+                        <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '14px', height: '10px', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} />
                       ) : (
                         <span style={{ marginRight: '4px' }}>{flagEmoji(p.flag)}</span>
                       )}
@@ -2047,8 +2051,8 @@ function FlightManager({
                           </span>
                         )}
                         <b>
-                          {p.flagImage ? (
-                            <img src={p.flagImage} alt={p.flag} style={{ width: '14px', height: '10px', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} />
+                          {p.flagImage || (p as any).flag_image ? (
+                            <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '14px', height: '10px', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} />
                           ) : (
                             <span style={{ marginRight: '4px' }}>{flagEmoji(p.flag)}</span>
                           )}
