@@ -266,7 +266,7 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [editingClub, setEditingClub] = useState<string | null>(null);
   const [logoInput, setLogoInput] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const clubFileInputRef = useRef<HTMLInputElement>(null);
 
   const [countryFlags, setCountryFlags] = useState<Record<string, string>>({});
   const [editingCountry, setEditingCountry] = useState<string | null>(null);
@@ -301,6 +301,20 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
     });
   }, []);
 
+  const handleClubFile = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setLogoInput(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCountryFile = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setFlagInput(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveLogo = async (clubName: string) => {
     if (!logoInput.trim()) return;
     try {
@@ -325,7 +339,6 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
       
       setCountryFlags((prev) => ({ ...prev, [upperCode]: flagInput.trim() }));
       
-      // Zaktualizuj wszystkich zawodników z tego kraju
       onUpdateStore((prev) => ({
         ...prev,
         players: prev.players.map((p) =>
@@ -337,7 +350,7 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
 
       setEditingCountry(null);
       setFlagInput('');
-      flash(`Zapisano flagę narodową dla kodu [${upperCode}]. Zaktualizowano zawodników.`);
+      flash(`Zapisano flagę narodową dla kraju [${upperCode}]. Zaktualizowano wszystkich graczy.`);
     } catch {
       flash('Błąd zapisu flagi kraju.');
     }
@@ -353,12 +366,12 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
               <span /> BAZA FLAG NARODOWYCH DLA KRAJÓW
             </p>
             <h2>Flagi Państw ({uniqueCountries.length})</h2>
-            <p>Wgraj grafikę flagi dla danego kodu państwa (np. PL, CZ, DE, JP). Wszyscy gracze z tym krajem otrzymają tę flagę automatycznie.</p>
+            <p>Wybierz grafikę flagi z galerii lub wklej link dla danego kraju (np. PL, CZ, DE, JP). Wszyscy zawodnicy z tym krajem otrzymają ją automatycznie.</p>
           </div>
           <Globe size={22} className="muted-icon" />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '12px' }}>
           {uniqueCountries.map((cCode) => {
             const currentFlag = countryFlags[cCode];
             const isEditing = editingCountry === cCode;
@@ -374,18 +387,24 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
                   )}
                   <div style={{ flex: 1 }}>
                     <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>Kraj: {cCode}</b>
-                    <small style={{ color: '#64748b', fontSize: '11px' }}>{count} zawodników</small>
+                    <small style={{ color: '#64748b', fontSize: '11px' }}>{count} zawodników w bazie</small>
                   </div>
                   {!isEditing && (
                     <button className="secondary-button" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => { setEditingCountry(cCode); setFlagInput(currentFlag || ''); }}>
-                      <Edit3 size={12} /> {currentFlag ? 'Zmień' : 'Wgraj'}
+                      <Edit3 size={12} /> {currentFlag ? 'Zmień' : 'Dodaj flagę'}
                     </button>
                   )}
                 </div>
 
                 {isEditing && (
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <input value={flagInput} onChange={(e) => setFlagInput(e.target.value)} placeholder="URL do flagi JPG/PNG..." style={{ fontSize: '11px', padding: '4px 8px' }} />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input value={flagInput} onChange={(e) => setFlagInput(e.target.value)} placeholder="Wklej link lub wybierz plik..." style={{ fontSize: '11px', padding: '4px 8px', flex: 1 }} />
+                      <input ref={countryFileInputRef} type="file" accept="image/*" onChange={(e) => handleCountryFile(e.target.files?.[0])} style={{ display: 'none' }} />
+                      <button className="secondary-button" onClick={() => countryFileInputRef.current?.click()} title="Wybierz z galerii / dysku" style={{ padding: '4px 8px' }}>
+                        <ImageIcon size={14} />
+                      </button>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                       <button className="secondary-button" style={{ padding: '2px 8px', fontSize: '11px' }} onClick={() => setEditingCountry(null)}>Anuluj</button>
                       <button className="primary-button" style={{ padding: '2px 10px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveCountryFlag(cCode)}>Zapisz</button>
@@ -406,7 +425,7 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
               <span /> KLASYFIKACJA DRUŻYNOWA · BAZA KLUBÓW
             </p>
             <h2>Logotypy Klubów ({uniqueClubs.length})</h2>
-            <p>Logotypy klubów wyświetlają się wyłącznie w rankingach i tabeli drużynowej.</p>
+            <p>Wybierz logo klubu z galerii lub wklej link URL. Logotypy klubów wyświetlają się w tabeli drużynowej.</p>
           </div>
           <Shield size={22} className="muted-icon" />
         </div>
@@ -430,19 +449,25 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
 
                   <div style={{ flex: 1 }}>
                     <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>{club}</b>
-                    <small style={{ color: '#64748b', fontSize: '11px' }}>{memberCount} graczy</small>
+                    <small style={{ color: '#64748b', fontSize: '11px' }}>{memberCount} zarejestrowanych graczy</small>
                   </div>
 
                   {!isEditing && (
                     <button className="secondary-button" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => { setEditingClub(club); setLogoInput(currentLogo || ''); }}>
-                      <Edit3 size={13} /> {currentLogo ? 'Zmień' : 'Dodaj'}
+                      <Edit3 size={13} /> {currentLogo ? 'Zmień' : 'Dodaj logo'}
                     </button>
                   )}
                 </div>
 
                 {isEditing && (
                   <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <input value={logoInput} onChange={(e) => setLogoInput(e.target.value)} placeholder="Link URL do logo..." style={{ fontSize: '12px', padding: '6px 10px' }} />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input value={logoInput} onChange={(e) => setLogoInput(e.target.value)} placeholder="Link URL do logo..." style={{ fontSize: '12px', padding: '6px 10px', flex: 1 }} />
+                      <input ref={clubFileInputRef} type="file" accept="image/*" onChange={(e) => handleClubFile(e.target.files?.[0])} style={{ display: 'none' }} />
+                      <button className="secondary-button" onClick={() => clubFileInputRef.current?.click()} title="Wybierz z galerii / dysku" style={{ padding: '6px 10px' }}>
+                        <ImageIcon size={14} />
+                      </button>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                       <button className="secondary-button" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => setEditingClub(null)}>Anuluj</button>
                       <button className="primary-button" style={{ padding: '4px 12px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveLogo(club)}>
@@ -1329,11 +1354,11 @@ function PlayerManager({
     }
   };
 
-  // NAPRAWIONY ZIELONY PRZYCISK: WYKONUJE DOKŁADNIE TO SAMO CO ZAPIS EDYCJI
-  const handleToggleActive = async (p: Player) => {
-    const nextState = p.isActive === false || (p as any).is_active === false ? true : false;
+  // BEZPIECZNE PRZEŁĄCZANIE: ZACHOWUJE WSZYSTKIE DANE PROFILU
+  const handleToggleActive = async (p: any) => {
+    const nextState = p.isActive === false || p.is_active === false ? true : false;
 
-    // 1. Natychmiastowy update w lokalnym stanie
+    // 1. Optymistyczny update w lokalnym stanie UI
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.map((item) =>
@@ -1342,15 +1367,12 @@ function PlayerManager({
     }));
 
     try {
-      // 2. Bezpośrednia zmiana w bazie
-      await updatePlayer(p.id, { is_active: nextState, isActive: nextState });
-
-      // 3. Jeśli wyłączamy z turnieju, czyścimy jego dołki i flight w tym konkretnym turnieju
       if (!nextState && activeTournament?.id) {
         await removePlayerFromTournament(p.id, activeTournament.id);
         flash(`${p.name} wycofany z turnieju.`);
       } else {
-        flash(nextState ? `${p.name} włączony do turnieju.` : `${p.name} przeniesiony do pauzy.`);
+        await supabase.from('players').update({ is_active: true }).eq('id', p.id);
+        flash(`${p.name} włączony do turnieju.`);
       }
     } catch (err) {
       console.error(err);
@@ -1543,7 +1565,7 @@ function PlayerManager({
               className="file-input"
             />
             <button className="secondary-button" onClick={() => flagFileInputRef.current?.click()}>
-              <ImageIcon size={14} /> Wybierz
+              <ImageIcon size={14} /> Wybierz z galerii
             </button>
             {flagImage && (
               <button className="secondary-button" onClick={() => setFlagImage('')}>
@@ -2067,7 +2089,7 @@ function FlightManager({
         </div>
       </div>
 
-      {/* KOLUMNA 2: DOSTĘPNI ZAWODNICY (NA SAMEJ GÓRZE) */}
+      {/* KOLUMNA 2: DOSTĘPNI ZAWODNICY */}
       <div
         className="admin-panel compact"
         onDragOver={(e) => e.preventDefault()}
@@ -2141,7 +2163,7 @@ function FlightManager({
         </div>
       </div>
 
-      {/* KOLUMNA 3: KAFELKI FLIGHTÓW W SIATCE DWUKOLUMNOWEJ */}
+      {/* KOLUMNA 3: KAFELKI FLIGHTÓW */}
       <div
         className="flight-list"
         style={{
