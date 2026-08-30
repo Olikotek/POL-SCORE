@@ -671,7 +671,7 @@ function TournamentManager({
 
   return (
     <div className="management-grid">
-      <div className="admin-panel compact">
+      <div className="admin-panel compact" style={{ alignSelf: 'start', position: 'sticky', top: '16px' }}>
         <p className="eyebrow">
           <span /> {editingId ? 'EDYCJA TURNIEJU' : 'NOWY TURNIEJ LUB SPOTKANIE'}
         </p>
@@ -1270,10 +1270,13 @@ function PlayerManager({
       avatar: avatar.trim() || undefined,
       club: club.trim() || undefined,
       ball_model: ballModel.trim() || undefined,
+      ballModel: ballModel.trim() || undefined,
       city: city.trim() || undefined,
       gender,
       preferred_foot: preferredFoot,
+      preferredFoot: preferredFoot,
       birth_date: birthDate || undefined,
+      birthDate: birthDate || undefined,
       email: email.trim() || undefined,
       flag,
       flag_image: flagImage.trim() || undefined,
@@ -1315,30 +1318,19 @@ function PlayerManager({
   };
 
   const handleToggleActive = async (p: Player) => {
-    const nextState = p.isActive === false ? true : false;
+    const nextState = p.isActive === false || (p as any).is_active === false ? true : false;
 
-    // Natychmiastowa lokalna zmiana stanu bez blokowania interfejsu
+    // Natychmiastowy update w lokalnym stanie UI
     onUpdateStore((prev) => ({
       ...prev,
-      players: prev.players.map((item) => (item.id === p.id ? { ...item, isActive: nextState } : item)),
+      players: prev.players.map((item) =>
+        item.id === p.id ? { ...item, isActive: nextState, is_active: nextState } : item
+      ),
     }));
 
     try {
       if (!nextState && activeTournament?.id) {
         await removePlayerFromTournament(p.id, activeTournament.id);
-        onUpdateStore((prev) => ({
-          ...prev,
-          players: prev.players.map((item) =>
-            item.id === p.id
-              ? {
-                  ...item,
-                  isActive: false,
-                  flightId: { 1: null, 2: null },
-                  scores: { 1: Array(18).fill(0), 2: Array(18).fill(0) },
-                }
-              : item
-          ),
-        }));
         flash(`${p.name} wycofany z turnieju.`);
       } else {
         await togglePlayerActive(p.id, nextState);
@@ -1395,20 +1387,42 @@ function PlayerManager({
     });
 
     return filtered.sort((a, b) => {
-      const aActive = a.isActive !== false ? 1 : 0;
-      const bActive = b.isActive !== false ? 1 : 0;
+      const aActive = a.isActive !== false && (a as any).is_active !== false ? 1 : 0;
+      const bActive = b.isActive !== false && (b as any).is_active !== false ? 1 : 0;
       if (aActive !== bActive) return bActive - aActive;
       return a.name.localeCompare(b.name);
     });
   }, [store.players, searchQuery]);
 
   return (
-    <div className="management-grid">
-      <div className="admin-panel compact">
-        <p className="eyebrow">
-          <span /> BAZA ZAWODNIKÓW & PROFILE
-        </p>
-        <h2>{editing ? 'Edytuj zawodnika' : 'Dodaj zawodnika'}</h2>
+    <div className="management-grid" style={{ alignItems: 'start', position: 'relative' }}>
+      {/* LEWA KOLUMNA: PRZYKLEJONY (STICKY) FORMULARZ EDYCJI */}
+      <div
+        className="admin-panel compact"
+        style={{
+          position: 'sticky',
+          top: '16px',
+          alignSelf: 'start',
+          zIndex: 10,
+          maxHeight: 'calc(100vh - 120px)',
+          overflowY: 'auto',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p className="eyebrow" style={{ margin: 0 }}>
+            <span /> BAZA ZAWODNIKÓW & PROFILE
+          </p>
+          {editing && (
+            <button
+              onClick={reset}
+              className="secondary-button"
+              style={{ padding: '2px 8px', fontSize: '11px' }}
+            >
+              + Nowy
+            </button>
+          )}
+        </div>
+        <h2 style={{ marginTop: '4px' }}>{editing ? 'Edytuj zawodnika' : 'Dodaj zawodnika'}</h2>
 
         <div className="form-field">
           <label className="form-field-label">Imię i nazwisko *</label>
@@ -1487,7 +1501,7 @@ function PlayerManager({
             </select>
           </div>
           <div className="form-field">
-            <label className="form-field-label">Flaga (kraj domyślny)</label>
+            <label className="form-field-label">Flaga (kraj)</label>
             <select value={flag} onChange={(e) => setFlag(e.target.value)}>
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -1499,7 +1513,7 @@ function PlayerManager({
         </div>
 
         <div className="form-field">
-          <label className="form-field-label">Własna grafika flagi narodowej (opcjonalnie JPG / PNG)</label>
+          <label className="form-field-label">Własna flaga (opcjonalnie JPG/PNG)</label>
           <div className="avatar-upload-row">
             {flagImage ? (
               <img src={flagImage} alt="flag" style={{ width: '28px', height: '18px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1' }} />
@@ -1514,11 +1528,11 @@ function PlayerManager({
               className="file-input"
             />
             <button className="secondary-button" onClick={() => flagFileInputRef.current?.click()}>
-              <ImageIcon size={15} /> Wybierz grafikę flagi
+              <ImageIcon size={14} /> Wybierz
             </button>
             {flagImage && (
               <button className="secondary-button" onClick={() => setFlagImage('')}>
-                Wyczyść
+                X
               </button>
             )}
           </div>
@@ -1545,11 +1559,11 @@ function PlayerManager({
               className="file-input"
             />
             <button className="secondary-button" onClick={() => fileInputRef.current?.click()}>
-              <ImageIcon size={15} /> Wybierz plik
+              <ImageIcon size={14} /> Wybierz plik
             </button>
             {avatar && (
               <button className="secondary-button" onClick={() => setAvatar('')}>
-                Wyczyść
+                X
               </button>
             )}
           </div>
@@ -1577,10 +1591,10 @@ function PlayerManager({
           </label>
         </div>
 
-        <div className="form-actions">
-          <button className="primary-button" onClick={submit}>
+        <div className="form-actions" style={{ marginTop: '12px' }}>
+          <button className="primary-button" onClick={submit} style={{ flex: 1 }}>
             {editing ? <Save size={16} /> : <UserPlus size={16} />}
-            {editing ? 'Zapisz zmiany profilu' : 'Dodaj zawodnika'}
+            {editing ? 'Zapisz profil' : 'Dodaj zawodnika'}
           </button>
           {editing && (
             <button className="secondary-button" onClick={reset}>
@@ -1590,7 +1604,8 @@ function PlayerManager({
         </div>
       </div>
 
-      <div className="admin-panel">
+      {/* PRAWA KOLUMNA: NIEZALEŻNIE SCROLLOWANA LISTA ZAWODNIKÓW */}
+      <div className="admin-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="panel-heading">
           <div>
             <p className="eyebrow">
@@ -1613,14 +1628,26 @@ function PlayerManager({
           />
         </div>
 
-        <div className="management-list">
+        {/* Niezależny scroll dla listy uczestników */}
+        <div
+          className="management-list"
+          style={{
+            maxHeight: 'calc(100vh - 230px)',
+            overflowY: 'auto',
+            paddingRight: '6px',
+          }}
+        >
           {filteredAndSortedPlayers.map((p: any) => {
             const active = p.isActive !== false && p.is_active !== false;
             return (
               <div
                 className="management-row"
                 key={p.id}
-                style={{ opacity: active ? 1 : 0.55 }}
+                style={{
+                  opacity: active ? 1 : 0.55,
+                  background: editing === p.id ? '#e0f2fe' : undefined,
+                  borderLeft: editing === p.id ? '4px solid #0284c7' : undefined,
+                }}
               >
                 {p.avatar ? (
                   <img src={p.avatar} alt={p.name} className="avatar avatar-img" />
@@ -1652,7 +1679,7 @@ function PlayerManager({
                     onClick={() => handleToggleActive(p)}
                     title={active ? 'Wyłącz z tego turnieju' : 'Włącz do tego turnieju'}
                     style={{
-                      padding: '4px 8px',
+                      padding: '5px 10px',
                       borderRadius: '6px',
                       fontSize: '11px',
                       fontWeight: '800',
@@ -1669,7 +1696,11 @@ function PlayerManager({
                     {active ? 'W TURNIEJ' : 'PAUZA'}
                   </button>
 
-                  <button onClick={() => startEdit(p)} title="Edytuj profil gracza">
+                  <button
+                    onClick={() => startEdit(p)}
+                    title="Edytuj profil gracza w formularzu obok"
+                    style={{ background: editing === p.id ? '#0284c7' : undefined, color: editing === p.id ? '#ffffff' : undefined }}
+                  >
                     <Edit3 size={15} />
                   </button>
                   <button onClick={() => remove(p.id)} title="Usuń z bazy całkowicie">
@@ -1709,7 +1740,7 @@ function FlightManager({
   const roundFlights = store.flights.filter((f) => f.round === round);
   const allFlightIdsInRound = useMemo(() => roundFlights.map((f) => f.id), [roundFlights]);
   const activePlayers = useMemo(
-    () => store.players.filter((p) => p.isActive !== false),
+    () => store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false),
     [store.players]
   );
 
@@ -1855,8 +1886,9 @@ function FlightManager({
   };
 
   return (
-    <div className="management-grid">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="management-grid" style={{ alignItems: 'start' }}>
+      {/* LEWA STRONA: TWORZENIE FLIGHTU I LISTA DOSTĘPNYCH */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '16px', alignSelf: 'start' }}>
         <div className="admin-panel compact">
           <p className="eyebrow">
             <span /> NOWY FLIGHT
@@ -1928,7 +1960,7 @@ function FlightManager({
             <Users size={16} className="muted-icon" />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '420px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '340px', overflowY: 'auto' }}>
             {unassignedPlayers.map((p, idx) => {
               const rel = combinedRelative(p, holesR1, holesR2);
               return (
@@ -1979,7 +2011,18 @@ function FlightManager({
         </div>
       </div>
 
-      <div className="flight-list">
+      {/* PRAWA STRONA: DWUKOLUMNOWA SIATKA FLIGHTÓW */}
+      <div
+        className="flight-list"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '12px',
+          maxHeight: 'calc(100vh - 120px)',
+          overflowY: 'auto',
+          alignContent: 'start',
+        }}
+      >
         {roundFlights.map((flight) => {
           const flightMembers = activePlayers.filter((p) => p.flightId[round] === flight.id);
           const isOverThisFlight = dragOverFlightId === flight.id;
@@ -1992,98 +2035,103 @@ function FlightManager({
               onDragLeave={() => setDragOverFlightId(null)}
               onDrop={(e) => handleDropOnFlight(e, flight.id)}
               style={{
-                padding: '14px',
+                padding: '12px',
                 border: isOverThisFlight ? '2px dashed #10b981' : '1px solid #cbd5e1',
                 background: isOverThisFlight ? '#f0fdf4' : '#ffffff',
                 transition: 'all 0.15s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
               }}
             >
-              <div className="flight-card-head" style={{ marginBottom: '12px' }}>
-                <div>
-                  <h2 style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {flight.name}
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>({flightMembers.length} graczy)</span>
-                  </h2>
-                  <p>
-                    KOD <strong>{flight.code}</strong>
-                  </p>
-                  <p className="flight-start">
-                    <MapPin size={12} /> Start dołek {flight.startHole ?? 1}
-                  </p>
+              <div>
+                <div className="flight-card-head" style={{ marginBottom: '10px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                      {flight.name}
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>({flightMembers.length})</span>
+                    </h2>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px' }}>
+                      KOD <strong>{flight.code}</strong>
+                    </p>
+                    <p className="flight-start" style={{ margin: '2px 0 0 0', fontSize: '11px' }}>
+                      <MapPin size={11} /> Start dołek {flight.startHole ?? 1}
+                    </p>
+                  </div>
+                  <div className="row-actions">
+                    <button onClick={() => editFlight(flight)} title="Edytuj flight">
+                      <Edit3 size={14} />
+                    </button>
+                    <button onClick={() => removeFlight(flight.id)} title="Usuń flight">
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="row-actions">
-                  <button onClick={() => editFlight(flight)} title="Edytuj flight">
-                    <Edit3 size={15} />
-                  </button>
-                  <button onClick={() => removeFlight(flight.id)} title="Usuń flight">
-                    <X size={15} />
-                  </button>
-                </div>
-              </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', minHeight: '40px' }}>
-                {flightMembers.map((p) => {
-                  const rel = combinedRelative(p, holesR1, holesR2);
-                  return (
-                    <div
-                      key={p.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, p.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '6px 10px',
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        cursor: 'grab',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <GripVertical size={13} style={{ color: '#94a3b8' }} />
-                        {p.avatar ? (
-                          <img src={p.avatar} alt={p.name} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
-                        ) : (
-                          <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>
-                            {initials(p.name)}
-                          </span>
-                        )}
-                        <b>
-                          {p.flagImage || (p as any).flag_image ? (
-                            <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '14px', height: '10px', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} />
-                          ) : (
-                            <span style={{ marginRight: '4px' }}>{flagEmoji(p.flag)}</span>
-                          )}
-                          {p.name}
-                        </b>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
-                          ({rel > 0 ? `+${rel}` : rel})
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => assignPlayer(p.id, null)}
-                        title="Usuń z tego flightu"
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '8px', minHeight: '35px' }}>
+                  {flightMembers.map((p) => {
+                    const rel = combinedRelative(p, holesR1, holesR2);
+                    return (
+                      <div
+                        key={p.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, p.id)}
                         style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          padding: '2px',
                           display: 'flex',
                           alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '5px 8px',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          cursor: 'grab',
                         }}
                       >
-                        <UserMinus size={14} />
-                      </button>
-                    </div>
-                  );
-                })}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <GripVertical size={12} style={{ color: '#94a3b8' }} />
+                          {p.avatar ? (
+                            <img src={p.avatar} alt={p.name} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 800 }}>
+                              {initials(p.name)}
+                            </span>
+                          )}
+                          <b>
+                            {p.flagImage || (p as any).flag_image ? (
+                              <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '12px', height: '8px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
+                            ) : (
+                              <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
+                            )}
+                            {p.name}
+                          </b>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
+                            ({rel > 0 ? `+${rel}` : rel})
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => assignPlayer(p.id, null)}
+                          title="Usuń z tego flightu"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: '1px',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <UserMinus size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {unassignedPlayers.length > 0 && (
-                <div style={{ marginTop: '8px' }}>
+                <div style={{ marginTop: '6px' }}>
                   <select
                     defaultValue=""
                     onChange={(e) => {
@@ -2092,16 +2140,16 @@ function FlightManager({
                         e.target.value = '';
                       }
                     }}
-                    style={{ fontSize: '12px', padding: '6px 8px', width: '100%', background: '#f0fdf4', borderColor: '#86efac' }}
+                    style={{ fontSize: '11px', padding: '5px 6px', width: '100%', background: '#f0fdf4', borderColor: '#86efac' }}
                   >
                     <option value="" disabled>
-                      + Przypisz gracza z listy...
+                      + Dodaj gracza...
                     </option>
                     {unassignedPlayers.map((p) => {
                       const rel = combinedRelative(p, holesR1, holesR2);
                       return (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({rel > 0 ? `+${rel}` : rel}) · {p.category}
+                          {p.name} ({rel > 0 ? `+${rel}` : rel})
                         </option>
                       );
                     })}
@@ -2132,7 +2180,7 @@ function RoundManager({
   const holesR2 = store.holesByRound[2] || [];
 
   const activePlayers = useMemo(
-    () => store.players.filter((p) => p.isActive !== false),
+    () => store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false),
     [store.players]
   );
 
@@ -2340,7 +2388,7 @@ function OverridePanel({
   flash: FlashFn;
 }) {
   const [round, setRound] = useState<Round>(1);
-  const activePlayers = store.players.filter((p) => p.isActive !== false);
+  const activePlayers = store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false);
   const [selectedId, setSelectedId] = useState(activePlayers[0]?.id ?? store.players[0]?.id ?? '');
 
   const currentPlayer = store.players.find((p) => p.id === selectedId);
@@ -2447,7 +2495,7 @@ function OverridePanel({
         <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
           {store.players.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} {p.isActive === false ? '(PAUZA)' : ''}
+              {p.name} {p.isActive === false || (p as any).is_active === false ? '(PAUZA)' : ''}
             </option>
           ))}
         </select>
