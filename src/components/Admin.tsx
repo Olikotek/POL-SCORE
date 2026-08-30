@@ -28,6 +28,7 @@ import {
   Award,
   GripVertical,
   Dices,
+  Globe,
 } from 'lucide-react';
 import type { Category, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, COUNTRIES, ROUNDS, flagEmoji } from '@/types';
@@ -163,7 +164,7 @@ export function Admin({
     ['ustawienia', 'Ustawienia', <ShieldCheck size={15} key="f" />],
     ['pole', 'Pole', <BarChart3 size={15} key="a" />],
     ['zawodnicy', 'Zawodnicy', <Users size={15} key="b" />],
-    ['kluby', 'Kluby & Logo', <Shield size={15} key="club" />],
+    ['kluby', 'Kluby & Flagi Krajów', <Shield size={15} key="club" />],
     ['flighty', 'Flighty', <Flag size={15} key="c" />],
     ['rundy', 'Rundy', <Layers size={15} key="e" />],
     ['wyniki', 'Korekta wyników', <Edit3 size={15} key="d" />],
@@ -178,7 +179,7 @@ export function Admin({
           </p>
           <h1>Panel administratora</h1>
           <p className="intro-copy">
-            Zarządzaj turniejami, polem, bazą uczestników, klubami, flightami, dogrywkami i wynikami.
+            Zarządzaj turniejami, polem, bazą uczestników, klubami, flagami krajów, flightami i wynikami.
           </p>
         </div>
         <button className="secondary-button" onClick={onLock}>
@@ -232,7 +233,7 @@ export function Admin({
           flash={flash}
         />
       )}
-      {tab === 'kluby' && <ClubManager store={localStore} flash={flash} />}
+      {tab === 'kluby' && <ClubManager store={localStore} onUpdateStore={setLocalStore} flash={flash} />}
       {tab === 'flighty' && (
         <FlightManager
           store={localStore}
@@ -261,32 +262,44 @@ export function Admin({
   );
 }
 
-function ClubManager({ store, flash }: { store: Store; flash: FlashFn }) {
+function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateStore: React.Dispatch<React.SetStateAction<Store>>; flash: FlashFn }) {
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [editingClub, setEditingClub] = useState<string | null>(null);
   const [logoInput, setLogoInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [countryFlags, setCountryFlags] = useState<Record<string, string>>({});
+  const [editingCountry, setEditingCountry] = useState<string | null>(null);
+  const [flagInput, setFlagInput] = useState('');
+  const countryFileInputRef = useRef<HTMLInputElement>(null);
+
   const uniqueClubs = useMemo(() => {
     const clubsSet = new Set<string>();
     store.players.forEach((p) => {
-      if (p.club && p.club.trim()) {
-        clubsSet.add(p.club.trim());
-      }
+      if (p.club && p.club.trim()) clubsSet.add(p.club.trim());
     });
     return Array.from(clubsSet).sort();
   }, [store.players]);
 
+  const uniqueCountries = useMemo(() => {
+    const countriesSet = new Set<string>();
+    store.players.forEach((p) => {
+      const c = p.flag ? p.flag.trim().toUpperCase() : 'PL';
+      countriesSet.add(c);
+    });
+    return Array.from(countriesSet).sort();
+  }, [store.players]);
+
   useEffect(() => {
     fetchClubs().then(setClubLogos);
+    supabase.from('country_flags').select('*').then(({ data }) => {
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach((r: any) => { map[r.country_code.toUpperCase()] = r.flag_url; });
+        setCountryFlags(map);
+      }
+    });
   }, []);
-
-  const handleFileUpload = (file: File | undefined) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setLogoInput(reader.result as string);
-    reader.readAsDataURL(file);
-  };
 
   const handleSaveLogo = async (clubName: string) => {
     if (!logoInput.trim()) return;
@@ -301,149 +314,147 @@ function ClubManager({ store, flash }: { store: Store; flash: FlashFn }) {
     }
   };
 
+  const handleSaveCountryFlag = async (code: string) => {
+    if (!flagInput.trim()) return;
+    const upperCode = code.toUpperCase();
+    try {
+      await supabase.from('country_flags').upsert(
+        { country_code: upperCode, flag_url: flagInput.trim() },
+        { onConflict: 'country_code' }
+      );
+      
+      setCountryFlags((prev) => ({ ...prev, [upperCode]: flagInput.trim() }));
+      
+      // Zaktualizuj wszystkich zawodników z tego kraju
+      onUpdateStore((prev) => ({
+        ...prev,
+        players: prev.players.map((p) =>
+          p.flag?.toUpperCase() === upperCode
+            ? { ...p, flagImage: flagInput.trim(), flag_image: flagInput.trim() as any }
+            : p
+        ),
+      }));
+
+      setEditingCountry(null);
+      setFlagInput('');
+      flash(`Zapisano flagę narodową dla kodu [${upperCode}]. Zaktualizowano zawodników.`);
+    } catch {
+      flash('Błąd zapisu flagi kraju.');
+    }
+  };
+
   return (
-    <div className="admin-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">
-            <span /> KLASYFIKACJA DRUŻYNOWA · BAZA KLUBÓW
-          </p>
-          <h2>Logotypy Klubów ({uniqueClubs.length})</h2>
-          <p>Wgraj logotypy klubów reprezentowanych przez zawodników. Pojawią się one w tabelach drużynowych (nie zmieniają flagi kraju zawodnika).</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* SEKCJA FLAG NARODOWYCH DLA KRAJÓW */}
+      <div className="admin-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">
+              <span /> BAZA FLAG NARODOWYCH DLA KRAJÓW
+            </p>
+            <h2>Flagi Państw ({uniqueCountries.length})</h2>
+            <p>Wgraj grafikę flagi dla danego kodu państwa (np. PL, CZ, DE, JP). Wszyscy gracze z tym krajem otrzymają tę flagę automatycznie.</p>
+          </div>
+          <Globe size={22} className="muted-icon" />
         </div>
-        <Shield size={22} className="muted-icon" />
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
-        {uniqueClubs.map((club) => {
-          const currentLogo = clubLogos[club];
-          const isEditing = editingClub === club;
-          const memberCount = store.players.filter((p) => p.club?.trim() === club).length;
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+          {uniqueCountries.map((cCode) => {
+            const currentFlag = countryFlags[cCode];
+            const isEditing = editingCountry === cCode;
+            const count = store.players.filter((p) => p.flag?.toUpperCase() === cCode).length;
 
-          return (
-            <div
-              key={club}
-              style={{
-                border: '1px solid #cbd5e1',
-                borderRadius: '10px',
-                padding: '14px',
-                background: '#ffffff',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isEditing ? '12px' : '0' }}>
-                {currentLogo ? (
-                  <img
-                    src={currentLogo}
-                    alt={club}
-                    style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '8px',
-                      objectFit: 'contain',
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      padding: '2px',
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '8px',
-                      background: '#f1f5f9',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 900,
-                      fontSize: '14px',
-                      color: '#64748b',
-                      border: '1px solid #e2e8f0',
-                    }}
-                  >
-                    {club.slice(0, 2).toUpperCase()}
+            return (
+              <div key={cCode} style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '12px', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {currentFlag ? (
+                    <img src={currentFlag} alt={cCode} style={{ width: '36px', height: '24px', borderRadius: '3px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                  ) : (
+                    <span style={{ fontSize: '24px', lineHeight: 1 }}>{flagEmoji(cCode)}</span>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>Kraj: {cCode}</b>
+                    <small style={{ color: '#64748b', fontSize: '11px' }}>{count} zawodników</small>
                   </div>
-                )}
-
-                <div style={{ flex: 1 }}>
-                  <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>{club}</b>
-                  <small style={{ color: '#64748b', fontSize: '11px' }}>{memberCount} zarejestrowanych graczy</small>
+                  {!isEditing && (
+                    <button className="secondary-button" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => { setEditingCountry(cCode); setFlagInput(currentFlag || ''); }}>
+                      <Edit3 size={12} /> {currentFlag ? 'Zmień' : 'Wgraj'}
+                    </button>
+                  )}
                 </div>
 
-                {!isEditing && (
-                  <button
-                    className="secondary-button"
-                    style={{ padding: '6px 10px', fontSize: '12px' }}
-                    onClick={() => {
-                      setEditingClub(club);
-                      setLogoInput(currentLogo || '');
-                    }}
-                  >
-                    <Edit3 size={13} /> {currentLogo ? 'Zmień' : 'Dodaj logo'}
-                  </button>
+                {isEditing && (
+                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <input value={flagInput} onChange={(e) => setFlagInput(e.target.value)} placeholder="URL do flagi JPG/PNG..." style={{ fontSize: '11px', padding: '4px 8px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                      <button className="secondary-button" style={{ padding: '2px 8px', fontSize: '11px' }} onClick={() => setEditingCountry(null)}>Anuluj</button>
+                      <button className="primary-button" style={{ padding: '2px 10px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveCountryFlag(cCode)}>Zapisz</button>
+                    </div>
+                  </div>
                 )}
               </div>
+            );
+          })}
+        </div>
+      </div>
 
-              {isEditing && (
-                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <input
-                      value={logoInput}
-                      onChange={(e) => setLogoInput(e.target.value)}
-                      placeholder="Wklej link URL do logo lub wybierz plik..."
-                      style={{ fontSize: '12px', padding: '6px 10px' }}
-                    />
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e.target.files?.[0])}
-                      style={{ display: 'none' }}
-                    />
-                    <button
-                      className="secondary-button"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Wgraj plik z dysku"
-                      style={{ padding: '6px 10px' }}
-                    >
-                      <ImageIcon size={14} />
-                    </button>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                    <button
-                      className="secondary-button"
-                      style={{ padding: '4px 10px', fontSize: '11px' }}
-                      onClick={() => {
-                        setEditingClub(null);
-                        setLogoInput('');
-                      }}
-                    >
-                      Anuluj
-                    </button>
-                    <button
-                      className="primary-button"
-                      style={{ padding: '4px 12px', fontSize: '11px', background: '#0284c7' }}
-                      onClick={() => handleSaveLogo(club)}
-                    >
-                      <Save size={13} /> Zapisz logo
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {uniqueClubs.length === 0 && (
-          <div style={{ gridColumn: '1 / -1', padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
-            Brak klubów w bazie zawodników. Dodaj klub w profilu zawodnika, a pojawi się tutaj automatycznie.
+      {/* SEKCJA LOGOTYPÓW KLUBÓW (KLASYFIKACJA DRUŻYNOWA) */}
+      <div className="admin-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">
+              <span /> KLASYFIKACJA DRUŻYNOWA · BAZA KLUBÓW
+            </p>
+            <h2>Logotypy Klubów ({uniqueClubs.length})</h2>
+            <p>Logotypy klubów wyświetlają się wyłącznie w rankingach i tabeli drużynowej.</p>
           </div>
-        )}
+          <Shield size={22} className="muted-icon" />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+          {uniqueClubs.map((club) => {
+            const currentLogo = clubLogos[club];
+            const isEditing = editingClub === club;
+            const memberCount = store.players.filter((p) => p.club?.trim() === club).length;
+
+            return (
+              <div key={club} style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isEditing ? '12px' : '0' }}>
+                  {currentLogo ? (
+                    <img src={currentLogo} alt={club} style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '2px' }} />
+                  ) : (
+                    <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '14px', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                      {club.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1 }}>
+                    <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>{club}</b>
+                    <small style={{ color: '#64748b', fontSize: '11px' }}>{memberCount} graczy</small>
+                  </div>
+
+                  {!isEditing && (
+                    <button className="secondary-button" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => { setEditingClub(club); setLogoInput(currentLogo || ''); }}>
+                      <Edit3 size={13} /> {currentLogo ? 'Zmień' : 'Dodaj'}
+                    </button>
+                  )}
+                </div>
+
+                {isEditing && (
+                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <input value={logoInput} onChange={(e) => setLogoInput(e.target.value)} placeholder="Link URL do logo..." style={{ fontSize: '12px', padding: '6px 10px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                      <button className="secondary-button" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => setEditingClub(null)}>Anuluj</button>
+                      <button className="primary-button" style={{ padding: '4px 12px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveLogo(club)}>
+                        <Save size={13} /> Zapisz logo
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -1279,7 +1290,7 @@ function PlayerManager({
       birth_date: birthDate || undefined,
       birthDate: birthDate || undefined,
       email: email.trim() || undefined,
-      flag,
+      flag: flag.trim().toUpperCase(),
       flag_image: flagImage.trim() || undefined,
       flagImage: flagImage.trim() || undefined,
       is_amateur: isAmateur,
@@ -1318,11 +1329,11 @@ function PlayerManager({
     }
   };
 
-  // BEZPOŚREDNIE I NIEZAWODNE WŁĄCZANIE / WYŁĄCZANIE Z TURNIEJU
+  // NAPRAWIONY ZIELONY PRZYCISK: WYKONUJE DOKŁADNIE TO SAMO CO ZAPIS EDYCJI
   const handleToggleActive = async (p: Player) => {
     const nextState = p.isActive === false || (p as any).is_active === false ? true : false;
 
-    // 1. Optymistyczny natychmiastowy update w lokalnym stanie UI
+    // 1. Natychmiastowy update w lokalnym stanie
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.map((item) =>
@@ -1331,12 +1342,10 @@ function PlayerManager({
     }));
 
     try {
-      // 2. Bezpośredni trwały zapis w bazie danych Supabase
-      await supabase
-        .from('players')
-        .update({ is_active: nextState, is_active_in_tournament: nextState })
-        .eq('id', p.id);
+      // 2. Bezpośrednia zmiana w bazie
+      await updatePlayer(p.id, { is_active: nextState, isActive: nextState });
 
+      // 3. Jeśli wyłączamy z turnieju, czyścimy jego dołki i flight w tym konkretnym turnieju
       if (!nextState && activeTournament?.id) {
         await removePlayerFromTournament(p.id, activeTournament.id);
         flash(`${p.name} wycofany z turnieju.`);
@@ -1374,7 +1383,7 @@ function PlayerManager({
     setPreferredFoot(p.preferred_foot ?? p.preferredFoot ?? 'Right');
     setBirthDate(p.birth_date ?? p.birthDate ?? '');
     setEmail(p.email ?? '');
-    setFlag(p.flag);
+    setFlag(p.flag || 'PL');
     setFlagImage(p.flagImage ?? p.flag_image ?? '');
     setIsAmateur(!!p.isAmateur || !!p.is_amateur);
     setIsActive(p.isActive !== false && p.is_active !== false);
@@ -1508,19 +1517,18 @@ function PlayerManager({
             </select>
           </div>
           <div className="form-field">
-            <label className="form-field-label">Flaga (kraj)</label>
-            <select value={flag} onChange={(e) => setFlag(e.target.value)}>
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {flagEmoji(c.code)} {c.name}
-                </option>
-              ))}
-            </select>
+            <label className="form-field-label">Kraj / Kod Flagi (np. PL, JP, US)</label>
+            <input
+              value={flag}
+              onChange={(e) => setFlag(e.target.value.toUpperCase())}
+              placeholder="PL, JP, CZ, DE..."
+              style={{ fontWeight: 700 }}
+            />
           </div>
         </div>
 
         <div className="form-field">
-          <label className="form-field-label">Własna flaga (opcjonalnie JPG/PNG)</label>
+          <label className="form-field-label">Własna grafika flagi (opcjonalnie)</label>
           <div className="avatar-upload-row">
             {flagImage ? (
               <img src={flagImage} alt="flag" style={{ width: '28px', height: '18px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1' }} />
@@ -1740,7 +1748,6 @@ function FlightManager({
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverFlightId, setDragOverFlightId] = useState<string | null>(null);
 
-  // Opcje automatycznego/losowego generatora
   const [autoGroupSize, setAutoGroupSize] = useState(4);
   const [autoMode, setAutoMode] = useState<'random' | 'score'>('random');
 
@@ -1812,7 +1819,6 @@ function FlightManager({
     }
   };
 
-  // GENERATOR FLIGHTÓW (RANDOM LUB WG WYNIKÓW R1)
   const handleAutoGenerateFlights = async () => {
     if (activePlayers.length === 0) return;
     const confirm = window.confirm(
@@ -1828,7 +1834,6 @@ function FlightManager({
         pool.sort((a, b) => combinedRelative(a, holesR1, holesR2) - combinedRelative(b, holesR1, holesR2));
       }
 
-      // 1. Usuwamy stare flighty tej rundy
       const oldFlights = store.flights.filter((f) => f.round === round);
       for (const oldF of oldFlights) {
         await deleteFlight(oldF.id);
@@ -2062,7 +2067,7 @@ function FlightManager({
         </div>
       </div>
 
-      {/* KOLUMNA 2: DOSTĘPNI ZAWODNICY (NA SAMEJ GÓRZE, OBOK FLIGHTÓW) */}
+      {/* KOLUMNA 2: DOSTĘPNI ZAWODNICY (NA SAMEJ GÓRZE) */}
       <div
         className="admin-panel compact"
         onDragOver={(e) => e.preventDefault()}
