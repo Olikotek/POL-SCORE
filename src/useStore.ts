@@ -32,12 +32,16 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     round2Started: t.round2_started,
   }));
 
+  const settings = settingsRes.data;
+
+  // Nadrzędny wybór turnieju: ID z bazy ustawione przez Admina -> status active -> fallback
   let activeTournament: Tournament | null = null;
   if (tournaments.length > 0) {
     activeTournament =
-      tournaments.find((t) => t.id === activeTournamentId) ||
-      tournaments.find((t) => t.isPolishOpen) ||
-      tournaments.find((t) => t.status === 'completed' || t.status === 'active') ||
+      (activeTournamentId ? tournaments.find((t) => t.id === activeTournamentId) : null) ||
+      (settings?.active_tournament_id ? tournaments.find((t) => t.id === settings.active_tournament_id) : null) ||
+      tournaments.find((t) => t.status === 'active') ||
+      tournaments.find((t) => t.status !== 'completed') ||
       tournaments[0];
   }
 
@@ -80,13 +84,12 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const scoresRows = allScores;
   const courses: Course[] = (coursesRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const courseHoles = courseHolesRes.data ?? [];
-  const settings = settingsRes.data;
 
   const round1CourseId = activeTournament?.round1CourseId ?? settings?.round1_course_id ?? (courses[0]?.id || null);
   const round2CourseId = activeTournament?.round2CourseId ?? settings?.round2_course_id ?? round1CourseId;
   const round1Approved = activeTournament ? activeTournament.round1Approved : (settings?.round1_approved ?? true);
   const round2Started = activeTournament ? activeTournament.round2Started : (settings?.round2_started ?? true);
-  const tournamentName = activeTournament ? activeTournament.name : (settings?.tournament_name ?? 'Polish Open 2026');
+  const tournamentName = activeTournament ? activeTournament.name : (settings?.tournament_name ?? 'Turniej Footgolfa');
 
   function holesForCourse(courseId: string | null): Hole[] {
     if (!courseId) return [];
@@ -261,9 +264,21 @@ export function useStore() {
     };
   }, [activeTournamentId]);
 
-  const selectTournament = (id: string) => {
+  // Synchronizacja wybranego turnieju lokalnie ORAZ globalnie w bazie danych dla telefonów
+  const selectTournament = async (id: string) => {
     setActiveTournamentId(id);
     localStorage.setItem('pffg_active_tournament', id);
+    
+    try {
+      // 1. Ustawienie turnieju jako jedynego aktywnego w tabeli tournaments
+      await supabase.from('tournaments').update({ status: 'completed' }).neq('id', id);
+      await supabase.from('tournaments').update({ status: 'active' }).eq('id', id);
+
+      // 2. Zapis w ustawieniach globalnych aplikacji
+      await supabase.from('tournament_settings').update({ active_tournament_id: id }).eq('id', 1);
+    } catch (e) {
+      console.warn('Global tournament sync error:', e);
+    }
   };
 
   const userProfile =
