@@ -92,7 +92,7 @@ export async function completeTournament(
 
     const { error: ptsError } = await supabase
       .from('league_points')
-      .upsert(rows, { onConflict: 'tournament_id,player_id' });
+      .upsert(rows, { onConflict: 'tournament_id,player_id,category' });
 
     if (ptsError) {
       alert(`Błąd zapisu punktów ligowych: ${ptsError.message}`);
@@ -193,7 +193,7 @@ export async function addPlayer(data: {
   email?: string;
 }) {
   const payload = {
-    name: data.name,
+    name: data.name.trim(),
     category: data.category,
     avatar: data.avatar || null,
     club: data.club || null,
@@ -203,7 +203,7 @@ export async function addPlayer(data: {
     preferred_foot: data.preferred_foot || 'Right',
     birth_date: data.birth_date || null,
     email: data.email || null,
-    flag: data.flag || 'PL',
+    flag: data.flag ? data.flag.toUpperCase() : 'PL',
     flag_image: data.flagImage || null,
     is_amateur: data.isAmateur,
     is_active: data.isActive ?? true,
@@ -218,14 +218,17 @@ export async function addPlayer(data: {
 }
 
 export async function updatePlayer(id: string, data: {
-  name: string;
-  category: Category;
+  name?: string;
+  category?: Category;
   avatar?: string;
   club?: string;
-  flag: string;
+  flag?: string;
   flagImage?: string;
-  isAmateur: boolean;
+  flag_image?: string;
+  isAmateur?: boolean;
+  is_amateur?: boolean;
   isActive?: boolean;
+  is_active?: boolean;
   ball_model?: string;
   city?: string;
   gender?: string;
@@ -233,22 +236,28 @@ export async function updatePlayer(id: string, data: {
   birth_date?: string;
   email?: string;
 }) {
-  const payload = {
-    name: data.name,
-    category: data.category,
-    avatar: data.avatar || null,
-    club: data.club || null,
-    ball_model: data.ball_model || null,
-    city: data.city || null,
-    gender: data.gender || 'Male',
-    preferred_foot: data.preferred_foot || 'Right',
-    birth_date: data.birth_date || null,
-    email: data.email || null,
-    flag: data.flag || 'PL',
-    flag_image: data.flagImage || null,
-    is_amateur: data.isAmateur,
-    is_active: data.isActive ?? true,
-  };
+  const payload: Record<string, any> = {};
+
+  if (data.name !== undefined) payload.name = data.name.trim();
+  if (data.category !== undefined) payload.category = data.category;
+  if (data.avatar !== undefined) payload.avatar = data.avatar || null;
+  if (data.club !== undefined) payload.club = data.club || null;
+  if (data.ball_model !== undefined) payload.ball_model = data.ball_model || null;
+  if (data.city !== undefined) payload.city = data.city || null;
+  if (data.gender !== undefined) payload.gender = data.gender;
+  if (data.preferred_foot !== undefined) payload.preferred_foot = data.preferred_foot;
+  if (data.birth_date !== undefined) payload.birth_date = data.birth_date || null;
+  if (data.email !== undefined) payload.email = data.email || null;
+  if (data.flag !== undefined) payload.flag = data.flag.toUpperCase();
+  if (data.flagImage !== undefined || data.flag_image !== undefined) {
+    payload.flag_image = data.flagImage || data.flag_image || null;
+  }
+  if (data.isAmateur !== undefined || data.is_amateur !== undefined) {
+    payload.is_amateur = data.isAmateur ?? data.is_amateur;
+  }
+  if (data.isActive !== undefined || data.is_active !== undefined) {
+    payload.is_active = data.isActive ?? data.is_active;
+  }
 
   const { error } = await supabase
     .from('players')
@@ -284,12 +293,21 @@ export async function deletePlayer(id: string) {
 export async function removePlayerFromTournament(playerId: string, tournamentId?: string | null) {
   if (!tournamentId) return;
 
+  // 1. Usuwamy tylko dołki z bieżącego turnieju
   await supabase
     .from('scores')
     .delete()
     .eq('player_id', playerId)
     .eq('tournament_id', tournamentId);
 
+  // 2. Usuwamy ewentualne punkty w tym turnieju
+  await supabase
+    .from('league_points')
+    .delete()
+    .eq('player_id', playerId)
+    .eq('tournament_id', tournamentId);
+
+  // 3. Usuwamy z flightów przypisanych do tego turnieju
   const { data: flightRows } = await supabase
     .from('flights')
     .select('id')
@@ -303,6 +321,12 @@ export async function removePlayerFromTournament(playerId: string, tournamentId?
       .eq('player_id', playerId)
       .in('flight_id', flightIds);
   }
+
+  // 4. Przełączamy status is_active na false bez dotykania danych profilowych
+  await supabase
+    .from('players')
+    .update({ is_active: false })
+    .eq('id', playerId);
 }
 
 // --- ZARZĄDZANIE KLUBAMI I LOGOTYPAMI ---
@@ -326,15 +350,6 @@ export async function saveClubLogo(clubName: string, logoUrl: string) {
     }
   } catch (err) {
     console.warn('Błąd podczas zapisu do tabeli clubs:', err);
-  }
-
-  try {
-    await supabase
-      .from('players')
-      .update({ flag_image: logoUrl })
-      .eq('club', cleanName);
-  } catch (e) {
-    console.error('Błąd aktualizacji flag_image u graczy:', e);
   }
 }
 
