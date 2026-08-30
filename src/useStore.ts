@@ -113,21 +113,8 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const flightPlayers = flightPlayersRes.data ?? [];
   const rawPlayers = playersRes.data ?? [];
 
-  // Identyfikujemy wszystkich graczy biorących udział w tym turnieju
-  const activePlayerIds = new Set<string>();
-  scoresRows.forEach((s) => {
-    if (s.player_id) activePlayerIds.add(String(s.player_id).toLowerCase());
-  });
-  (leaguePointsRes.data ?? []).forEach((lp) => {
-    if (lp.player_id) activePlayerIds.add(String(lp.player_id).toLowerCase());
-  });
-
-  const participatingPlayers =
-    activePlayerIds.size > 0
-      ? rawPlayers.filter((p) => activePlayerIds.has(String(p.id).toLowerCase()))
-      : rawPlayers;
-
-  const players: Player[] = participatingPlayers.map((p) => {
+  // Przetwarzanie pełnej bazy zawodników (z zachowaniem wszystkich pól profilowych)
+  const players: Player[] = rawPlayers.map((p) => {
     const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
     scoresRows
