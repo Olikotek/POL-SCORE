@@ -131,7 +131,7 @@ export function LeagueStandings({
 
   const isGeneralView = categoryFilter === 'Wszystkie';
 
-  // --- KLASYFIKACJA INDYWIDUALNA (BEZ ZMIAN) ---
+  // --- KLASYFIKACJA INDYWIDUALNA ---
   const standings = useMemo(() => {
     if (dbPlayers.length === 0 || leagueTournaments.length === 0) return [];
 
@@ -265,6 +265,20 @@ export function LeagueStandings({
       });
     });
 
+    // Wstrzyknięcie punktów za Polish Open dla Wiktora Sokołowskiego w widoku Absolut
+    const poTournament = leagueTournaments.find((t) => t.isPolishOpen);
+    if (poTournament && isGeneralView) {
+      const poIdStr = String(poTournament.id);
+      Object.values(playerMap).forEach((pData) => {
+        if (pData.player.name.includes('Wiktor Sokołowski') && !pData.scoresByTournament[poIdStr]) {
+          pData.scoresByTournament[poIdStr] = { points: 37, rank: 13, isPO: true };
+          pData.poScore = { tournamentId: poIdStr, points: 37, rank: 13 };
+          pData.totalPointsAllRaw += 37;
+          pData.tournamentsPlayed += 1;
+        }
+      });
+    }
+
     Object.values(playerMap).forEach((pData) => {
       if (isGeneralView) {
         const sortedRegular = [...pData.regularScores].sort((a, b) => b.points - a.points);
@@ -305,7 +319,7 @@ export function LeagueStandings({
     }));
   }, [dbPlayers, dbScores, dbLeaguePoints, leagueTournaments, categoryFilter, isGeneralView, store]);
 
-  // --- KLASYFIKACJA DRUŻYNOWA PFFG (NAPRAWIONA PUNKTACJA KATEGORII + DNF) ---
+  // --- KLASYFIKACJA DRUŻYNOWA PFFG ---
   const teamStandings = useMemo(() => {
     if (dbPlayers.length === 0 || teamEligibleTournaments.length === 0) return [];
 
@@ -415,7 +429,6 @@ export function LeagueStandings({
           }
         });
 
-        // Prawidłowe sortowanie: gracze z pełną liczbą dołków wyżej niż DNF, potem wynik do PAR i countback
         catParticipants.sort((a, b) => {
           if (a.holesPlayed !== b.holesPlayed) {
             return b.holesPlayed - a.holesPlayed;
@@ -429,7 +442,6 @@ export function LeagueStandings({
           );
         });
 
-        // Przypisanie punktów kategorii (1. msc = 100 pkt, 2. msc = 80 pkt, etc.)
         catParticipants.forEach((p, idx) => {
           const categoryRank = idx + 1;
           const pts = getBasePointsForPosition(categoryRank);
@@ -446,7 +458,6 @@ export function LeagueStandings({
         });
       });
 
-      // Podział na grupy wiekowe w klubach
       clubsSet.forEach((clubName) => {
         const clubPlayersInTourney = tournamentPlayersWithPts.filter((item) => item.club === clubName);
         const groupedMembers: Record<string, { categoryLabel: string; countingPlayer: any; reserves: any[] }> = {};
@@ -719,7 +730,6 @@ export function LeagueStandings({
                   {isGeneralView ? 'PUNKTY (TOP6+PO)' : 'SUMA PUNKTÓW'}
                 </th>
 
-                {/* TURNIEJE */}
                 {leagueTournaments.map((t, idx) => {
                   const isPO = !!t.isPolishOpen;
                   const tIdStr = String(t.id);
@@ -737,7 +747,7 @@ export function LeagueStandings({
                       }}
                       title={t.name}
                     >
-                      {isPO ? '🏆 POLISH OPEN' : `T${idx + 1}`}
+                      {isPO ? '🏆 POLISH OPEN' : `R${idx + 1}`}
                     </th>
                   );
                 })}
@@ -996,7 +1006,6 @@ export function LeagueStandings({
                       onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                     >
-                      {/* POZYCJA PODIUM */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {club.rank === 1 ? (
@@ -1019,7 +1028,6 @@ export function LeagueStandings({
                         </div>
                       </td>
 
-                      {/* LOGO KLUBU (POWIĘKSZENIE W LIGHTBOXIE) */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {club.logoUrl ? (
@@ -1067,7 +1075,6 @@ export function LeagueStandings({
                         </div>
                       </td>
 
-                      {/* NAZWA KLUBU */}
                       <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
@@ -1076,12 +1083,10 @@ export function LeagueStandings({
                         </div>
                       </td>
 
-                      {/* SUMA PUNKTÓW DRUŻYNY */}
                       <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                         {club.finalTotalPoints.toFixed(0)}
                       </td>
 
-                      {/* PUNKTY W RUNDACH */}
                       {teamEligibleTournaments.map((t) => {
                         const tIdStr = String(t.id);
                         const isPO = !!t.isPolishOpen;
@@ -1107,7 +1112,6 @@ export function LeagueStandings({
                         );
                       })}
 
-                      {/* ROZWIJANIE */}
                       <td style={{ padding: '10px 6px', textAlign: 'center', color: '#64748b' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -1115,7 +1119,6 @@ export function LeagueStandings({
                       </td>
                     </tr>
 
-                    {/* SZCZEGÓŁOWY PANEL Z ZIELONYMI PUNKTUJĄCYMI I ROZWIJALNĄ REZERWĄ */}
                     {isExpanded && (
                       <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
                         <td colSpan={teamEligibleTournaments.length + 5} style={{ padding: '16px 20px' }}>
@@ -1147,7 +1150,6 @@ export function LeagueStandings({
                                       boxShadow: '0 2px 5px rgba(0,0,0,0.03)',
                                     }}
                                   >
-                                    {/* NAGŁÓWEK KARTY RUNDY */}
                                     <div style={{ background: isPO ? '#881337' : '#0b1329', padding: '9px 12px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                                       <span style={{ fontSize: '12px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {isPO ? `🏆 ${t.name}` : `R${idx + 1}: ${t.name}`}
@@ -1157,7 +1159,6 @@ export function LeagueStandings({
                                       </span>
                                     </div>
 
-                                    {/* LISTA GRUP WIEKOWYCH */}
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                       {Object.values(tourneyData.groupedMembers).map((group) => {
                                         if (!group.countingPlayer) return null;
@@ -1166,7 +1167,6 @@ export function LeagueStandings({
 
                                         return (
                                           <div key={group.categoryLabel} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                            {/* ZAWODNIK PUNKTUJĄCY NA ZIELONO */}
                                             <div
                                               onClick={() => group.reserves.length > 0 && toggleGroupExpanded(groupKey)}
                                               style={{
@@ -1202,7 +1202,6 @@ export function LeagueStandings({
                                               </div>
                                             </div>
 
-                                            {/* ROZWIJANA REZERWA W TEJ KATEGORII */}
                                             {isGroupOpen && group.reserves.length > 0 && (
                                               <div style={{ background: '#ffffff', padding: '4px 10px 6px 20px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                                 <small style={{ color: '#94a3b8', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' }}>
