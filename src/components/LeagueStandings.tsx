@@ -125,8 +125,9 @@ export function LeagueStandings({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [dbTournaments, tournaments]);
 
+  // Włączamy Polish Open do klasyfikacji drużynowej
   const teamEligibleTournaments = useMemo(() => {
-    return leagueTournaments.filter((t) => !t.isPolishOpen);
+    return leagueTournaments;
   }, [leagueTournaments]);
 
   const isGeneralView = categoryFilter === 'Wszystkie';
@@ -181,7 +182,7 @@ export function LeagueStandings({
         ? store.holesByCourse[r2Course]
         : (store?.holesByRound?.[2] || holes1);
 
-      const allTournamentParticipants: (Player & { savedRank?: number })[] = [];
+      const allTournamentParticipants: (Player & { savedRank?: number; savedPoints?: number; savedCategory?: string })[] = [];
 
       dbPlayers.forEach((p) => {
         const scores: Record<1 | 2, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
@@ -196,15 +197,15 @@ export function LeagueStandings({
           }
         });
 
-        if (scores[1].some((s) => s > 0) || scores[2].some((s) => s > 0)) {
-          const savedLp = dbLeaguePoints.find(
-            (lp) => String(lp.tournament_id) === tIdStr && String(lp.player_id) === String(p.id)
-          );
+        const savedLp = dbLeaguePoints.find(
+          (lp) => String(lp.tournament_id) === tIdStr && String(lp.player_id) === String(p.id)
+        );
 
+        if (scores[1].some((s) => s > 0) || scores[2].some((s) => s > 0) || savedLp) {
           allTournamentParticipants.push({
             id: p.id,
             name: p.name,
-            category: p.category,
+            category: (savedLp?.category as Category) || p.category,
             avatar: p.avatar,
             club: p.club,
             flag: p.flag || 'PL',
@@ -214,22 +215,22 @@ export function LeagueStandings({
             flightId: { 1: null, 2: null },
             scores,
             savedRank: savedLp ? Number(savedLp.rank) : undefined,
+            savedPoints: savedLp ? Number(savedLp.points) : undefined,
+            savedCategory: savedLp?.category,
           });
         }
       });
 
       const categoryParticipants = isGeneralView
         ? allTournamentParticipants
-        : allTournamentParticipants.filter((p) => p.category === categoryFilter);
+        : allTournamentParticipants.filter((p) => (p.savedCategory || p.category) === categoryFilter);
 
       categoryParticipants.sort((a, b) => {
-        if (isGeneralView) {
-          if (a.savedRank !== undefined && b.savedRank !== undefined) {
-            return a.savedRank - b.savedRank;
-          }
-          if (a.savedRank !== undefined) return -1;
-          if (b.savedRank !== undefined) return 1;
+        if (a.savedRank !== undefined && b.savedRank !== undefined) {
+          return a.savedRank - b.savedRank;
         }
+        if (a.savedRank !== undefined) return -1;
+        if (b.savedRank !== undefined) return 1;
 
         const relA = combinedRelative(a, holes1, holes2);
         const relB = combinedRelative(b, holes1, holes2);
@@ -242,8 +243,8 @@ export function LeagueStandings({
       });
 
       categoryParticipants.forEach((part, idx) => {
-        const categoryRank = idx + 1;
-        const pts = getBasePointsForPosition(categoryRank);
+        const categoryRank = part.savedRank !== undefined ? part.savedRank : (idx + 1);
+        const pts = part.savedPoints !== undefined ? part.savedPoints : getBasePointsForPosition(categoryRank);
         const pData = playerMap[String(part.id)];
 
         if (pData) {
@@ -347,6 +348,7 @@ export function LeagueStandings({
     teamEligibleTournaments.forEach((t) => {
       const tIdStr = String(t.id);
       const tScores = dbScores.filter((s) => String(s.tournament_id) === tIdStr);
+      const tLeaguePoints = dbLeaguePoints.filter((lp) => String(lp.tournament_id) === tIdStr);
 
       const tournamentPlayersWithPts: {
         player: any;
@@ -358,20 +360,32 @@ export function LeagueStandings({
 
       CATEGORIES.forEach((cat) => {
         const catParticipants = dbPlayers.filter((p) => {
-          if (p.category !== cat) return false;
+          const savedLp = tLeaguePoints.find((lp) => String(lp.player_id) === String(p.id));
+          const effectiveCat = savedLp?.category || p.category;
+          if (effectiveCat !== cat) return false;
+
           const pScores = tScores.filter((s) => String(s.player_id) === String(p.id));
-          return pScores.some((s) => Number(s.strokes ?? s.score ?? 0) > 0);
+          return pScores.some((s) => Number(s.strokes ?? s.score ?? 0) > 0) || !!savedLp;
         });
 
         catParticipants.sort((a, b) => {
+          const lpA = tLeaguePoints.find((lp) => String(lp.player_id) === String(a.id));
+          const lpB = tLeaguePoints.find((lp) => String(lp.player_id) === String(b.id));
+
+          if (lpA?.rank !== undefined && lpB?.rank !== undefined) {
+            return Number(lpA.rank) - Number(lpB.rank);
+          }
+
           const sumA = tScores.filter((s) => String(s.player_id) === String(a.id)).reduce((acc, s) => acc + Number(s.strokes ?? s.score ?? 0), 0);
           const sumB = tScores.filter((s) => String(s.player_id) === String(b.id)).reduce((acc, s) => acc + Number(s.strokes ?? s.score ?? 0), 0);
           return sumA - sumB;
         });
 
         catParticipants.forEach((p, idx) => {
-          const rank = idx + 1;
-          const pts = getBasePointsForPosition(rank);
+          const savedLp = tLeaguePoints.find((lp) => String(lp.player_id) === String(p.id));
+          const rank = savedLp?.rank !== undefined ? Number(savedLp.rank) : (idx + 1);
+          const pts = savedLp?.points !== undefined ? Number(savedLp.points) : getBasePointsForPosition(rank);
+
           if (p.club && p.club.trim()) {
             tournamentPlayersWithPts.push({
               player: p,
@@ -427,7 +441,7 @@ export function LeagueStandings({
       .filter((c) => c.finalTotalPoints > 0)
       .sort((a, b) => b.finalTotalPoints - a.finalTotalPoints)
       .map((c, idx) => ({ ...c, rank: idx + 1 }));
-  }, [dbPlayers, dbScores, teamEligibleTournaments, clubLogos]);
+  }, [dbPlayers, dbScores, dbLeaguePoints, teamEligibleTournaments, clubLogos]);
 
   const toggleClubExpanded = (clubName: string) => {
     setExpandedClubs((prev) => ({ ...prev, [clubName]: !prev[clubName] }));
@@ -476,7 +490,7 @@ export function LeagueStandings({
               )
             ) : (
               <span>
-                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie. Suma ze wszystkich 8 rund ligowych (bez MP).
+                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie ligowej oraz Polish Open.
               </span>
             )}
           </p>
@@ -674,7 +688,7 @@ export function LeagueStandings({
                       }}
                       title={t.name}
                     >
-                      {isPO ? '🏆 POLISH OPEN' : `T${idx + 1}`}
+                      {isPO ? '🏆 MP (POLISH OPEN)' : `R${idx + 1}`}
                     </th>
                   );
                 })}
@@ -718,7 +732,6 @@ export function LeagueStandings({
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                   >
-                    {/* POZYCJA Z PODŚWIETLENIEM 1, 2, 3 */}
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         {item.rank === 1 ? (
@@ -741,7 +754,6 @@ export function LeagueStandings({
                       </div>
                     </td>
 
-                    {/* FLAGA NARODOWA */}
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         {p.flag_image || p.flagImage ? (
@@ -765,7 +777,6 @@ export function LeagueStandings({
                       </div>
                     </td>
 
-                    {/* ZAWODNIK + AVATAR + KLUB */}
                     <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
                         {p.avatar ? (
@@ -819,12 +830,10 @@ export function LeagueStandings({
                       </div>
                     </td>
 
-                    {/* PUNKTY CAŁKOWITE (LICZBA CAŁKOWITA LUB NATURALNY FORMAT) */}
                     <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                       {Number.isInteger(item.finalTotalPoints) ? item.finalTotalPoints : item.finalTotalPoints.toFixed(1)}
                     </td>
 
-                    {/* PUNKTY W TURNIEJACH */}
                     {leagueTournaments.map((t) => {
                       const tIdStr = String(t.id);
                       const score = item.scoresByTournament[tIdStr];
@@ -865,7 +874,6 @@ export function LeagueStandings({
                       );
                     })}
 
-                    {/* STRZAŁKA */}
                     <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         <ChevronRight size={15} />
@@ -896,23 +904,26 @@ export function LeagueStandings({
                   SUMA PUNKTÓW
                 </th>
 
-                {teamEligibleTournaments.map((t, idx) => (
-                  <th
-                    key={t.id}
-                    style={{
-                      padding: '12px 8px',
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      background: '#f8fafc',
-                      color: '#475569',
-                      borderRight: '1px solid #e2e8f0',
-                      whiteSpace: 'nowrap',
-                    }}
-                    title={t.name}
-                  >
-                    R{idx + 1}
-                  </th>
-                ))}
+                {teamEligibleTournaments.map((t, idx) => {
+                  const isPO = !!t.isPolishOpen;
+                  return (
+                    <th
+                      key={t.id}
+                      style={{
+                        padding: '12px 8px',
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        background: isPO ? '#881337' : '#f8fafc',
+                        color: isPO ? '#ffe4e6' : '#475569',
+                        borderRight: '1px solid #e2e8f0',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={t.name}
+                    >
+                      {isPO ? '🏆 MP' : `R${idx + 1}`}
+                    </th>
+                  );
+                })}
 
                 <th style={{ padding: '12px 8px', width: '40px', textAlign: 'center' }}></th>
               </tr>
@@ -923,254 +934,142 @@ export function LeagueStandings({
                 const isExpanded = !!expandedClubs[club.clubName];
 
                 return (
-                  <>
-                    <tr
-                      key={club.clubName}
+                  <tr
+                    key={club.clubName}
+                    style={{
+                      background: isEven ? '#ffffff' : '#f8fafc',
+                      borderBottom: isExpanded ? 'none' : '1px solid #e2e8f0',
+                    }}
+                  >
+                    <td
                       onClick={() => toggleClubExpanded(club.clubName)}
-                      style={{
-                        background: isEven ? '#ffffff' : '#f8fafc',
-                        borderBottom: isExpanded ? 'none' : '1px solid #e2e8f0',
-                        cursor: 'pointer',
-                        transition: 'background 0.1s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
+                      style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0', cursor: 'pointer' }}
                     >
-                      {/* POZYCJA PODIUM */}
-                      <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {club.rank === 1 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
-                              1
-                            </span>
-                          ) : club.rank === 2 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
-                              2
-                            </span>
-                          ) : club.rank === 3 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
-                              3
-                            </span>
-                          ) : (
-                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#475569' }}>
-                              {club.rank}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        {club.rank === 1 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
+                            1
+                          </span>
+                        ) : club.rank === 2 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
+                            2
+                          </span>
+                        ) : club.rank === 3 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
+                            3
+                          </span>
+                        ) : (
+                          <span style={{ fontWeight: 800, fontSize: '13px', color: '#475569' }}>
+                            {club.rank}
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                      {/* LOGO KLUBU (POWIĘKSZENIE W LIGHTBOXIE) */}
-                      <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {club.logoUrl ? (
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLightboxClub({ name: club.clubName, logoUrl: club.logoUrl! });
-                              }}
-                              title="Kliknij, aby powiększyć herb"
-                              style={{ position: 'relative', cursor: 'zoom-in' }}
-                            >
-                              <img
-                                src={club.logoUrl}
-                                alt={club.clubName}
-                                style={{
-                                  width: '36px',
-                                  height: '36px',
-                                  borderRadius: '6px',
-                                  objectFit: 'contain',
-                                  background: '#f8fafc',
-                                  border: '1px solid #e2e8f0',
-                                  padding: '2px',
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <span
+                    <td
+                      onClick={() => toggleClubExpanded(club.clubName)}
+                      style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        {club.logoUrl ? (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLightboxClub({ name: club.clubName, logoUrl: club.logoUrl! });
+                            }}
+                            title="Kliknij, aby powiększyć herb"
+                            style={{ position: 'relative', cursor: 'zoom-in' }}
+                          >
+                            <img
+                              src={club.logoUrl}
+                              alt={club.clubName}
                               style={{
                                 width: '36px',
                                 height: '36px',
                                 borderRadius: '6px',
-                                background: '#f1f5f9',
-                                border: '1px solid #cbd5e1',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '11px',
-                                fontWeight: 900,
-                                color: '#475569',
+                                objectFit: 'contain',
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                padding: '2px',
                               }}
-                            >
-                              {club.clubName.slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* NAZWA KLUBU */}
-                      <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                            {club.clubName}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* SUMA PUNKTÓW DRUŻYNY */}
-                      <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                        {club.finalTotalPoints.toFixed(0)}
-                      </td>
-
-                      {/* PUNKTY W RUNDACH */}
-                      {teamEligibleTournaments.map((t) => {
-                        const tIdStr = String(t.id);
-                        const tourneyData = club.tournamentPoints[tIdStr];
-                        const pts = tourneyData?.totalPoints || 0;
-
-                        return (
-                          <td
-                            key={tIdStr}
+                            />
+                          </div>
+                        ) : (
+                          <span
                             style={{
-                              padding: '10px 8px',
-                              textAlign: 'center',
-                              fontSize: '13px',
-                              fontWeight: pts > 0 ? 800 : 500,
-                              color: pts > 0 ? '#0f172a' : '#cbd5e1',
-                              borderRight: '1px solid #e2e8f0',
-                              whiteSpace: 'nowrap',
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '6px',
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '11px',
+                              fontWeight: 900,
+                              color: '#475569',
                             }}
                           >
-                            {pts > 0 ? pts : '–'}
-                          </td>
-                        );
-                      })}
+                            {club.clubName.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                      {/* ROZWIJANIE */}
-                      <td style={{ padding: '10px 6px', textAlign: 'center', color: '#64748b' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </div>
-                      </td>
-                    </tr>
+                    <td
+                      onClick={() => toggleClubExpanded(club.clubName)}
+                      style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
+                          {club.clubName}
+                        </span>
+                      </div>
+                    </td>
 
-                    {/* SZCZEGÓŁOWY PANEL Z ZIELONYMI PUNKTUJĄCYMI I ROZWIJALNĄ REZERWĄ */}
-                    {isExpanded && (
-                      <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                        <td colSpan={teamEligibleTournaments.length + 5} style={{ padding: '16px 20px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                              <p style={{ margin: 0, fontSize: '12px', fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Punkty i skład klubu {club.clubName} w poszczególnych rundach:
-                              </p>
-                              <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 800, background: '#dcfce7', padding: '2px 8px', borderRadius: '4px', border: '1px solid #86efac' }}>
-                                ★ Gracze na zielonym tle punktują do sumy drużyny (kliknij gracza, by rozwinąć rezerwę)
-                              </span>
-                            </div>
+                    <td
+                      onClick={() => toggleClubExpanded(club.clubName)}
+                      style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                    >
+                      {club.finalTotalPoints.toFixed(0)}
+                    </td>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
-                              {teamEligibleTournaments.map((t, idx) => {
-                                const tIdStr = String(t.id);
-                                const tourneyData = club.tournamentPoints[tIdStr];
-                                if (!tourneyData || Object.keys(tourneyData.groupedMembers).length === 0) return null;
+                    {teamEligibleTournaments.map((t) => {
+                      const tIdStr = String(t.id);
+                      const isPO = !!t.isPolishOpen;
+                      const tourneyData = club.tournamentPoints[tIdStr];
+                      const pts = tourneyData?.totalPoints || 0;
 
-                                return (
-                                  <div
-                                    key={tIdStr}
-                                    style={{
-                                      background: '#ffffff',
-                                      border: '1px solid #cbd5e1',
-                                      borderRadius: '8px',
-                                      overflow: 'hidden',
-                                      boxShadow: '0 2px 5px rgba(0,0,0,0.03)',
-                                    }}
-                                  >
-                                    {/* NAGŁÓWEK KARTY RUNDY */}
-                                    <div style={{ background: '#0b1329', padding: '9px 12px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ fontSize: '12px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        R{idx + 1}: {t.name}
-                                      </span>
-                                      <span style={{ fontSize: '12px', fontWeight: 900, color: '#38bdf8', whiteSpace: 'nowrap' }}>
-                                        {tourneyData.totalPoints} pkt
-                                      </span>
-                                    </div>
-
-                                    {/* LISTA GRUP WIEKOWYCH */}
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                      {Object.values(tourneyData.groupedMembers).map((group) => {
-                                        if (!group.countingPlayer) return null;
-                                        const groupKey = `${club.clubName}_${tIdStr}_${group.categoryLabel}`;
-                                        const isGroupOpen = !!expandedGroups[groupKey];
-
-                                        return (
-                                          <div key={group.categoryLabel} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                            {/* ZAWODNIK PUNKTUJĄCY NA ZIELONO */}
-                                            <div
-                                              onClick={() => group.reserves.length > 0 && toggleGroupExpanded(groupKey)}
-                                              style={{
-                                                padding: '8px 10px',
-                                                background: '#f0fdf4',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                cursor: group.reserves.length > 0 ? 'pointer' : 'default',
-                                              }}
-                                            >
-                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                                                <span style={{ fontWeight: 900, fontSize: '11px', color: '#15803d', background: '#dcfce7', padding: '1px 5px', borderRadius: '3px', border: '1px solid #86efac' }}>
-                                                  {group.categoryLabel}
-                                                </span>
-                                                <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                                                  {group.countingPlayer.playerName}
-                                                </span>
-                                                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>
-                                                  (m.{group.countingPlayer.rank})
-                                                </span>
-                                              </div>
-
-                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                                                <span style={{ background: '#16a34a', color: '#ffffff', padding: '2px 7px', borderRadius: '4px', fontWeight: 900, fontSize: '11px' }}>
-                                                  +{group.countingPlayer.points} pkt
-                                                </span>
-                                                {group.reserves.length > 0 && (
-                                                  <span style={{ color: '#16a34a', display: 'flex', alignItems: 'center' }}>
-                                                    {isGroupOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </div>
-
-                                            {/* ROZWIJANA REZERWA W TEJ KATEGORII */}
-                                            {isGroupOpen && group.reserves.length > 0 && (
-                                              <div style={{ background: '#ffffff', padding: '4px 10px 6px 20px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                <small style={{ color: '#94a3b8', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' }}>
-                                                  Pozostali zawodnicy (rezerwa w {group.categoryLabel}):
-                                                </small>
-                                                {group.reserves.map((res, rIdx) => (
-                                                  <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#64748b' }}>
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                      <span style={{ color: '#cbd5e1', fontSize: '10px' }}>↳</span>
-                                                      {res.playerName} (m.{res.rank})
-                                                    </span>
-                                                    <span style={{ color: '#94a3b8', textDecoration: 'line-through', fontWeight: 600 }}>
-                                                      ({res.points} pkt)
-                                                    </span>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
+                      return (
+                        <td
+                          key={tIdStr}
+                          onClick={() => toggleClubExpanded(club.clubName)}
+                          style={{
+                            padding: '10px 8px',
+                            textAlign: 'center',
+                            fontSize: '13px',
+                            fontWeight: pts > 0 ? 800 : 500,
+                            color: pts > 0 ? (isPO ? '#be123c' : '#0f172a') : '#cbd5e1',
+                            background: isPO ? '#fff1f2' : undefined,
+                            borderRight: '1px solid #e2e8f0',
+                            whiteSpace: 'nowrap',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {pts > 0 ? pts : '–'}
                         </td>
-                      </tr>
-                    )}
-                  </>
+                      );
+                    })}
+
+                    <td
+                      onClick={() => toggleClubExpanded(club.clubName)}
+                      style={{ padding: '10px 6px', textAlign: 'center', color: '#64748b', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -1209,7 +1108,7 @@ export function LeagueStandings({
         />
       )}
 
-      {/* LIGHTBOX POWIĘKSZENIA HERBU KLUBU */}
+      {/* LIGHTBOX HERBU */}
       {lightboxClub && (
         <div
           style={{
