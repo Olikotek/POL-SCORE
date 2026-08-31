@@ -54,6 +54,14 @@ function formatRelativeScore(playerScores: number[], holes: Hole[]) {
   return `(${rel})`;
 }
 
+function formatShortName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+  }
+  return fullName;
+}
+
 function ScoreShape({ value, par }: { value: number | null; par: number }) {
   if (!value) {
     return (
@@ -299,7 +307,6 @@ export function Scorecard({
       </section>
     );
 
-  // Podział dołków na 2 rzędy (1-9 oraz 10-18)
   const firstNine = holeOrder.slice(0, 9);
   const secondNine = holeOrder.slice(9, 18);
 
@@ -416,21 +423,21 @@ export function Scorecard({
             border-radius: 4px !important;
           }
           .player-avatar-box {
-            width: 40px !important;
-            height: 40px !important;
+            width: 38px !important;
+            height: 38px !important;
           }
           .player-avatar-box img,
           .player-avatar-box .avatar {
-            width: 40px !important;
-            height: 40px !important;
-            font-size: 13px !important;
+            width: 38px !important;
+            height: 38px !important;
+            font-size: 12px !important;
           }
           .player-flag-badge {
             bottom: -2px !important;
             right: -3px !important;
           }
           .player-flag-badge img {
-            width: 15px !important;
+            width: 14px !important;
             height: 10px !important;
           }
           .btn-ctrl {
@@ -510,31 +517,27 @@ export function Scorecard({
         </div>
       </div>
 
-      {/* LISTA ZAWODNIKÓW Z KARTAMI WPROWADZANIA */}
+      {/* LISTA ZAWODNIKÓW */}
       <div className="score-entry-list">
         {currentPlayers.map((player) => {
           const playerScores = drafts[player.id] ?? player.scores[round];
           const value = playerScores[currentHoleIndex] || 0;
           const honour = honourMap.get(player.id) ?? 0;
           const isExpanded = expandedPlayerId === player.id;
-          
-          // Podział na Imię i Nazwisko
-          const nameParts = player.name.trim().split(/\s+/);
-          const firstName = nameParts.length > 1 ? nameParts[0] : '';
-          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : player.name;
+          const shortPlayerName = formatShortName(player.name);
 
           return (
             <div className={`scorecard-player-card ${isExpanded ? 'numpad-selected' : ''}`} key={player.id}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                   {/* NUMER HONOUR */}
-                  <div className="honour-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', fontSize: '12px', fontWeight: '800', flexShrink: 0, background: '#1e293b', color: '#fff', borderRadius: '6px' }}>
+                  <div className="honour-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', fontSize: '11px', fontWeight: '800', flexShrink: 0, background: '#1e293b', color: '#fff', borderRadius: '4px' }}>
                     {honour}
                   </div>
 
                   {/* AVATAR + FLAGA */}
-                  <div className="player-avatar-box" style={{ position: 'relative', flexShrink: 0, width: '46px', height: '46px' }}>
+                  <div className="player-avatar-box" style={{ position: 'relative', flexShrink: 0, width: '42px', height: '42px' }}>
                     {player.avatar ? (
                       <img
                         src={player.avatar}
@@ -542,7 +545,7 @@ export function Scorecard({
                         style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', display: 'block' }}
                       />
                     ) : (
-                      <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '15px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                      <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '13px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                         {initials(player.name)}
                       </div>
                     )}
@@ -550,28 +553,21 @@ export function Scorecard({
                     {/* FLAGA */}
                     <span className="player-flag-badge" style={{ position: 'absolute', bottom: '-2px', right: '-2px', lineHeight: 1, zIndex: 2 }}>
                       {player.flagImage ? (
-                        <img src={player.flagImage} alt="" style={{ width: '18px', height: '12px', borderRadius: '2px', objectFit: 'cover', border: '1.5px solid #ffffff', display: 'block' }} />
+                        <img src={player.flagImage} alt="" style={{ width: '16px', height: '11px', borderRadius: '2px', objectFit: 'cover', border: '1.5px solid #ffffff', display: 'block' }} />
                       ) : (
-                        <span style={{ fontSize: '13px', display: 'block' }}>{flagEmoji(player.flag)}</span>
+                        <span style={{ fontSize: '12px', display: 'block' }}>{flagEmoji(player.flag)}</span>
                       )}
                     </span>
                   </div>
                   
-                  {/* IMIĘ NAD NAZWISKIEM */}
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', justifyContent: 'center' }}>
-                    {firstName && (
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {firstName}
-                      </span>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', minWidth: 0, overflow: 'hidden' }}>
-                      <b style={{ fontSize: '15px', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#0f172a', lineHeight: 1.2 }}>
-                        {lastName}
-                      </b>
-                      <span style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', flexShrink: 0 }}>
-                        {formatRelativeScore(playerScores, holes)}
-                      </span>
-                    </div>
+                  {/* IMIĘ I NAZWISKO ORAZ WYNIK PRZY PRAWEJ KRAWĘDZI */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 0, flex: 1, overflow: 'hidden', gap: '6px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#0f172a' }}>
+                      {shortPlayerName}
+                    </span>
+                    <span style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', flexShrink: 0, marginLeft: 'auto' }}>
+                      {formatRelativeScore(playerScores, holes)}
+                    </span>
                   </div>
                 </div>
 
@@ -580,7 +576,7 @@ export function Scorecard({
                   <button 
                     className="btn-ctrl"
                     onClick={() => changeDraft(player.id, -1)}
-                    style={{ width: '44px', height: '44px', borderRadius: '10px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
+                    style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
                   >
                     <Minus size={18} />
                   </button>
@@ -588,7 +584,7 @@ export function Scorecard({
                   <button 
                     className="btn-ctrl"
                     onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
-                    style={{ padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px' }}
+                    style={{ padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px' }}
                   >
                     <ScoreShape value={value} par={activeHole.par} />
                   </button>
@@ -596,7 +592,7 @@ export function Scorecard({
                   <button 
                     className="btn-ctrl"
                     onClick={() => changeDraft(player.id, 1)}
-                    style={{ width: '44px', height: '44px', borderRadius: '10px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
+                    style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
                   >
                     <Plus size={18} />
                   </button>
@@ -611,14 +607,14 @@ export function Scorecard({
                       <button 
                         key={n} 
                         onClick={() => setDraftDirect(player.id, n)}
-                        style={{ height: '42px', borderRadius: '8px', background: '#1e293b', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '17px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                        style={{ height: '40px', borderRadius: '8px', background: '#1e293b', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                       >
                         {n}
                       </button>
                     ))}
                     <button 
                       onClick={() => setDraftDirect(player.id, 0)}
-                      style={{ height: '42px', borderRadius: '8px', background: '#ef4444', color: '#ffffff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
+                      style={{ height: '40px', borderRadius: '8px', background: '#ef4444', color: '#ffffff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
                     >
                       <X size={18} />
                     </button>
@@ -676,7 +672,7 @@ function NamedSubtotals({
           const result = subtotal(scores, holes, start, end);
           return (
             <div className="subtotal-player-row" key={player.id}>
-              <span className="subtotal-name">{player.name}</span>
+              <span className="subtotal-name">{formatShortName(player.name)}</span>
               <b>
                 {result.sum || '–'} <em>{result.sum ? `${formatRelativeScore(scores, holes)}` : ''}</em>
               </b>
