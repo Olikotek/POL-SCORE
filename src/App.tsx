@@ -55,7 +55,7 @@ function App() {
   if (loading) {
     return (
       <div className="app-shell">
-        <div className="loading-screen" style={{ textAlign: 'center', padding: '60px' }}>
+        <div className="loading-screen">
           <Flag size={32} />
           <p>Ładowanie systemu PFFG...</p>
         </div>
@@ -66,7 +66,7 @@ function App() {
   if (error || !store) {
     return (
       <div className="app-shell">
-        <div className="loading-screen" style={{ textAlign: 'center', padding: '60px' }}>
+        <div className="loading-screen">
           <p className="error-text">{error ?? 'Nie udało się załadować danych.'}</p>
         </div>
       </div>
@@ -87,10 +87,10 @@ function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar" style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0 }}>
+      <header className="topbar">
         {/* GÓRNY PASEK UTILITY */}
-        <div style={{ width: '100%', borderBottom: '1px solid #1e293b', background: '#0b1329', padding: '8px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button className="brand" onClick={() => setView('wyniki')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="topbar-utility">
+          <button className="brand" onClick={() => setView('wyniki')}>
             <span className="brand-mark">
               {logoUrl ? (
                 <img src={logoUrl} alt="PFFG" />
@@ -99,12 +99,12 @@ function App() {
               )}
             </span>
             <span style={{ textAlign: 'left' }}>
-              <b style={{ color: '#fff', fontSize: '16px', letterSpacing: '0.02em' }}>PFFG</b>
-              <small style={{ display: 'block', color: '#94a3b8', fontSize: '10px' }}>{store.tournamentName.toUpperCase()}</small>
+              <b>PFFG</b>
+              <small>{store.tournamentName.toUpperCase()}</small>
             </span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="top-actions">
             {currentUser ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <button
@@ -116,23 +116,25 @@ function App() {
                     border: '1px solid #1e40af',
                     color: '#e2e8f0',
                     borderRadius: '6px',
-                    padding: '5px 12px',
-                    fontSize: '12px',
+                    padding: '5px 10px',
+                    fontSize: '11px',
                     fontWeight: 700,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: '5px',
                     cursor: 'pointer',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                    maxWidth: '140px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {userProfile?.avatar ? (
-                    <img src={userProfile.avatar} alt="avatar" style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} />
+                    <img src={userProfile.avatar} alt="avatar" style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
                   ) : (
-                    <User size={13} className="text-sky-400" />
+                    <User size={12} className="text-sky-400" />
                   )}
                   <span>{formatShortName(userProfile?.name, currentUser.email)}</span>
-                  <Edit size={11} style={{ opacity: 0.6, marginLeft: '2px' }} />
                 </button>
 
                 <button
@@ -149,10 +151,9 @@ function App() {
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
                   }}
                 >
-                  <LogOut size={12} /> Wyloguj
+                  <LogOut size={12} />
                 </button>
               </div>
             ) : (
@@ -163,17 +164,16 @@ function App() {
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '6px',
-                  padding: '6px 14px',
-                  fontSize: '12px',
+                  padding: '5px 10px',
+                  fontSize: '11px',
                   fontWeight: 800,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 4px rgba(27,136,204,0.3)',
+                  gap: '4px',
                 }}
               >
-                <LogIn size={13} /> ZALOGUJ SIĘ
+                <LogIn size={12} /> ZALOGUJ
               </button>
             )}
 
@@ -181,16 +181,15 @@ function App() {
               className="icon-button"
               onClick={openAdmin}
               title="Panel administratora"
-              style={{ width: '32px', height: '32px', background: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              <LockKeyhole size={15} />
+              <LockKeyhole size={14} />
             </button>
           </div>
         </div>
 
-        {/* DOLNY PASEK NAWIGACJI */}
-        <div style={{ width: '100%', background: '#0f172a', padding: '6px 20px', display: 'flex', alignItems: 'center' }}>
-          <nav className="desktop-nav" style={{ display: 'flex', gap: '6px', width: '100%' }}>
+        {/* POZIOMO PRZEWIJANY PASEK ZAKŁADEK DLA KAŻDEGO TELEFONU */}
+        <div className="topbar-nav-bar">
+          <nav className="desktop-nav">
             <Nav
               active={view === 'wyniki'}
               icon={<Trophy size={14} />}
