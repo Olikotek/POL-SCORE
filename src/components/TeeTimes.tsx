@@ -1,6 +1,6 @@
 // src/components/TeeTimes.tsx
 import { useState, useMemo } from 'react';
-import { Clock, MapPin, Users, Flag, ChevronRight, Shield } from 'lucide-react';
+import { Clock, MapPin, Users, Flag, ChevronRight, KeyRound } from 'lucide-react';
 import type { Round, Store, Tournament, Player } from '@/types';
 import { flagEmoji, ROUNDS } from '@/types';
 import { initials } from '@/scoring';
@@ -34,7 +34,7 @@ export function TeeTimes({
   }, [store, selectedRound, activeTournament]);
 
   const formattedDate = useMemo(() => {
-    if (!activeTournament?.date) return '2026-04-25';
+    if (!activeTournament?.date) return '30.08.2026';
     const [y, m, d] = activeTournament.date.split('-');
     return `${d}.${m}.${y}`;
   }, [activeTournament?.date]);
@@ -64,7 +64,7 @@ export function TeeTimes({
             Godziny Startów (Tee Times)
           </h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-            Sprawdź skład swojego flightu, numer dołka startowego oraz godzinę rozpoczęcia gry.
+            Sprawdź skład swojego flightu, dołek startowy oraz 4-cyfrowy kod do wpisywania wyników.
           </p>
         </div>
 
@@ -101,11 +101,12 @@ export function TeeTimes({
         </div>
       </div>
 
-      {/* LISTA FLIGHTÓW (W STYLU TEE TIMES) */}
+      {/* LISTA FLIGHTÓW */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
-        {roundFlights.map((flight) => {
+        {roundFlights.map((flight, fIdx) => {
           const members = activePlayers.filter((p) => p.flightId[selectedRound] === flight.id);
           const teeTimeDisplay = flight.teeTime || '10:00';
+          const flightBadgeNum = String(fIdx + 1).padStart(2, '0');
 
           return (
             <div
@@ -127,29 +128,59 @@ export function TeeTimes({
                   borderBottom: '2px solid #e2e8f0',
                   padding: '12px 16px',
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  gap: '8px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
-                    {formattedDate}
-                  </span>
-                  <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
-                    {teeTimeDisplay}
-                  </span>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>
-                    Runda: <b>{selectedRound}</b>,
-                  </span>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-                    {currentCourseName} #{flight.startHole || 1}
+                {/* Górny wiersz nagłówka: Data, Godzina, Runda, Numer Flightu */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                      {formattedDate}
+                    </span>
+                    <span style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a' }}>
+                      {teeTimeDisplay}
+                    </span>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>
+                      Runda: <b>{selectedRound}</b>,
+                    </span>
+                  </div>
+
+                  <span style={{ fontSize: '11px', fontWeight: 900, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '5px', border: '1px solid #bae6fd' }}>
+                    {flight.name || flightBadgeNum}
                   </span>
                 </div>
 
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '5px', border: '1px solid #bae6fd' }}>
-                    {flight.name}
-                  </span>
+                {/* Dolny wiersz nagłówka: Pole, Dołek Startowy (Shotgun), Kod Flightu */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <b style={{ fontSize: '14px', color: '#0f172a' }}>
+                      {currentCourseName}
+                    </b>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#0284c7', color: '#ffffff', padding: '2px 7px', borderRadius: '4px', fontSize: '11px', fontWeight: 900 }}>
+                      <MapPin size={11} /> Dołek #{flight.startHole || 1}
+                    </span>
+                  </div>
+
+                  {/* KOD DO WPISYWANIA WYNIKÓW */}
+                  <div
+                    title="4-cyfrowy kod do logowania do elektronicznej karty wyników"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: '#fef3c7',
+                      color: '#92400e',
+                      border: '1px solid #fde68a',
+                      padding: '2px 8px',
+                      borderRadius: '5px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                    }}
+                  >
+                    <KeyRound size={11} />
+                    <span>KOD: <strong>{flight.code}</strong></span>
+                  </div>
                 </div>
               </div>
 
