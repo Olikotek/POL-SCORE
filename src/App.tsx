@@ -1,11 +1,12 @@
 // src/App.tsx
 import { useState } from 'react';
-import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, CreditCard as Edit } from 'lucide-react';
+import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, CreditCard as Edit, Clock } from 'lucide-react';
 import type { Flight, View, Tournament } from '@/types';
 import { useStore } from '@/useStore';
 import { combinedRelative } from '@/scoring';
 import { supabase } from '@/lib/supabase';
 import { Leaderboard } from '@/components/Leaderboard';
+import { TeeTimes } from '@/components/TeeTimes';
 import { LeagueStandings } from '@/components/LeagueStandings';
 import { Archive } from '@/components/Archive';
 import { TournamentsView } from '@/components/TournamentsView';
@@ -17,7 +18,7 @@ import { AuthModal } from '@/components/AuthModal';
 
 function App() {
   const { store, tournaments, activeTournament, setActiveTournamentId, leaguePoints, registrations, logoUrl, currentUser, userProfile, loading, error, refresh } = useStore();
-  const [view, setView] = useState<View | 'standings' | 'archive' | 'tournaments'>('wyniki');
+  const [view, setView] = useState<View | 'standings' | 'archive' | 'tournaments' | 'teetimes'>('wyniki');
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [flight, setFlight] = useState<Flight | null>(null);
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
@@ -197,6 +198,12 @@ function App() {
               onClick={() => setView('wyniki')}
             />
             <Nav
+              active={view === 'teetimes'}
+              icon={<Clock size={14} />}
+              label="Godziny Startów"
+              onClick={() => setView('teetimes')}
+            />
+            <Nav
               active={view === 'standings'}
               icon={<Award size={14} />}
               label="Ranking Ligi 2026"
@@ -224,6 +231,13 @@ function App() {
             store={store}
             onEnter={() => setView('karta')}
             onOpenPlayer={setModalPlayerId}
+          />
+        )}
+        {view === 'teetimes' && (
+          <TeeTimes
+            store={store}
+            activeTournament={activeTournament}
+            onOpenPlayer={(id) => setModalPlayerId(id)}
           />
         )}
         {view === 'standings' && (

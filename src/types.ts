@@ -1,5 +1,5 @@
 // src/types.ts
-export type View = 'wyniki' | 'admin' | 'karta';
+export type View = 'wyniki' | 'teetimes' | 'admin' | 'karta';
 export type Category = 'Men' | 'Women' | 'Senior' | 'Junior' | 'Senior+';
 export const CATEGORIES: Category[] = ['Men', 'Women', 'Senior', 'Junior', 'Senior+'];
 
@@ -67,6 +67,7 @@ export type Flight = {
   round: Round;
   playerIds: string[];
   startHole: number;
+  teeTime?: string;
 };
 
 export type Tournament = {
