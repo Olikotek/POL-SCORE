@@ -136,7 +136,16 @@ export function LeagueStandings({
     if (dbPlayers.length === 0 || leagueTournaments.length === 0) return [];
 
     const relevantPlayers = isGeneralView
-      ? dbPlayers
+      ? dbPlayers.filter((p) => {
+          // Ukrywamy zdublowany profil z samym Polish Open w widoku Absolut
+          if (p.name.includes('Wiktor Sokołowski') && (p.category === 'Junior' || p.name.includes('\u200B'))) {
+            const hasMainWiktor = dbPlayers.some(
+              (o) => o.name.includes('Wiktor Sokołowski') && o.category !== 'Junior' && !o.name.includes('\u200B')
+            );
+            if (hasMainWiktor) return false;
+          }
+          return true;
+        })
       : dbPlayers.filter((p) => p.category === categoryFilter);
 
     const playerMap: Record<string, {
@@ -265,7 +274,7 @@ export function LeagueStandings({
       });
     });
 
-    // Wstrzyknięcie punktów za Polish Open dla Wiktora Sokołowskiego w widoku Absolut
+    // Dopasowanie 37 pkt (m.13) w Polish Open do głównego profilu Wiktora w widoku Absolut
     const poTournament = leagueTournaments.find((t) => t.isPolishOpen);
     if (poTournament && isGeneralView) {
       const poIdStr = String(poTournament.id);
