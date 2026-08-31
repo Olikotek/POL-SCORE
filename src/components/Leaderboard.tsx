@@ -388,34 +388,6 @@ export function Leaderboard({
           </div>
         </div>
 
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={async () => {
-              setIsRefreshing(true);
-              await onRefresh();
-              setTimeout(() => setIsRefreshing(false), 400);
-            }}
-            title="Odśwież wyniki"
-            style={{
-              background: '#f8fafc',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              padding: '7px 12px',
-              fontSize: '12px',
-              fontWeight: 700,
-              color: '#475569',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-            Odśwież
-          </button>
-        )}
-
         <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
           Zawodników: <b>{sorted.length}</b>
         </span>
