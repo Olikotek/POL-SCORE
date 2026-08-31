@@ -134,14 +134,88 @@ export function Leaderboard({
   }, [sorted, ranks, filter, store.tournamentName]);
 
   return (
-    <section style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
+    <section className="leaderboard-container">
+      {/* CSS ZARZĄDZAJĄCY RESPONSYWNOŚCIĄ LAPTOP VS TELEFON */}
+      <style>{`
+        .leaderboard-container {
+          background: #ffffff;
+          border-radius: 12px;
+          padding: 24px;
+          border: 1px solid #cbd5e1;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        .leaderboard-table-wrap {
+          overflow-x: auto;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          width: 100%;
+        }
+        .desktop-only-col {
+          display: table-cell;
+        }
+        .mobile-only-col {
+          display: none;
+        }
+        .player-name-desktop {
+          display: inline;
+        }
+        .player-name-mobile {
+          display: none;
+        }
+        .player-subline-mobile {
+          display: none;
+        }
+        .player-club-desktop {
+          display: inline;
+        }
+
+        @media (max-width: 640px) {
+          .leaderboard-container {
+            padding: 14px 6px;
+            border-radius: 8px;
+            margin: 0 -4px;
+          }
+          .leaderboard-table-wrap {
+            border-radius: 6px;
+            border-left: none;
+            border-right: none;
+          }
+          .desktop-only-col {
+            display: none !important;
+          }
+          .mobile-only-col {
+            display: table-cell !important;
+          }
+          .player-name-desktop {
+            display: none !important;
+          }
+          .player-name-mobile {
+            display: inline !important;
+            font-size: 13px !important;
+            font-weight: 800 !important;
+          }
+          .player-subline-mobile {
+            display: block !important;
+            font-size: 10px !important;
+            color: #64748b !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 140px !important;
+          }
+          .player-club-desktop {
+            display: none !important;
+          }
+        }
+      `}</style>
+
       {/* NAGŁÓWEK */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '18px' }}>
         <div>
           <p style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: '#1b88cc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {store.tournamentName}
           </p>
-          <h1 style={{ margin: '4px 0 0 0', fontSize: '26px', fontWeight: 900, color: '#0f172a' }}>
+          <h1 style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: 900, color: '#0f172a' }}>
             Tabela na żywo
           </h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
@@ -244,58 +318,65 @@ export function Leaderboard({
               </div>
             )}
           </div>
-
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={async () => {
-                setIsRefreshing(true);
-                await onRefresh();
-                setTimeout(() => setIsRefreshing(false), 400);
-              }}
-              title="Odśwież wyniki"
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '7px 12px',
-                fontSize: '12px',
-                fontWeight: 700,
-                color: '#475569',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-              Odśwież
-            </button>
-          )}
         </div>
+
+        {onRefresh && (
+          <button
+            type="button"
+            onClick={async () => {
+              setIsRefreshing(true);
+              await onRefresh();
+              setTimeout(() => setIsRefreshing(false), 400);
+            }}
+            title="Odśwież wyniki"
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#475569',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+            Odśwież
+          </button>
+        )}
 
         <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
           Zawodników: <b>{sorted.length}</b>
         </span>
       </div>
 
-      {/* TABELA LIVE */}
-      <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+      {/* TABELA LIVE (RESPONSYWNA: LAPTOP & SMARTFON) */}
+      <div className="leaderboard-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <th style={{ padding: '12px 10px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POZ</th>
-              <th style={{ padding: '12px 8px', width: '56px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>+/-</th>
-              <th style={{ padding: '12px 8px', width: '54px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
-              <th style={{ padding: '12px 14px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-              <th style={{ padding: '12px 10px', width: '75px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>WYNIK</th>
-              <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
-              <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
+              <th style={{ padding: '12px 6px', width: '48px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POS</th>
+              <th className="desktop-only-col" style={{ padding: '12px 8px', width: '56px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>+/-</th>
+              <th style={{ padding: '12px 6px', width: '46px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
+              <th style={{ padding: '12px 10px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+              <th style={{ padding: '12px 6px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>TOT</th>
+              <th style={{ padding: '12px 6px', width: '52px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+              
+              {/* NA TELEFONIE: POKAZUJE TYLKO AKTUALNIE ROZGRYWANĄ RUNDĘ (R1 LUB R2) */}
+              <th className="mobile-only-col" style={{ padding: '12px 6px', width: '52px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                {store.round2Started ? 'R2' : 'R1'}
+              </th>
+
+              {/* NA LAPTOPIE: PEŁNY ZESTAW RUND I UDERZEŃ */}
+              <th className="desktop-only-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
               {store.round2Started && (
-                <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R2</th>
+                <th className="desktop-only-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R2</th>
               )}
-              <th style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
-              <th style={{ padding: '12px 8px', width: '36px', textAlign: 'center' }}></th>
+              <th className="desktop-only-col" style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+              <th style={{ padding: '12px 4px', width: '28px', textAlign: 'center' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -312,6 +393,15 @@ export function Leaderboard({
               const delta = positionDeltas.get(player.id) ?? { type: 'same', diff: 0 };
               const isEven = index % 2 === 0;
 
+              // Skrót imienia i nazwisko na telefon (np. Aleksander Bielawa -> A. Bielawa)
+              const formatShortPlayerName = (fullName: string) => {
+                const parts = fullName.trim().split(/\s+/);
+                if (parts.length >= 2) {
+                  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+                }
+                return fullName;
+              };
+
               return (
                 <tr
                   key={player.id}
@@ -326,12 +416,12 @@ export function Leaderboard({
                   onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                 >
                   {/* POZYCJA */}
-                  <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 800, fontSize: '13px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 800, fontSize: '13px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     {display}
                   </td>
 
-                  {/* ZMIANA POZYCJI (+/-) */}
-                  <td style={{ padding: '10px 6px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                  {/* ZMIANA POZYCJI (+/-) NA LAPTOP */}
+                  <td className="desktop-only-col" style={{ padding: '10px 6px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                       {delta.type === 'up' ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#16a34a', fontWeight: 800, fontSize: '12px' }}>
@@ -350,27 +440,26 @@ export function Leaderboard({
                   </td>
 
                   {/* FLAGA */}
-                  <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 4px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                       {player.flagImage ? (
-                        <img src={player.flagImage} alt={player.flag} style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
+                        <img src={player.flagImage} alt={player.flag} style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
                       ) : (
-                        <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 3px', fontSize: '13px', lineHeight: 1, display: 'inline-block' }}>{flagEmoji(player.flag)}</span>
+                        <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 2px', fontSize: '12px', lineHeight: 1, display: 'inline-block' }}>{flagEmoji(player.flag)}</span>
                       )}
                     </div>
                   </td>
 
                   {/* ZAWODNIK + AVATAR + KLUB */}
-                  <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
-                      {/* ZDJĘCIE PROFILOWE */}
+                  <td style={{ padding: '8px 8px', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {player.avatar ? (
                         <img
                           src={player.avatar}
                           alt={player.name}
                           style={{
-                            width: '28px',
-                            height: '28px',
+                            width: '26px',
+                            height: '26px',
                             borderRadius: '50%',
                             objectFit: 'cover',
                             border: '1px solid #cbd5e1',
@@ -380,14 +469,14 @@ export function Leaderboard({
                       ) : (
                         <span
                           style={{
-                            width: '28px',
-                            height: '28px',
+                            width: '26px',
+                            height: '26px',
                             borderRadius: '50%',
                             background: '#e2e8f0',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '11px',
+                            fontSize: '10px',
                             fontWeight: 800,
                             color: '#475569',
                             flexShrink: 0,
@@ -397,33 +486,46 @@ export function Leaderboard({
                         </span>
                       )}
 
-                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                        {player.name}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap' }}>
+                          <span className="player-name-desktop" style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                            {player.name}
+                          </span>
 
-                      {player.isAmateur && (
-                        <span style={{ fontSize: '9px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 5px', borderRadius: '3px' }}>
-                          AM
-                        </span>
-                      )}
+                          <span className="player-name-mobile" style={{ color: '#0f172a' }}>
+                            {formatShortPlayerName(player.name)}
+                          </span>
 
-                      {player.club && (
-                        <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap' }}>
-                          {player.club}
+                          {player.isAmateur && (
+                            <span style={{ fontSize: '8px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 3px', borderRadius: '3px', lineHeight: 1 }}>
+                              AM
+                            </span>
+                          )}
+
+                          {player.club && (
+                            <span className="player-club-desktop" style={{ fontSize: '11px', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap', marginLeft: '4px' }}>
+                              {player.club}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* PODPIS KLUBU POD NAZWISKIEM NA SMARTFONIE */}
+                        <span className="player-subline-mobile">
+                          {player.club || 'Bez klubu'} · {player.category}
                         </span>
-                      )}
+                      </div>
                     </div>
                   </td>
 
-                  {/* WYNIK DO PAR */}
-                  <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
+                  {/* WYNIK CAŁKOWITY (TOT) */}
+                  <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                       {total < 0 ? (
-                        <span style={{ color: '#dc2626', background: '#fee2e2', padding: '3px 7px', borderRadius: '4px' }}>
+                        <span style={{ color: '#dc2626', background: '#fee2e2', padding: '2px 5px', borderRadius: '4px', fontSize: '12px' }}>
                           {relativeLabel(total)}
                         </span>
                       ) : (
-                        <span style={{ color: '#0f172a' }}>
+                        <span style={{ color: '#0f172a', fontSize: '12px' }}>
                           {total === 0 ? 'E' : relativeLabel(total)}
                         </span>
                       )}
@@ -431,39 +533,38 @@ export function Leaderboard({
                   </td>
 
                   {/* DOŁKI (THRU) */}
-                  <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                      {thru}
-                    </div>
+                  <td style={{ padding: '8px 4px', textAlign: 'center', color: '#475569', fontWeight: 700, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
+                    {thru}
                   </td>
 
-                  {/* RUNDA 1 */}
-                  <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                      {totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
-                    </div>
+                  {/* RUNDA NA TELEFONIE (DYNAMICZNA: R1 LUB R2) */}
+                  <td className="mobile-only-col" style={{ padding: '8px 4px', textAlign: 'center', color: '#475569', fontWeight: 800, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
+                    {store.round2Started
+                      ? (totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–')
+                      : (totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–')}
                   </td>
 
-                  {/* RUNDA 2 */}
+                  {/* RUNDA 1 NA LAPTOPIE */}
+                  <td className="desktop-only-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                    {totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
+                  </td>
+
+                  {/* RUNDA 2 NA LAPTOPIE */}
                   {store.round2Started && (
-                    <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                        {totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
-                      </div>
+                    <td className="desktop-only-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                      {totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
                     </td>
                   )}
 
-                  {/* UDERZENIA */}
-                  <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                      {strokes || '–'}
-                    </div>
+                  {/* UDERZENIA NA LAPTOPIE */}
+                  <td className="desktop-only-col" style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                    {strokes || '–'}
                   </td>
 
                   {/* STRZAŁKA */}
-                  <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
+                  <td style={{ padding: '8px 2px', textAlign: 'center', color: '#94a3b8' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                      <ChevronRight size={15} />
+                      <ChevronRight size={14} />
                     </div>
                   </td>
                 </tr>
