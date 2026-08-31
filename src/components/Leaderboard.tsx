@@ -135,7 +135,7 @@ export function Leaderboard({
 
   return (
     <section className="leaderboard-container">
-      {/* CSS DEDYKOWANY POD SZTYWNĄ TABELĘ MOBILNĄ */}
+      {/* CSS DEDYKOWANY POD TABELĘ RESPANSYWNĄ */}
       <style>{`
         .leaderboard-container {
           background: #ffffff;
@@ -166,6 +166,12 @@ export function Leaderboard({
           display: inline;
         }
         .header-country-mobile {
+          display: none;
+        }
+        .header-tot-desktop {
+          display: inline;
+        }
+        .header-tot-mobile {
           display: none;
         }
         .player-name-desktop {
@@ -209,8 +215,14 @@ export function Leaderboard({
           }
           .header-country-mobile {
             display: inline !important;
-            font-size: 9px !important;
-            letter-spacing: 0.02em !important;
+            font-size: 11px !important;
+            font-weight: 900 !important;
+          }
+          .header-tot-desktop {
+            display: none !important;
+          }
+          .header-tot-mobile {
+            display: inline !important;
           }
           .player-name-desktop {
             display: none !important;
@@ -388,15 +400,18 @@ export function Leaderboard({
         <table className="leaderboard-main-table">
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <th style={{ padding: '10px 4px', width: '36px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POS</th>
-              <th className="desktop-only-col" style={{ padding: '12px 8px', width: '56px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>+/-</th>
-              <th style={{ padding: '10px 2px', width: '28px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+              <th style={{ padding: '12px 6px', width: '48px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POS</th>
+              <th className="desktop-only-col" style={{ padding: '12px 6px', width: '48px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>+/-</th>
+              <th style={{ padding: '12px 4px', width: '36px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                 <span className="header-country-desktop">KRAJ</span>
                 <span className="header-country-mobile">NAT</span>
               </th>
-              <th style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-              <th style={{ padding: '10px 4px', width: '44px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>TOT</th>
-              <th style={{ padding: '10px 4px', width: '40px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+              <th style={{ padding: '12px 10px', textAlign: 'left', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+              <th style={{ padding: '12px 6px', width: '70px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                <span className="header-tot-desktop">SUMA</span>
+                <span className="header-tot-mobile">TOT</span>
+              </th>
+              <th style={{ padding: '12px 6px', width: '70px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
               
               {/* NA TELEFONIE: POKAZUJE TYLKO AKTUALNIE ROZGRYWANĄ RUNDĘ (R1 LUB R2) */}
               <th className="mobile-only-col" style={{ padding: '10px 4px', width: '42px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
@@ -404,14 +419,14 @@ export function Leaderboard({
               </th>
 
               {/* NA LAPTOPIE: PEŁNY ZESTAW RUND I UDERZEŃ */}
-              <th className="desktop-only-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
+              <th className="desktop-only-col" style={{ padding: '12px 8px', width: '65px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
               {store.round2Started && (
-                <th className="desktop-only-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R2</th>
+                <th className="desktop-only-col" style={{ padding: '12px 8px', width: '65px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R2</th>
               )}
-              <th className="desktop-only-col" style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+              <th className="desktop-only-col" style={{ padding: '12px 8px', width: '95px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
               
               {/* STRZAŁKA TYLKO NA DESKTOP */}
-              <th className="desktop-only-col" style={{ padding: '12px 4px', width: '28px', textAlign: 'center' }}></th>
+              <th className="desktop-only-col" style={{ padding: '12px 4px', width: '32px', textAlign: 'center' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -552,7 +567,7 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* WYNIK CAŁKOWITY (TOT) */}
+                  {/* WYNIK CAŁKOWITY (SUMA / TOT) */}
                   <td style={{ padding: '8px 2px', textAlign: 'center', fontWeight: 900, borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                       {total < 0 ? (
@@ -569,7 +584,9 @@ export function Leaderboard({
 
                   {/* DOŁKI (THRU) */}
                   <td style={{ padding: '8px 2px', textAlign: 'center', color: '#475569', fontWeight: 700, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
-                    {thru}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      {thru}
+                    </div>
                   </td>
 
                   {/* RUNDA NA TELEFONIE (DYNAMICZNA: R1 LUB R2) */}
@@ -597,7 +614,7 @@ export function Leaderboard({
                   )}
 
                   {/* UDERZENIA NA LAPTOPIE */}
-                  <td className="desktop-only-col" style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col" style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     {strokes || '–'}
                   </td>
 
