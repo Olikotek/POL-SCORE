@@ -49,7 +49,7 @@ const ALL_STATS: StatCategory[] = [...TOTAL_CARDS, ...PAR_CARDS, ...PERF_CARDS].
 
 function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: number; size?: 'sm' | 'md' }) {
   const dim = size === 'sm' ? '28px' : '40px';
-  const fontSize = size === 'sm' ? '13px' : '16px';
+  const fontSize = size === 'sm' ? '12px' : '16px';
 
   if (!value || value === 0) {
     return (
@@ -64,7 +64,7 @@ function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: nu
   if (value === 1) {
     return (
       <div style={{ position: 'relative', width: dim, height: dim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg viewBox="0 0 26 26" style={{ position: 'absolute', width: size === 'sm' ? '32px' : '44px', height: size === 'sm' ? '32px' : '44px', left: '-2px', top: '-2px' }}>
+        <svg viewBox="0 0 26 26" style={{ position: 'absolute', width: size === 'sm' ? '30px' : '44px', height: size === 'sm' ? '30px' : '44px', left: '-1px', top: '-1px' }}>
           <g transform="translate(1,1)">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#000" strokeWidth="4" strokeLinejoin="round" />
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
@@ -88,15 +88,15 @@ function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: nu
   };
 
   if (delta <= -2) {
-    style = { ...style, borderRadius: '50%', backgroundColor: '#ef4444', border: '2px solid #000', color: '#fff' };
+    style = { ...style, borderRadius: '50%', backgroundColor: '#ef4444', border: '1.5px solid #000', color: '#fff' };
   } else if (delta === -1) {
     style = { ...style, borderRadius: '50%', backgroundColor: '#fca5a5', color: '#000' };
   } else if (delta === 0) {
     style = { ...style, background: 'transparent' };
   } else if (delta === 1) {
-    style = { ...style, backgroundColor: '#e2e8f0', color: '#000', borderRadius: '6px' };
+    style = { ...style, backgroundColor: '#e2e8f0', color: '#000', borderRadius: '4px' };
   } else if (delta >= 2) {
-    style = { ...style, backgroundColor: '#94a3b8', color: '#fff', borderRadius: '6px' };
+    style = { ...style, backgroundColor: '#94a3b8', color: '#fff', borderRadius: '4px' };
   }
 
   return <div style={style}>{value}</div>;
@@ -276,16 +276,17 @@ export function PlayerModal({
           flexDirection: 'column',
           alignItems: 'center',
           gap: '2px',
-          padding: '6px 2px',
+          padding: '4px 1px',
           border: isActive ? '1px solid #0f172a' : '1px solid transparent',
           borderRadius: '6px',
           background: isActive ? '#f1f5f9' : 'transparent',
           cursor: 'pointer',
+          width: '100%',
         }}
       >
-        <small style={{ fontWeight: 800, color: '#64748b', fontSize: '11px' }}>{h.number}</small>
+        <small style={{ fontWeight: 800, color: '#64748b', fontSize: '10px' }}>{h.number}</small>
         <ScoreShape value={score} par={h.par} size="sm" />
-        <em style={{ fontSize: '11px', fontStyle: 'normal', color: '#64748b', fontWeight: 800 }}>
+        <em style={{ fontSize: '10px', fontStyle: 'normal', color: '#64748b', fontWeight: 800 }}>
           {score > 0 ? relativeLabel(score - h.par) : '–'}
         </em>
       </button>
@@ -312,52 +313,96 @@ export function PlayerModal({
 
   return (
     <>
-      <div className="modal-overlay" onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <div className="modal-overlay player-modal-overlay" onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
+        <style>{`
+          .player-modal-overlay {
+            overflow-x: hidden;
+          }
+          .player-modal-panel {
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 92vh;
+            width: 100%;
+            max-width: 740px;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+          }
+
+          @media (max-width: 640px) {
+            .player-modal-overlay {
+              padding: 6px !important;
+            }
+            .player-modal-panel {
+              max-height: 96vh !important;
+              border-radius: 10px !important;
+            }
+            .player-modal-header {
+              padding: 12px 10px !important;
+            }
+            .player-modal-body {
+              padding: 12px 8px !important;
+            }
+            .player-nav-tabs button {
+              padding: 4px 8px !important;
+              font-size: 11px !important;
+            }
+            .modal-hole-grid {
+              gap: 1px !important;
+              padding: 6px 2px !important;
+            }
+            .modal-summary-line {
+              padding: 8px 10px !important;
+              font-size: 11px !important;
+            }
+            .hole-inspection-body {
+              grid-template-columns: 1fr !important;
+              gap: 10px !important;
+            }
+            .hole-distribution {
+              border-left: none !important;
+              border-top: 1px solid #e2e8f0 !important;
+              padding-left: 0 !important;
+              padding-top: 10px !important;
+            }
+          }
+        `}</style>
+
         <div
-          className="modal-panel"
+          className="modal-panel player-modal-panel"
           onClick={(e) => e.stopPropagation()}
-          style={{
-            borderRadius: '14px',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '92vh',
-            width: '100%',
-            maxWidth: '740px',
-            background: '#ffffff',
-            border: '1px solid #cbd5e1',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          }}
         >
           {/* HEADER ZAWODNIKA */}
-          <div style={{ padding: '18px 22px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="player-modal-header" style={{ padding: '18px 22px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                 {player.avatar ? (
-                  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setShowPhotoLightbox(true)} title="Powiększ zdjęcie">
-                    <img src={player.avatar} alt={player.name} style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }} />
-                    <div style={{ position: 'absolute', bottom: '0', right: '0', background: '#0f172a', color: '#fff', borderRadius: '50%', padding: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} onClick={() => setShowPhotoLightbox(true)} title="Powiększ zdjęcie">
+                    <img src={player.avatar} alt={player.name} style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }} />
+                    <div style={{ position: 'absolute', bottom: '0', right: '0', background: '#0f172a', color: '#fff', borderRadius: '50%', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <ZoomIn size={10} />
                     </div>
                   </div>
                 ) : (
-                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '18px', color: '#64748b' }}>
+                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '16px', color: '#64748b', flexShrink: 0 }}>
                     {player.name.slice(0, 2).toUpperCase()}
                   </div>
                 )}
 
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', overflow: 'hidden' }}>
                     {player.flagImage ? (
-                      <img src={player.flagImage} alt={player.flag} style={{ width: '20px', height: '14px', borderRadius: '2px', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                      <img src={player.flagImage} alt={player.flag} style={{ width: '18px', height: '12px', borderRadius: '2px', objectFit: 'cover', border: '1px solid #cbd5e1', flexShrink: 0 }} />
                     ) : (
-                      <span className="flag-emoji" style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 3px', lineHeight: 1, fontSize: '13px' }}>{flagEmoji(player.flag)}</span>
+                      <span className="flag-emoji" style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 2px', lineHeight: 1, fontSize: '11px', flexShrink: 0 }}>{flagEmoji(player.flag)}</span>
                     )}
-                    <h1 style={{ fontSize: '22px', fontWeight: 900, margin: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.02em' }}>
+                    <h1 style={{ fontSize: '17px', fontWeight: 900, margin: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {player.name}
                     </h1>
                     {player.isAmateur && (
-                      <span style={{ fontSize: '10px', background: '#7ea128', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                      <span style={{ fontSize: '9px', background: '#7ea128', color: '#fff', padding: '1px 4px', borderRadius: '3px', fontWeight: 800, flexShrink: 0 }}>
                         AM
                       </span>
                     )}
@@ -371,34 +416,35 @@ export function PlayerModal({
                         color: activeView !== 'scorecard' ? '#ffffff' : '#64748b',
                         border: '1px solid #cbd5e1',
                         borderRadius: '6px',
-                        padding: '4px 6px',
+                        padding: '3px 5px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginLeft: '4px',
+                        marginLeft: 'auto',
+                        flexShrink: 0,
                       }}
                     >
-                      <Menu size={15} />
+                      <Menu size={14} />
                     </button>
                   </div>
 
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, marginTop: '4px', display: 'flex', gap: '14px' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginTop: '2px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <span>Wiek: <b>{playerAge}</b></span>
                     <span>Miejscowość: <b>{player.city ? `${player.city}, ${player.flag}` : player.flag}</b></span>
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ display: 'flex', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '30px', padding: '3px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="player-nav-tabs" style={{ display: 'flex', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '30px', padding: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                   <button
                     onClick={() => setActiveView('personal')}
                     style={{
-                      padding: '4px 14px',
+                      padding: '4px 10px',
                       borderRadius: '20px',
                       border: 'none',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       background: activeView === 'personal' ? '#0284c7' : 'transparent',
@@ -410,10 +456,10 @@ export function PlayerModal({
                   <button
                     onClick={() => setActiveView('tournaments')}
                     style={{
-                      padding: '4px 14px',
+                      padding: '4px 10px',
                       borderRadius: '20px',
                       border: 'none',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       background: activeView === 'tournaments' ? '#0284c7' : 'transparent',
@@ -425,10 +471,10 @@ export function PlayerModal({
                   <button
                     onClick={() => setActiveView('rankings')}
                     style={{
-                      padding: '4px 14px',
+                      padding: '4px 10px',
                       borderRadius: '20px',
                       border: 'none',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       background: activeView === 'rankings' ? '#0284c7' : 'transparent',
@@ -441,10 +487,10 @@ export function PlayerModal({
                     <button
                       onClick={() => setActiveView('scorecard')}
                       style={{
-                        padding: '4px 14px',
+                        padding: '4px 10px',
                         borderRadius: '20px',
                         border: 'none',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: 700,
                         cursor: 'pointer',
                         background: activeView === 'scorecard' ? '#0284c7' : 'transparent',
@@ -456,69 +502,69 @@ export function PlayerModal({
                   )}
                 </div>
 
-                <button className="modal-close" onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <X size={17} />
+                <button className="modal-close" onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                  <X size={15} />
                 </button>
               </div>
             </div>
           </div>
 
           {/* GŁÓWNA ZAWARTOŚĆ OKNA */}
-          <div style={{ padding: '20px', overflowY: 'auto', flex: 1, background: '#fcfdfd' }}>
+          <div className="player-modal-body" style={{ padding: '16px 20px', overflowY: 'auto', overflowX: 'hidden', flex: 1, background: '#fcfdfd' }}>
             {/* ZAKŁADKA 1: PROFIL */}
             {activeView === 'personal' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     DANE ZAWODNIKA
                   </h3>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
-                    <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>WIEK</small>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{playerAge}</div>
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                    <small style={{ fontSize: '10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>WIEK</small>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{playerAge}</div>
                   </div>
 
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
-                    <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>MIEJSCOWOŚĆ / KRAJ</small>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                    <small style={{ fontSize: '10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>MIEJSCOWOŚĆ / KRAJ</small>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
                       {player.city ? `${player.city}, ${player.flag}` : player.flag}
                     </div>
                   </div>
 
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
-                    <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>KLUB FOOTGOLFA</small>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                    <small style={{ fontSize: '10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>KLUB FOOTGOLFA</small>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
                       {player.club ?? 'Brak'}
                     </div>
                   </div>
 
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
-                    <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>MODEL PIŁKI MECZOWEJ</small>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#0284c7', marginTop: '2px' }}>
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                    <small style={{ fontSize: '10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>MODEL PIŁKI MECZOWEJ</small>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0284c7', marginTop: '2px' }}>
                       {player.ballModel || (player as any).ball_model || 'Nie podano'}
                     </div>
                   </div>
 
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <div>
-                      <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>LEPSZA NOGA</small>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                      <small style={{ fontSize: '10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>LEPSZA NOGA</small>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
                         {player.preferredFoot === 'Left' ? 'Lewa' : player.preferredFoot === 'Right' ? 'Prawa' : 'Prawa'}
                       </div>
                     </div>
                     <div>
-                      <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>PŁEĆ</small>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                      <small style={{ fontSize: '10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>PŁEĆ</small>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
                         {player.gender === 'Female' ? 'Kobieta' : 'Mężczyzna'}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ padding: '14px 18px' }}>
-                    <small style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>STATUS LICENCJI</small>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: player.isAmateur ? '#7ea128' : '#0284c7', marginTop: '2px' }}>
+                  <div style={{ padding: '12px 14px' }}>
+                    <small style={{ fontSize: '10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>STATUS LICENCJI</small>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: player.isAmateur ? '#7ea128' : '#0284c7', marginTop: '2px' }}>
                       {player.isAmateur ? 'Amator (AM)' : 'PRO / Zawodnik Licencjonowany'}
                     </div>
                   </div>
@@ -528,72 +574,72 @@ export function PlayerModal({
 
             {/* ZAKŁADKA 2: RANKINGI */}
             {activeView === 'rankings' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     OFICJALNE RANKINGI LIGI PFFG 2026
                   </h3>
                 </div>
 
                 <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
                     <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase' }}>
-                        <th style={{ padding: '10px 14px' }}>Ranking</th>
-                        <th style={{ padding: '10px 10px', textAlign: 'center' }}>Kategoria</th>
-                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Turnieje</th>
-                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>1. m.</th>
-                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>2. m.</th>
-                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>3. m.</th>
-                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>TOP 10</th>
-                        <th style={{ padding: '10px 8px', textAlign: 'center', color: '#0284c7' }}>Punkty</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right' }}>Pozycja</th>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
+                        <th style={{ padding: '8px 10px' }}>Ranking</th>
+                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>Kategoria</th>
+                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>Turnieje</th>
+                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>1. m.</th>
+                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>2. m.</th>
+                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>3. m.</th>
+                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>TOP 10</th>
+                        <th style={{ padding: '8px 6px', textAlign: 'center', color: '#0284c7' }}>Punkty</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'right' }}>Pozycja</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '12px 14px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: '12px', background: '#0b1329', color: '#ffffff', fontSize: '11px', fontWeight: 800 }}>Absolut</span>
+                        <td style={{ padding: '10px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>
+                          <span style={{ padding: '2px 6px', borderRadius: '10px', background: '#0b1329', color: '#ffffff', fontSize: '10px', fontWeight: 800 }}>Absolut</span>
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.events}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.events}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
+                        <td style={{ padding: '10px', textAlign: 'right' }}>
                           {rank === 1 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '12px', border: '1px solid #fde047' }}>1</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>1</span>
                           ) : rank === 2 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '12px', border: '1px solid #cbd5e1' }}>2</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>2</span>
                           ) : rank === 3 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '12px', border: '1px solid #fed7aa' }}>3</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>3</span>
                           ) : (
-                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
+                            <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
                           )}
                         </td>
                       </tr>
                       <tr>
-                        <td style={{ padding: '12px 14px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: '12px', background: '#0284c7', color: '#ffffff', fontSize: '11px', fontWeight: 800 }}>{player.category}</span>
+                        <td style={{ padding: '10px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>
+                          <span style={{ padding: '2px 6px', borderRadius: '10px', background: '#0284c7', color: '#ffffff', fontSize: '10px', fontWeight: 800 }}>{player.category}</span>
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.events}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.events}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
+                        <td style={{ padding: '10px 6px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
+                        <td style={{ padding: '10px', textAlign: 'right' }}>
                           {rank === 1 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '12px', border: '1px solid #fde047' }}>1</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>1</span>
                           ) : rank === 2 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '12px', border: '1px solid #cbd5e1' }}>2</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>2</span>
                           ) : rank === 3 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '12px', border: '1px solid #fed7aa' }}>3</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>3</span>
                           ) : (
-                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
+                            <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
                           )}
                         </td>
                       </tr>
@@ -605,57 +651,57 @@ export function PlayerModal({
 
             {/* ZAKŁADKA 3: TURNIEJE */}
             {activeView === 'tournaments' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     ROZEGRANE TURNIEJE 2026
                   </h3>
                 </div>
 
                 <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
                     <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase' }}>
-                        <th style={{ padding: '10px 14px' }}>Data</th>
-                        <th style={{ padding: '10px 14px' }}>Turniej</th>
-                        <th style={{ padding: '10px 14px' }}>Pole</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>Miejsce</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', color: '#0284c7' }}>Punkty</th>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
+                        <th style={{ padding: '8px 10px' }}>Data</th>
+                        <th style={{ padding: '8px 10px' }}>Turniej</th>
+                        <th style={{ padding: '8px 10px' }}>Pole</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Miejsce</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0284c7' }}>Punkty</th>
                       </tr>
                     </thead>
                     <tbody>
                       {playerHistory.list.map((t) => (
                         <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '12px 14px', color: '#64748b' }}>{t.date}</td>
-                          <td style={{ padding: '12px 14px', fontWeight: 800, color: '#0284c7' }}>{t.name}</td>
-                          <td style={{ padding: '12px 14px', color: '#475569' }}>{t.courseName}</td>
-                          <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <td style={{ padding: '10px', color: '#64748b' }}>{t.date}</td>
+                          <td style={{ padding: '10px', fontWeight: 800, color: '#0284c7' }}>{t.name}</td>
+                          <td style={{ padding: '10px', color: '#475569' }}>{t.courseName}</td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
                             {t.rank === 1 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>
                                 1
                               </span>
                             ) : t.rank === 2 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>
                                 2
                               </span>
                             ) : t.rank === 3 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>
                                 3
                               </span>
                             ) : (
-                              <span style={{ fontWeight: 800, fontSize: '13px', color: '#0f172a' }}>
+                              <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
                                 {t.rank}
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, color: '#0284c7', fontSize: '14px' }}>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 900, color: '#0284c7', fontSize: '13px' }}>
                             {t.points.toFixed(2)}
                           </td>
                         </tr>
                       ))}
                       {playerHistory.list.length === 0 && (
                         <tr>
-                          <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>
+                          <td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: '#94a3b8' }}>
                             Brak zakończonych turniejów z wynikami.
                           </td>
                         </tr>
@@ -669,44 +715,44 @@ export function PlayerModal({
             {/* ZAKŁADKA 4: KARTA WYNIKÓW I STATYSTYKI */}
             {activeView === 'scorecard' && (
               <>
-                <div className="modal-summary-bar" style={{ background: '#ffffff', padding: '14px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', border: '1px solid #e2e8f0', borderRadius: '10px', textAlign: 'center', marginBottom: '14px' }}>
+                <div className="modal-summary-bar" style={{ background: '#ffffff', padding: '12px 14px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', border: '1px solid #e2e8f0', borderRadius: '10px', textAlign: 'center', marginBottom: '12px' }}>
                   <div>
-                    <small style={{ color: '#64748b', fontWeight: '800', fontSize: '10px' }}>UDERZENIA</small>
-                    <strong style={{ fontSize: '22px', fontWeight: '900', display: 'block', color: '#0f172a' }}>{strokes || '–'}</strong>
+                    <small style={{ color: '#64748b', fontWeight: '800', fontSize: '9px' }}>UDERZENIA</small>
+                    <strong style={{ fontSize: '20px', fontWeight: '900', display: 'block', color: '#0f172a' }}>{strokes || '–'}</strong>
                   </div>
                   <div>
-                    <small style={{ color: '#64748b', fontWeight: '800', fontSize: '10px' }}>DO PAR</small>
-                    <strong style={{ fontSize: '22px', fontWeight: '900', display: 'block', color: totalRel < 0 ? '#ef4444' : '#0f172a' }}>
+                    <small style={{ color: '#64748b', fontWeight: '800', fontSize: '9px' }}>DO PAR</small>
+                    <strong style={{ fontSize: '20px', fontWeight: '900', display: 'block', color: totalRel < 0 ? '#ef4444' : '#0f172a' }}>
                       {relativeLabel(totalRel)}
                     </strong>
                   </div>
                   <div>
-                    <small style={{ color: '#64748b', fontWeight: '800', fontSize: '10px' }}>PAR POLA</small>
-                    <strong style={{ fontSize: '22px', fontWeight: '900', display: 'block', color: '#0f172a' }}>{par}</strong>
+                    <small style={{ color: '#64748b', fontWeight: '800', fontSize: '9px' }}>PAR POLA</small>
+                    <strong style={{ fontSize: '20px', fontWeight: '900', display: 'block', color: '#0f172a' }}>{par}</strong>
                   </div>
                 </div>
 
-                <div className="form-badge-bar" style={{ padding: '10px 14px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                  <small style={{ color: '#64748b', fontWeight: '800', fontSize: '10px' }}>FORMA (OSTATNIE DOŁKI)</small>
-                  <div className="form-flames" style={{ display: 'flex', gap: '6px' }}>
-                    {formEntries.length === 0 && <span className="muted">Brak wyników</span>}
+                <div className="form-badge-bar" style={{ padding: '8px 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
+                  <small style={{ color: '#64748b', fontWeight: '800', fontSize: '9px' }}>FORMA (OSTATNIE DOŁKI)</small>
+                  <div className="form-flames" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {formEntries.length === 0 && <span className="muted" style={{ fontSize: '11px', color: '#94a3b8' }}>Brak wyników</span>}
                     {formEntries.map((e, i) => (
                       <span
                         key={i}
                         className={`form-chip ${e.delta < 0 ? 'hot' : e.delta === 0 ? 'neutral' : 'cold'}`}
                         style={{
-                          padding: '3px 8px',
-                          borderRadius: '16px',
-                          fontSize: '11px',
+                          padding: '2px 6px',
+                          borderRadius: '12px',
+                          fontSize: '10px',
                           fontWeight: '700',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px',
+                          gap: '3px',
                           background: e.delta < 0 ? '#fef2f2' : e.delta === 0 ? '#f8fafc' : '#f1f5f9',
                           color: e.delta < 0 ? '#ef4444' : e.delta === 0 ? '#475569' : '#64748b',
                         }}
                       >
-                        {e.delta < 0 ? <Flame size={12} color="#ef4444" /> : null}
+                        {e.delta < 0 ? <Flame size={11} color="#ef4444" /> : null}
                         {e.delta <= -1
                           ? 'Birdie'
                           : e.delta === 0
@@ -719,26 +765,26 @@ export function PlayerModal({
                   </div>
                 </div>
 
-                <div className="modal-tabs" style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '4px', marginBottom: '14px' }}>
+                <div className="modal-tabs" style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '3px', marginBottom: '12px' }}>
                   <button
                     className={modalTab === 'rozpiska' ? 'active' : ''}
                     onClick={() => setModalTab('rozpiska')}
-                    style={{ flex: 1, padding: '8px 10px', fontWeight: '800', fontSize: '12px', border: 'none', borderRadius: '6px', background: modalTab === 'rozpiska' ? '#ffffff' : 'transparent', color: modalTab === 'rozpiska' ? '#0f172a' : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: modalTab === 'rozpiska' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none' }}
+                    style={{ flex: 1, padding: '7px 8px', fontWeight: '800', fontSize: '11px', border: 'none', borderRadius: '6px', background: modalTab === 'rozpiska' ? '#ffffff' : 'transparent', color: modalTab === 'rozpiska' ? '#0f172a' : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: modalTab === 'rozpiska' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none' }}
                   >
-                    <BarChart3 size={14} /> Rozpiska dołków
+                    <BarChart3 size={13} /> Rozpiska dołków
                   </button>
                   <button
                     className={modalTab === 'statystyki' ? 'active' : ''}
                     onClick={() => setModalTab('statystyki')}
-                    style={{ flex: 1, padding: '8px 10px', fontWeight: '800', fontSize: '12px', border: 'none', borderRadius: '6px', background: modalTab === 'statystyki' ? '#ffffff' : 'transparent', color: modalTab === 'statystyki' ? '#0f172a' : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: modalTab === 'statystyki' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none' }}
+                    style={{ flex: 1, padding: '7px 8px', fontWeight: '800', fontSize: '11px', border: 'none', borderRadius: '6px', background: modalTab === 'statystyki' ? '#ffffff' : 'transparent', color: modalTab === 'statystyki' ? '#0f172a' : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: modalTab === 'statystyki' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none' }}
                   >
-                    <TrendingDown size={14} /> Statystyki
+                    <TrendingDown size={13} /> Statystyki
                   </button>
                 </div>
 
                 {modalTab === 'rozpiska' && (
                   <div className="modal-section">
-                    <div className="round-switcher" style={{ marginBottom: '14px' }}>
+                    <div className="round-switcher" style={{ marginBottom: '10px' }}>
                       {ROUNDS.map((r) => (
                         <button
                           key={r}
@@ -754,33 +800,33 @@ export function PlayerModal({
                       ))}
                     </div>
 
-                    <p className="modal-section-title" style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '10px' }}>
-                      <Info size={13} /> Kliknij dołek, aby zobaczyć statystyki turniejowe
+                    <p className="modal-section-title" style={{ fontSize: '10px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                      <Info size={12} /> Kliknij dołek, aby zobaczyć statystyki turniejowe
                     </p>
 
-                    <div className="modal-hole-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', background: '#ffffff', padding: '8px 4px', borderRadius: '10px 10px 0 0', border: '1px solid #e2e8f0', borderBottom: 'none' }}>
+                    <div className="modal-hole-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', background: '#ffffff', padding: '6px 2px', borderRadius: '8px 8px 0 0', border: '1px solid #e2e8f0', borderBottom: 'none' }}>
                       {holes.slice(0, 9).map((h, i) => renderHoleCell(h, i))}
                     </div>
-                    <div className="modal-summary-line" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', fontSize: '12px', fontWeight: '800', color: '#ffffff', background: '#0b1329', borderRadius: '0 0 10px 10px', marginBottom: '14px' }}>
-                      <span style={{ letterSpacing: '0.06em' }}>SUMA OUT</span>
+                    <div className="modal-summary-line" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: '11px', fontWeight: '800', color: '#ffffff', background: '#0b1329', borderRadius: '0 0 8px 8px', marginBottom: '10px' }}>
+                      <span style={{ letterSpacing: '0.04em' }}>SUMA OUT</span>
                       <span style={{ color: '#38bdf8' }}>
                         {out.sum || '–'} uderzeń / Par {outPar}
                         {out.sum ? ` (${relativeLabel(out.rel)})` : ''}
                       </span>
                     </div>
 
-                    <div className="modal-hole-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', background: '#ffffff', padding: '8px 4px', borderRadius: '10px 10px 0 0', border: '1px solid #e2e8f0', borderBottom: 'none' }}>
+                    <div className="modal-hole-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', background: '#ffffff', padding: '6px 2px', borderRadius: '8px 8px 0 0', border: '1px solid #e2e8f0', borderBottom: 'none' }}>
                       {holes.slice(9, 18).map((h, i) => renderHoleCell(h, i + 9))}
                     </div>
-                    <div className="modal-summary-line" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', fontSize: '12px', fontWeight: '800', color: '#ffffff', background: '#0b1329', borderRadius: '0 0 10px 10px', marginBottom: '14px' }}>
-                      <span style={{ letterSpacing: '0.06em' }}>SUMA IN</span>
+                    <div className="modal-summary-line" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: '11px', fontWeight: '800', color: '#ffffff', background: '#0b1329', borderRadius: '0 0 8px 8px', marginBottom: '10px' }}>
+                      <span style={{ letterSpacing: '0.04em' }}>SUMA IN</span>
                       <span style={{ color: '#38bdf8' }}>
                         {inn.sum || '–'} uderzeń / Par {inPar}
                         {inn.sum ? ` (${relativeLabel(inn.rel)})` : ''}
                       </span>
                     </div>
 
-                    <div className="modal-summary-line total" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: '#1e293b', borderRadius: '8px', fontSize: '13px', fontWeight: '800', color: '#fff' }}>
+                    <div className="modal-summary-line total" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#1e293b', borderRadius: '8px', fontSize: '12px', fontWeight: '800', color: '#fff' }}>
                       <span>ŁĄCZNIE (R{roundTab})</span>
                       <span style={{ color: '#38bdf8' }}>
                         {totalStrokes(player.scores[roundTab] || []) || '–'} uderzenia / Par {par}{' '}
@@ -791,33 +837,33 @@ export function PlayerModal({
                     </div>
 
                     {inspectedStats && inspectedHoleData && (
-                      <div className="hole-inspection-panel" style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-                        <div className="hole-inspection-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                      <div className="hole-inspection-panel" style={{ marginTop: '14px', padding: '14px', borderRadius: '10px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                        <div className="hole-inspection-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <div>
-                            <p className="eyebrow" style={{ fontSize: '11px', color: '#64748b', margin: 0, fontWeight: '700' }}>
+                            <p className="eyebrow" style={{ fontSize: '10px', color: '#64748b', margin: 0, fontWeight: '700' }}>
                               DOŁEK {inspectedHoleData.number} · PAR {inspectedHoleData.par} · {inspectedHoleData.meters} M
                             </p>
-                            <h3 style={{ fontSize: '16px', margin: '2px 0 0 0', fontWeight: '800', color: '#0f172a' }}>Statystyki turniejowe dołka</h3>
+                            <h3 style={{ fontSize: '14px', margin: '2px 0 0 0', fontWeight: '800', color: '#0f172a' }}>Statystyki turniejowe dołka</h3>
                           </div>
                           <button className="modal-close sm" onClick={() => setInspectedHole(null)} style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <X size={16} />
+                            <X size={15} />
                           </button>
                         </div>
 
-                        <div className="hole-inspection-body" style={{ display: 'grid', gridTemplateColumns: '120px 140px 1fr', gap: '16px', alignItems: 'center' }}>
-                          <div className="hole-inspect-avg" style={{ textAlign: 'center', padding: '10px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                            <small style={{ color: '#64748b', fontSize: '10px', fontWeight: '800', display: 'block', marginBottom: '2px' }}>ŚREDNIA</small>
-                            <strong style={{ fontSize: '22px', fontWeight: '900', color: '#0f172a', display: 'block', lineHeight: '1.1' }}>
+                        <div className="hole-inspection-body" style={{ display: 'grid', gridTemplateColumns: '100px 120px 1fr', gap: '12px', alignItems: 'center' }}>
+                          <div className="hole-inspect-avg" style={{ textAlign: 'center', padding: '8px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                            <small style={{ color: '#64748b', fontSize: '9px', fontWeight: '800', display: 'block', marginBottom: '2px' }}>ŚREDNIA</small>
+                            <strong style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', display: 'block', lineHeight: '1.1' }}>
                               {inspectedStats.total > 0 ? inspectedStats.avg.toFixed(2) : '–'}
                             </strong>
-                            <small style={{ color: '#94a3b8', fontSize: '10px', display: 'block', marginTop: '2px' }}>wszyscy gracze</small>
+                            <small style={{ color: '#94a3b8', fontSize: '9px', display: 'block', marginTop: '2px' }}>wszyscy</small>
                           </div>
 
                           <div className="hole-par-ring" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <div
                               style={{
-                                width: '56px',
-                                height: '56px',
+                                width: '48px',
+                                height: '48px',
                                 borderRadius: '50%',
                                 background: `conic-gradient(#10b981 ${inspectedStats.parOrBetterPct}%, #e2e8f0 0)`,
                                 display: 'flex',
@@ -826,47 +872,47 @@ export function PlayerModal({
                                 position: 'relative',
                               }}
                             >
-                              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '12px', color: '#0f172a' }}>
+                              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '11px', color: '#0f172a' }}>
                                 {inspectedStats.parOrBetterPct}%
                               </div>
                             </div>
-                            <small style={{ color: '#64748b', fontSize: '10px', fontWeight: '700', marginTop: '4px' }}>PAR LUB LEPIEJ</small>
+                            <small style={{ color: '#64748b', fontSize: '9px', fontWeight: '700', marginTop: '2px' }}>PAR/LEPIEJ</small>
                           </div>
 
-                          <div className="hole-distribution" style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderLeft: '1px solid #e2e8f0', paddingLeft: '16px' }}>
-                            <small style={{ color: '#64748b', fontSize: '10px', fontWeight: '800', marginBottom: '2px' }}>ROZKŁAD WYNIKÓW</small>
+                          <div className="hole-distribution" style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
+                            <small style={{ color: '#64748b', fontSize: '9px', fontWeight: '800', marginBottom: '2px' }}>ROZKŁAD</small>
                             {inspectedStats.eagle > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
                                 <span>Eagle</span>
                                 <span>{inspectedStats.eagle}</span>
                               </div>
                             )}
                             {inspectedStats.birdie > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
                                 <span>Birdie</span>
                                 <span>{inspectedStats.birdie}</span>
                               </div>
                             )}
                             {inspectedStats.parCount > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
                                 <span>Par</span>
                                 <span>{inspectedStats.parCount}</span>
                               </div>
                             )}
                             {inspectedStats.bogey > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
                                 <span>Bogey</span>
                                 <span>{inspectedStats.bogey}</span>
                               </div>
                             )}
                             {inspectedStats.double > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
                                 <span>Double</span>
                                 <span>{inspectedStats.double}</span>
                               </div>
                             )}
                             {inspectedStats.other > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
                                 <span>Inne</span>
                                 <span>{inspectedStats.other}</span>
                               </div>
@@ -879,33 +925,33 @@ export function PlayerModal({
                 )}
 
                 {modalTab === 'statystyki' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {/* WYNIKI CAŁKOWITE */}
                     <div>
-                      <p style={{ fontSize: '12px', fontWeight: 900, color: '#475569', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <TrendingDown size={14} color="#1b88cc" /> WYNIKI CAŁKOWITE
+                      <p style={{ fontSize: '11px', fontWeight: 900, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <TrendingDown size={13} color="#1b88cc" /> WYNIKI CAŁKOWITE
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                         {TOTAL_CARDS.map(renderStatCard)}
                       </div>
                     </div>
 
                     {/* WEDŁUG PAR */}
                     <div>
-                      <p style={{ fontSize: '12px', fontWeight: 900, color: '#475569', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <Target size={14} color="#1b88cc" /> WEDŁUG PAR
+                      <p style={{ fontSize: '11px', fontWeight: 900, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <Target size={13} color="#1b88cc" /> WEDŁUG PAR
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                         {PAR_CARDS.map(renderStatCard)}
                       </div>
                     </div>
 
                     {/* SKUTECZNOŚĆ */}
                     <div>
-                      <p style={{ fontSize: '12px', fontWeight: 900, color: '#475569', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <Award size={14} color="#1b88cc" /> SKUTECZNOŚĆ
+                      <p style={{ fontSize: '11px', fontWeight: 900, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <Award size={13} color="#1b88cc" /> SKUTECZNOŚĆ
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                         {PERF_CARDS.map(renderStatCard)}
                       </div>
                     </div>
@@ -928,7 +974,7 @@ export function PlayerModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '16px',
+            padding: '12px',
             backdropFilter: 'blur(4px)',
           }}
           onClick={() => setActiveStatCategory(null)}
@@ -937,7 +983,7 @@ export function PlayerModal({
             onClick={(e) => e.stopPropagation()}
             style={{
               background: '#ffffff',
-              borderRadius: '16px',
+              borderRadius: '14px',
               width: '100%',
               maxWidth: '520px',
               maxHeight: '80vh',
@@ -947,20 +993,20 @@ export function PlayerModal({
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
             }}
           >
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <small style={{ color: '#64748b', fontSize: '11px', fontWeight: '800' }}>KLASYFIKACJA KATEGORII</small>
-                <h3 style={{ margin: '2px 0 0 0', fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>{activeStatCategory.label}</h3>
+                <small style={{ color: '#64748b', fontSize: '10px', fontWeight: '800' }}>KLASYFIKACJA KATEGORII</small>
+                <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '900', color: '#0f172a' }}>{activeStatCategory.label}</h3>
               </div>
               <button
                 onClick={() => setActiveStatCategory(null)}
-                style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div style={{ overflowY: 'auto', padding: '12px 16px', flex: 1 }}>
+            <div style={{ overflowY: 'auto', padding: '10px 14px', flex: 1 }}>
               {categoryLeaderboard.map((item, idx) => {
                 const isCurrentPlayer = item.player.id === player.id;
                 return (
@@ -970,22 +1016,22 @@ export function PlayerModal({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      marginBottom: '6px',
-                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      marginBottom: '4px',
+                      borderRadius: '8px',
                       background: isCurrentPlayer ? '#f0fdf4' : '#ffffff',
                       border: isCurrentPlayer ? '1px solid #86efac' : '1px solid #f1f5f9',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontWeight: '800', width: '24px', fontSize: '14px', color: idx < 3 ? '#10b981' : '#64748b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontWeight: '800', width: '20px', fontSize: '13px', color: idx < 3 ? '#10b981' : '#64748b' }}>
                         {idx + 1}.
                       </span>
-                      <span style={{ fontWeight: isCurrentPlayer ? '800' : '600', fontSize: '15px', color: '#0f172a' }}>
+                      <span style={{ fontWeight: isCurrentPlayer ? '800' : '600', fontSize: '14px', color: '#0f172a' }}>
                         {item.player.name}
                       </span>
                     </div>
-                    <span style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>
+                    <span style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>
                       {item.display}
                     </span>
                   </div>
@@ -1007,7 +1053,7 @@ export function PlayerModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px',
+            padding: '16px',
             backdropFilter: 'blur(5px)',
           }}
           onClick={() => setShowPhotoLightbox(false)}
@@ -1022,14 +1068,14 @@ export function PlayerModal({
               onClick={() => setShowPhotoLightbox(false)}
               style={{
                 position: 'absolute',
-                top: '-16px',
-                right: '-16px',
+                top: '-14px',
+                right: '-14px',
                 background: '#ef4444',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '50%',
-                width: '40px',
-                height: '40px',
+                width: '36px',
+                height: '36px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1037,7 +1083,7 @@ export function PlayerModal({
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
               }}
             >
-              <X size={22} />
+              <X size={20} />
             </button>
           </div>
         </div>
