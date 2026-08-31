@@ -140,11 +140,17 @@ export function PlayerModal({
 
   const holes = roundTab === 1 ? holesR1 : holesR2;
 
+  // Tylko aktywni zawodnicy bieżącego turnieju do statystyk
+  const activeTourneyPlayers = useMemo(
+    () => store.players.filter((p) => p.isActive !== false),
+    [store.players]
+  );
+
   const ranks = useMemo(() => {
     const map = new Map<StatCategory, Map<string, number>>();
-    ALL_STATS.forEach((s) => map.set(s, statRankMap(store.players, holesR1, holesR2, s, 'combined')));
+    ALL_STATS.forEach((s) => map.set(s, statRankMap(activeTourneyPlayers, holesR1, holesR2, s, 'combined')));
     return map;
-  }, [store.players, holesR1, holesR2]);
+  }, [activeTourneyPlayers, holesR1, holesR2]);
 
   const totalRel = relative(player.scores[1] || [], holesR1) + relative(player.scores[2] || [], holesR2);
   const strokes = totalStrokes(player.scores[1] || []) + totalStrokes(player.scores[2] || []);
@@ -294,12 +300,12 @@ export function PlayerModal({
   };
 
   const inspectedStats =
-    inspectedHole !== null ? holeStats(store.players, holes, roundTab, inspectedHole) : null;
+    inspectedHole !== null ? holeStats(activeTourneyPlayers, holes, roundTab, inspectedHole) : null;
   const inspectedHoleData = inspectedHole !== null ? holes[inspectedHole] : null;
 
   const categoryLeaderboard = useMemo(() => {
     if (!activeStatCategory) return [];
-    return [...store.players]
+    return [...activeTourneyPlayers]
       .map((p) => {
         const stat = combinedStat(p, holesR1, holesR2, activeStatCategory.key);
         return {
@@ -309,7 +315,7 @@ export function PlayerModal({
         };
       })
       .sort((a, b) => a.value - b.value);
-  }, [activeStatCategory, store.players, holesR1, holesR2]);
+  }, [activeStatCategory, activeTourneyPlayers, holesR1, holesR2]);
 
   return (
     <>
@@ -338,6 +344,23 @@ export function PlayerModal({
             align-items: center;
             gap: 10px;
           }
+          .modal-close-main {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #0f172a;
+            transition: all 0.15s ease;
+          }
+          .modal-close-main:hover {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+          }
 
           @media (max-width: 640px) {
             .player-modal-overlay {
@@ -359,12 +382,18 @@ export function PlayerModal({
               justify-content: space-between !important;
               width: 100% !important;
             }
+            .modal-close-main {
+              width: 40px !important;
+              height: 40px !important;
+              background: #f1f5f9 !important;
+              border: 1px solid #cbd5e1 !important;
+            }
             .player-modal-body {
               padding: 10px 6px !important;
             }
             .player-nav-tabs button {
-              padding: 3px 8px !important;
-              font-size: 10px !important;
+              padding: 4px 8px !important;
+              font-size: 11px !important;
             }
             .mobile-form-flames-bar {
               display: none !important;
@@ -450,7 +479,7 @@ export function PlayerModal({
                 </div>
               </div>
 
-              {/* SEKCJA PRZYCISKÓW / ZAKŁADEK */}
+              {/* SEKCJA PRZYCISKÓW / ZAKŁADEK I DUŻY PRZYCISK ZAMKNIĘCIA */}
               <div className="header-nav-row">
                 <div className="player-nav-tabs" style={{ display: 'flex', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '30px', padding: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                   <button
@@ -517,8 +546,8 @@ export function PlayerModal({
                   )}
                 </div>
 
-                <button className="modal-close" onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                  <X size={15} />
+                <button className="modal-close-main" onClick={onClose} title="Zamknij">
+                  <X size={22} />
                 </button>
               </div>
             </div>
