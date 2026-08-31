@@ -254,25 +254,62 @@ export function Leaderboard({
           </p>
         </div>
 
-        <button
-          onClick={onEnter}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '10px 18px',
-            fontSize: '13px',
-            fontWeight: 800,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(11, 19, 41, 0.15)',
-          }}
-        >
-          <ClipboardList size={16} /> Wprowadź wynik <ChevronRight size={15} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={async () => {
+                setIsRefreshing(true);
+                await onRefresh();
+                setTimeout(() => setIsRefreshing(false), 400);
+              }}
+              title="Odśwież wyniki"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                color: '#475569',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.05)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f1f5f9';
+                e.currentTarget.style.borderColor = '#94a3b8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#f8fafc';
+                e.currentTarget.style.borderColor = '#cbd5e1';
+              }}
+            >
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          )}
+
+          <button
+            onClick={onEnter}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 18px',
+              fontSize: '13px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(11, 19, 41, 0.15)',
+            }}
+          >
+            <ClipboardList size={16} /> Wprowadź wynik <ChevronRight size={15} />
+          </button>
+        </div>
       </div>
 
       {/* WYBÓR KATEGORII */}
