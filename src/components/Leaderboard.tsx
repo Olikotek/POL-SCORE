@@ -162,6 +162,12 @@ export function Leaderboard({
         .mobile-only-col {
           display: none;
         }
+        .header-country-desktop {
+          display: inline;
+        }
+        .header-country-mobile {
+          display: none;
+        }
         .player-name-desktop {
           display: inline;
         }
@@ -197,6 +203,14 @@ export function Leaderboard({
           }
           .mobile-only-col {
             display: table-cell !important;
+          }
+          .header-country-desktop {
+            display: none !important;
+          }
+          .header-country-mobile {
+            display: inline !important;
+            font-size: 9px !important;
+            letter-spacing: 0.02em !important;
           }
           .player-name-desktop {
             display: none !important;
@@ -376,7 +390,10 @@ export function Leaderboard({
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               <th style={{ padding: '10px 4px', width: '36px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POS</th>
               <th className="desktop-only-col" style={{ padding: '12px 8px', width: '56px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>+/-</th>
-              <th style={{ padding: '10px 2px', width: '28px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
+              <th style={{ padding: '10px 2px', width: '28px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                <span className="header-country-desktop">KRAJ</span>
+                <span className="header-country-mobile">NAT</span>
+              </th>
               <th style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
               <th style={{ padding: '10px 4px', width: '44px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>TOT</th>
               <th style={{ padding: '10px 4px', width: '40px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
@@ -529,7 +546,7 @@ export function Leaderboard({
 
                         {/* PODPIS KLUBU POD NAZWISKIEM NA SMARTFONIE */}
                         <span className="player-subline-mobile">
-                          {player.club || 'Bez klubu'} · {player.category}
+                          {player.club || 'Bez klubu'}
                         </span>
                       </div>
                     </div>
