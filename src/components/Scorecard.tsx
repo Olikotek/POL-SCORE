@@ -57,7 +57,7 @@ function formatRelativeScore(playerScores: number[], holes: Hole[]) {
 function ScoreShape({ value, par }: { value: number | null; par: number }) {
   if (!value) {
     return (
-      <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: '800', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px' }}>
+      <div className="score-shape-box" style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '800', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px' }}>
         –
       </div>
     );
@@ -67,7 +67,7 @@ function ScoreShape({ value, par }: { value: number | null; par: number }) {
 
   if (value === 1) {
     return (
-      <div style={{ position: 'relative', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="score-shape-box" style={{ position: 'relative', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <svg viewBox="0 0 26 26" style={{ position: 'absolute', width: '52px', height: '52px', left: '-2px', top: '-2px' }}>
           <g transform="translate(1,1)">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#000" strokeWidth="4" strokeLinejoin="round" />
@@ -75,13 +75,13 @@ function ScoreShape({ value, par }: { value: number | null; par: number }) {
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#000" strokeWidth="1" strokeLinejoin="round" />
           </g>
         </svg>
-        <span style={{ position: 'relative', zIndex: 1, color: '#000', fontSize: '20px', fontWeight: '900' }}>{value}</span>
+        <span style={{ position: 'relative', zIndex: 1, color: '#000', fontSize: '18px', fontWeight: '900' }}>{value}</span>
       </div>
     );
   }
 
   let style: React.CSSProperties = {
-    width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: '900', color: '#0f172a', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+    width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '900', color: '#0f172a', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
   };
 
   if (delta <= -2) {
@@ -96,7 +96,7 @@ function ScoreShape({ value, par }: { value: number | null; par: number }) {
     style = { ...style, backgroundColor: '#94a3b8', color: '#fff', borderRadius: '12px' };
   }
 
-  return <div style={style}>{value}</div>;
+  return <div className="score-shape-box" style={style}>{value}</div>;
 }
 
 export function Scorecard({
@@ -300,7 +300,117 @@ export function Scorecard({
     );
 
   return (
-    <section>
+    <section className="scorecard-wrapper">
+      <style>{`
+        .scorecard-wrapper {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+        .scorecard-player-card {
+          display: block;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          overflow: hidden;
+          padding: 16px 20px;
+          margin-bottom: 16px;
+          border-radius: 16px;
+          background: #ffffff;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+          border: 1px solid #f1f5f9;
+        }
+        .numpad-container {
+          display: flex;
+          justify-content: flex-end;
+          padding-top: 16px;
+          border-top: 1px solid #f1f5f9;
+          margin-top: 14px;
+        }
+        .numpad-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
+          width: 280px;
+        }
+
+        @media (max-width: 640px) {
+          .scorecard-wrapper {
+            padding: 0 2px;
+          }
+          .scorecard-player-card {
+            padding: 12px 10px !important;
+            margin-bottom: 10px !important;
+            border-radius: 12px !important;
+          }
+          .player-info-container {
+            gap: 8px !important;
+          }
+          .honour-badge {
+            width: 22px !important;
+            height: 22px !important;
+            font-size: 11px !important;
+            border-radius: 4px !important;
+          }
+          .player-avatar-box {
+            width: 42px !important;
+            height: 42px !important;
+          }
+          .player-avatar-box img,
+          .player-avatar-box .avatar {
+            width: 42px !important;
+            height: 42px !important;
+            font-size: 14px !important;
+          }
+          .player-flag-badge {
+            width: 16px !important;
+            height: 12px !important;
+            bottom: -1px !important;
+            right: -2px !important;
+          }
+          .player-name-text {
+            font-size: 14px !important;
+            max-width: 110px !important;
+          }
+          .player-score-rel {
+            font-size: 12px !important;
+          }
+          .btn-ctrl {
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 8px !important;
+          }
+          .score-shape-box {
+            width: 40px !important;
+            height: 40px !important;
+            font-size: 17px !important;
+            border-radius: 8px !important;
+          }
+          .score-shape-box svg {
+            width: 44px !important;
+            height: 44px !important;
+          }
+          .numpad-container {
+            justify-content: center !important;
+            padding-top: 12px !important;
+            margin-top: 10px !important;
+          }
+          .numpad-grid {
+            width: 100% !important;
+            gap: 6px !important;
+          }
+          .numpad-grid button {
+            height: 42px !important;
+            font-size: 16px !important;
+            border-radius: 8px !important;
+          }
+          .hole-dots button {
+            width: 38px !important;
+            height: 38px !important;
+            font-size: 14px !important;
+            border-radius: 8px !important;
+          }
+        }
+      `}</style>
+
       <div className="section-intro">
         <div>
           <p className="eyebrow">
@@ -335,15 +445,15 @@ export function Scorecard({
       </div>
 
       <div className="scorecard-shell" style={{ border: 'none', background: 'transparent', padding: '0', marginBottom: '24px' }}>
-        <div className="slider-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '20px 24px', borderRadius: '16px', marginBottom: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
+        <div className="slider-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '16px 20px', borderRadius: '16px', marginBottom: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
             <span style={{ color: '#64748b', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px' }}>AKTUALNY DOŁEK</span>
-            <span style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', lineHeight: '1' }}>{activeHole.number}</span>
-            <span style={{ color: '#94a3b8', fontSize: '16px', fontWeight: '600' }}>/ 18</span>
+            <span style={{ fontSize: '30px', fontWeight: '800', color: '#0f172a', lineHeight: '1' }}>{activeHole.number}</span>
+            <span style={{ color: '#94a3b8', fontSize: '15px', fontWeight: '600' }}>/ 18</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-            <span style={{ color: '#0f172a', fontSize: '18px', fontWeight: '800', lineHeight: '1' }}>PAR {activeHole.par}</span>
-            <span style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', lineHeight: '1' }}>{activeHole.meters} M</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+            <span style={{ color: '#0f172a', fontSize: '17px', fontWeight: '800', lineHeight: '1' }}>PAR {activeHole.par}</span>
+            <span style={{ color: '#64748b', fontSize: '13px', fontWeight: '600', lineHeight: '1' }}>{activeHole.meters} M</span>
           </div>
         </div>
 
@@ -378,54 +488,56 @@ export function Scorecard({
           const isExpanded = expandedPlayerId === player.id;
           
           return (
-            <div className={`entry-card ${isExpanded ? 'numpad-selected' : ''}`} key={player.id} style={{ display: 'block', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', overflow: 'hidden', padding: '16px 20px', marginBottom: '16px', borderRadius: '16px', background: '#ffffff', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)', border: '1px solid #f1f5f9' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
+            <div className={`scorecard-player-card ${isExpanded ? 'numpad-selected' : ''}`} key={player.id}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', fontSize: '14px', fontWeight: '700', flexShrink: 0, background: '#1e293b', color: '#fff', borderRadius: '6px' }}>
+                <div className="player-info-container" style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                  <div className="honour-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', fontSize: '14px', fontWeight: '700', flexShrink: 0, background: '#1e293b', color: '#fff', borderRadius: '6px' }}>
                     {honour}
                   </div>
 
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div className="player-avatar-box" style={{ position: 'relative', flexShrink: 0, width: '56px', height: '56px' }}>
                     {player.avatar ? (
                       <img
                         src={player.avatar}
                         alt={player.name}
-                        style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
                       />
                     ) : (
-                      <div className="avatar" style={{ width: '56px', height: '56px', fontSize: '18px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569' }}>
+                      <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '18px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                         {initials(player.name)}
                       </div>
                     )}
-                    <span style={{ position: 'absolute', bottom: '-2px', right: '-4px', fontSize: '18px', lineHeight: '1', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}>
+                    <span className="player-flag-badge" style={{ position: 'absolute', bottom: '-2px', right: '-4px', fontSize: '16px', lineHeight: '1', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}>
                       {player.flagImage ? (
-                        <img src={player.flagImage} alt="" style={{ width: '20px', height: '15px', borderRadius: '3px', objectFit: 'cover', border: '1px solid #fff' }} />
+                        <img src={player.flagImage} alt="" style={{ width: '20px', height: '14px', borderRadius: '2px', objectFit: 'cover', border: '1px solid #fff', display: 'block' }} />
                       ) : (
                         flagEmoji(player.flag)
                       )}
                     </span>
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0 }}>
-                    <b style={{ fontSize: '20px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#0f172a' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
+                    <b className="player-name-text" style={{ fontSize: '18px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#0f172a' }}>
                       {player.name}
                     </b>
-                    <span style={{ color: '#64748b', fontSize: '16px', fontWeight: '600', flexShrink: 0 }}>
+                    <span className="player-score-rel" style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', flexShrink: 0 }}>
                       {formatRelativeScore(playerScores, holes)}
                     </span>
                   </div>
                 </div>
 
-                <div className="entry-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <div className="entry-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                   <button 
+                    className="btn-ctrl"
                     onClick={() => changeDraft(player.id, -1)}
                     style={{ width: '48px', height: '48px', borderRadius: '12px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
                   >
-                    <Minus size={22} />
+                    <Minus size={20} />
                   </button>
                   
                   <button 
+                    className="btn-ctrl"
                     onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
                     style={{ padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px' }}
                   >
@@ -433,31 +545,32 @@ export function Scorecard({
                   </button>
 
                   <button 
+                    className="btn-ctrl"
                     onClick={() => changeDraft(player.id, 1)}
                     style={{ width: '48px', height: '48px', borderRadius: '12px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
                   >
-                    <Plus size={22} />
+                    <Plus size={20} />
                   </button>
                 </div>
               </div>
 
               {isExpanded && (
-                <div style={{ paddingTop: '20px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f1f5f9', marginTop: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', width: '280px' }}>
+                <div className="numpad-container">
+                  <div className="numpad-grid">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                       <button 
                         key={n} 
                         onClick={() => setDraftDirect(player.id, n)}
-                        style={{ height: '48px', borderRadius: '12px', background: '#1e293b', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '20px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                        style={{ height: '46px', borderRadius: '10px', background: '#1e293b', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '18px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                       >
                         {n}
                       </button>
                     ))}
                     <button 
                       onClick={() => setDraftDirect(player.id, 0)}
-                      style={{ height: '48px', borderRadius: '12px', background: '#ef4444', color: '#ffffff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
+                      style={{ height: '46px', borderRadius: '10px', background: '#ef4444', color: '#ffffff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
                     >
-                      <X size={22} />
+                      <X size={20} />
                     </button>
                   </div>
                 </div>
@@ -471,9 +584,9 @@ export function Scorecard({
         className={`bulk-save ${feedback ? 'saved' : ''}`}
         disabled={!canSave || saving}
         onClick={saveHole}
-        style={{ marginTop: '24px', padding: '18px', fontSize: '16px', fontWeight: '700', borderRadius: '14px', background: feedback ? '#10b981' : '#0f172a', color: '#fff', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        style={{ marginTop: '20px', padding: '16px', fontSize: '15px', fontWeight: '700', borderRadius: '14px', background: feedback ? '#10b981' : '#0f172a', color: '#fff', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
       >
-        {feedback ? <Check size={20} /> : <Save size={20} />}{' '}
+        {feedback ? <Check size={18} /> : <Save size={18} />}{' '}
         {feedback ? 'Zapisano! Następny dołek...' : `Zapisz wyniki dla dołka ${activeHole.number}`}
       </button>
 
