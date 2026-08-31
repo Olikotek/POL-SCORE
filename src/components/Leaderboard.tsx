@@ -156,6 +156,13 @@ export function Leaderboard({
           text-align: left;
           table-layout: auto;
         }
+        .leaderboard-main-table thead tr th {
+          color: #475569;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
         .col-pos { width: 44px; text-align: center; }
         .col-delta { width: 44px; text-align: center; }
         .col-nat { width: 36px; text-align: center; }
@@ -169,9 +176,9 @@ export function Leaderboard({
 
         .desktop-only-col { display: table-cell; }
         .mobile-only-col { display: none; }
-        .header-country-desktop { display: inline; font-size: 11px; font-weight: 900; }
+        .header-country-desktop { display: inline; }
         .header-country-mobile { display: none; }
-        .header-tot-desktop { display: inline; font-size: 11px; font-weight: 900; }
+        .header-tot-desktop { display: inline; }
         .header-tot-mobile { display: none; }
         .player-name-desktop { display: inline; font-weight: 800; font-size: 13px; color: #0f172a; white-space: nowrap; }
         .player-name-mobile { display: none; }
@@ -198,24 +205,17 @@ export function Leaderboard({
           .mobile-only-col { display: table-cell !important; }
 
           .col-pos { width: 36px !important; }
-          .col-nat { width: 32px !important; }
+          .col-nat { width: 34px !important; }
           .col-player { width: auto !important; }
           .col-sum { width: 44px !important; }
           .col-holes { width: 42px !important; }
-          .col-r-mob { width: 42px !important; }
+          .col-r-mob { width: 44px !important; text-align: center !important; }
 
           .header-country-desktop { display: none !important; }
-          .header-country-mobile {
-            display: inline !important;
-            font-size: 11px !important;
-            font-weight: 900 !important;
-          }
+          .header-country-mobile { display: inline !important; }
           .header-tot-desktop { display: none !important; }
-          .header-tot-mobile {
-            display: inline !important;
-            font-size: 11px !important;
-            font-weight: 900 !important;
-          }
+          .header-tot-mobile { display: inline !important; }
+          
           .player-name-desktop { display: none !important; }
           .player-name-mobile {
             display: inline !important;
@@ -388,7 +388,7 @@ export function Leaderboard({
       <div className="leaderboard-table-wrap">
         <table className="leaderboard-main-table">
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
               <th className="col-pos" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>POS</th>
               <th className="desktop-only-col col-delta" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>+/-</th>
               <th className="col-nat" style={{ padding: '12px 2px', borderRight: '1px solid #e2e8f0' }}>
@@ -403,7 +403,7 @@ export function Leaderboard({
               <th className="col-holes" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
               
               {/* NA TELEFONIE: R1 LUB R2 */}
-              <th className="mobile-only-col col-r-mob" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="mobile-only-col col-r-mob" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>
                 {store.round2Started ? 'R2' : 'R1'}
               </th>
 
@@ -556,14 +556,14 @@ export function Leaderboard({
                   </td>
 
                   {/* SUMA (DESKTOP) / TOT (MOBILE) */}
-                  <td className="col-sum" style={{ padding: '8px 2px', fontWeight: 900, borderRight: '1px solid #e2e8f0' }}>
+                  <td className="col-sum" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {total < 0 ? (
-                        <span style={{ color: '#dc2626', fontWeight: 900, fontSize: '13px' }}>
+                        <span style={{ color: '#dc2626', fontWeight: 800, fontSize: '13px' }}>
                           {relativeLabel(total)}
                         </span>
                       ) : (
-                        <span style={{ color: '#0f172a', fontWeight: 900, fontSize: '13px' }}>
+                        <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '13px' }}>
                           {total === 0 ? 'E' : relativeLabel(total)}
                         </span>
                       )}
@@ -577,16 +577,15 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* RUNDA MOBILE */}
-                  <td className="mobile-only-col col-r-mob" style={{ padding: '8px 2px', fontWeight: 800, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
+                  {/* RUNDA MOBILE (R1 LUB R2 - ZAWSZE KOLOR NEUTRALNY, ROZMIAR 13PX) */}
+                  <td className="mobile-only-col col-r-mob" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {(() => {
                         const activeRRel = store.round2Started ? r2Rel : r1Rel;
                         const activeStrokes = store.round2Started ? totalStrokes(player.scores[2] || []) : totalStrokes(player.scores[1] || []);
-                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1' }}>–</span>;
-                        if (activeRRel < 0) return <span style={{ color: '#dc2626' }}>{relativeLabel(activeRRel)}</span>;
-                        if (activeRRel === 0) return <span style={{ color: '#0f172a' }}>E</span>;
-                        return <span style={{ color: '#0f172a' }}>{relativeLabel(activeRRel)}</span>;
+                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 700 }}>–</span>;
+                        if (activeRRel === 0) return <span style={{ color: '#0f172a', fontSize: '13px', fontWeight: 800 }}>E</span>;
+                        return <span style={{ color: '#0f172a', fontSize: '13px', fontWeight: 800 }}>{relativeLabel(activeRRel)}</span>;
                       })()}
                     </div>
                   </td>
