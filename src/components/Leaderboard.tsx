@@ -555,7 +555,7 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* SUMA (DESKTOP) / TOT (MOBILE) */}
+                  {/* SUMA (DESKTOP) / TOT (MOBILE) - POGRUBIONE 13PX */}
                   <td className="col-sum" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {total < 0 ? (
@@ -570,28 +570,28 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* DOŁKI */}
-                  <td className="col-holes" style={{ padding: '8px 2px', color: '#475569', fontWeight: 700, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {/* DOŁKI - 13PX, NIEPOGRUBIONE */}
+                  <td className="col-holes" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 500, fontSize: '13px' }}>
                       {thru}
                     </div>
                   </td>
 
-                  {/* RUNDA MOBILE (R1 LUB R2 - ZAWSZE KOLOR NEUTRALNY, ROZMIAR 13PX) */}
+                  {/* RUNDA MOBILE (R1 LUB R2) - 13PX, NIEPOGRUBIONE */}
                   <td className="mobile-only-col col-r-mob" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {(() => {
                         const activeRRel = store.round2Started ? r2Rel : r1Rel;
                         const activeStrokes = store.round2Started ? totalStrokes(player.scores[2] || []) : totalStrokes(player.scores[1] || []);
-                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 700 }}>–</span>;
-                        if (activeRRel === 0) return <span style={{ color: '#0f172a', fontSize: '13px', fontWeight: 800 }}>E</span>;
-                        return <span style={{ color: '#0f172a', fontSize: '13px', fontWeight: 800 }}>{relativeLabel(activeRRel)}</span>;
+                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500 }}>–</span>;
+                        if (activeRRel === 0) return <span style={{ color: '#475569', fontSize: '13px', fontWeight: 500 }}>E</span>;
+                        return <span style={{ color: '#475569', fontSize: '13px', fontWeight: 500 }}>{relativeLabel(activeRRel)}</span>;
                       })()}
                     </div>
                   </td>
 
                   {/* RUNDA 1 DESKTOP */}
-                  <td className="desktop-only-col col-r1" style={{ padding: '10px 6px', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col col-r1" style={{ padding: '10px 6px', color: '#475569', fontWeight: 500, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
                     </div>
@@ -599,7 +599,7 @@ export function Leaderboard({
 
                   {/* RUNDA 2 DESKTOP */}
                   {store.round2Started && (
-                    <td className="desktop-only-col col-r2" style={{ padding: '10px 6px', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                    <td className="desktop-only-col col-r2" style={{ padding: '10px 6px', color: '#475569', fontWeight: 500, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
                       </div>
