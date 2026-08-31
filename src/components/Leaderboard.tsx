@@ -135,7 +135,7 @@ export function Leaderboard({
 
   return (
     <section className="leaderboard-container">
-      {/* CSS ZARZĄDZAJĄCY RESPONSYWNOŚCIĄ LAPTOP VS TELEFON */}
+      {/* CSS DEDYKOWANY POD SZTYWNĄ TABELĘ MOBILNĄ */}
       <style>{`
         .leaderboard-container {
           background: #ffffff;
@@ -145,10 +145,16 @@ export function Leaderboard({
           box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
         }
         .leaderboard-table-wrap {
-          overflow-x: auto;
           border: 1px solid #cbd5e1;
           border-radius: 8px;
           width: 100%;
+          overflow-x: auto;
+        }
+        .leaderboard-main-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+          text-align: left;
         }
         .desktop-only-col {
           display: table-cell;
@@ -169,9 +175,10 @@ export function Leaderboard({
           display: inline;
         }
 
+        /* DLA SMARTFONÓW: BRAK PRZEWIJANIA, SZTYWNE DOPASOWANIE */
         @media (max-width: 640px) {
           .leaderboard-container {
-            padding: 14px 6px;
+            padding: 12px 4px;
             border-radius: 8px;
             margin: 0 -4px;
           }
@@ -179,6 +186,11 @@ export function Leaderboard({
             border-radius: 6px;
             border-left: none;
             border-right: none;
+            overflow-x: hidden !important;
+          }
+          .leaderboard-main-table {
+            table-layout: fixed !important;
+            width: 100% !important;
           }
           .desktop-only-col {
             display: none !important;
@@ -193,6 +205,9 @@ export function Leaderboard({
             display: inline !important;
             font-size: 13px !important;
             font-weight: 800 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
           }
           .player-subline-mobile {
             display: block !important;
@@ -201,7 +216,8 @@ export function Leaderboard({
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            max-width: 140px !important;
+            line-height: 1.2 !important;
+            margin-top: 1px !important;
           }
           .player-club-desktop {
             display: none !important;
@@ -353,20 +369,20 @@ export function Leaderboard({
         </span>
       </div>
 
-      {/* TABELA LIVE (RESPONSYWNA: LAPTOP & SMARTFON) */}
+      {/* TABELA LIVE */}
       <div className="leaderboard-table-wrap">
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+        <table className="leaderboard-main-table">
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <th style={{ padding: '12px 6px', width: '48px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POS</th>
+              <th style={{ padding: '10px 4px', width: '36px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POS</th>
               <th className="desktop-only-col" style={{ padding: '12px 8px', width: '56px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>+/-</th>
-              <th style={{ padding: '12px 6px', width: '46px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
-              <th style={{ padding: '12px 10px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-              <th style={{ padding: '12px 6px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>TOT</th>
-              <th style={{ padding: '12px 6px', width: '52px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+              <th style={{ padding: '10px 2px', width: '28px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
+              <th style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+              <th style={{ padding: '10px 4px', width: '44px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>TOT</th>
+              <th style={{ padding: '10px 4px', width: '40px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
               
               {/* NA TELEFONIE: POKAZUJE TYLKO AKTUALNIE ROZGRYWANĄ RUNDĘ (R1 LUB R2) */}
-              <th className="mobile-only-col" style={{ padding: '12px 6px', width: '52px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+              <th className="mobile-only-col" style={{ padding: '10px 4px', width: '42px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                 {store.round2Started ? 'R2' : 'R1'}
               </th>
 
@@ -376,7 +392,9 @@ export function Leaderboard({
                 <th className="desktop-only-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R2</th>
               )}
               <th className="desktop-only-col" style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
-              <th style={{ padding: '12px 4px', width: '28px', textAlign: 'center' }}></th>
+              
+              {/* STRZAŁKA TYLKO NA DESKTOP */}
+              <th className="desktop-only-col" style={{ padding: '12px 4px', width: '28px', textAlign: 'center' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -416,7 +434,7 @@ export function Leaderboard({
                   onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                 >
                   {/* POZYCJA */}
-                  <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 800, fontSize: '13px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 2px', textAlign: 'center', fontWeight: 800, fontSize: '13px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     {display}
                   </td>
 
@@ -440,26 +458,26 @@ export function Leaderboard({
                   </td>
 
                   {/* FLAGA */}
-                  <td style={{ padding: '8px 4px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 2px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                       {player.flagImage ? (
-                        <img src={player.flagImage} alt={player.flag} style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
+                        <img src={player.flagImage} alt={player.flag} style={{ width: '18px', height: '12px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
                       ) : (
-                        <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 2px', fontSize: '12px', lineHeight: 1, display: 'inline-block' }}>{flagEmoji(player.flag)}</span>
+                        <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px', fontSize: '11px', lineHeight: 1, display: 'inline-block' }}>{flagEmoji(player.flag)}</span>
                       )}
                     </div>
                   </td>
 
                   {/* ZAWODNIK + AVATAR + KLUB */}
-                  <td style={{ padding: '8px 8px', borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {player.avatar ? (
                         <img
                           src={player.avatar}
                           alt={player.name}
                           style={{
-                            width: '26px',
-                            height: '26px',
+                            width: '24px',
+                            height: '24px',
                             borderRadius: '50%',
                             objectFit: 'cover',
                             border: '1px solid #cbd5e1',
@@ -469,14 +487,14 @@ export function Leaderboard({
                       ) : (
                         <span
                           style={{
-                            width: '26px',
-                            height: '26px',
+                            width: '24px',
+                            height: '24px',
                             borderRadius: '50%',
                             background: '#e2e8f0',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '10px',
+                            fontSize: '9px',
                             fontWeight: 800,
                             color: '#475569',
                             flexShrink: 0,
@@ -486,8 +504,8 @@ export function Leaderboard({
                         </span>
                       )}
 
-                      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexWrap: 'nowrap', overflow: 'hidden' }}>
                           <span className="player-name-desktop" style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap' }}>
                             {player.name}
                           </span>
@@ -497,7 +515,7 @@ export function Leaderboard({
                           </span>
 
                           {player.isAmateur && (
-                            <span style={{ fontSize: '8px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 3px', borderRadius: '3px', lineHeight: 1 }}>
+                            <span style={{ fontSize: '8px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 3px', borderRadius: '3px', lineHeight: 1, flexShrink: 0 }}>
                               AM
                             </span>
                           )}
@@ -518,14 +536,14 @@ export function Leaderboard({
                   </td>
 
                   {/* WYNIK CAŁKOWITY (TOT) */}
-                  <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 2px', textAlign: 'center', fontWeight: 900, borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                       {total < 0 ? (
-                        <span style={{ color: '#dc2626', background: '#fee2e2', padding: '2px 5px', borderRadius: '4px', fontSize: '12px' }}>
+                        <span style={{ color: '#dc2626', fontWeight: 900, fontSize: '13px' }}>
                           {relativeLabel(total)}
                         </span>
                       ) : (
-                        <span style={{ color: '#0f172a', fontSize: '12px' }}>
+                        <span style={{ color: '#0f172a', fontWeight: 900, fontSize: '13px' }}>
                           {total === 0 ? 'E' : relativeLabel(total)}
                         </span>
                       )}
@@ -533,15 +551,20 @@ export function Leaderboard({
                   </td>
 
                   {/* DOŁKI (THRU) */}
-                  <td style={{ padding: '8px 4px', textAlign: 'center', color: '#475569', fontWeight: 700, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 2px', textAlign: 'center', color: '#475569', fontWeight: 700, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
                     {thru}
                   </td>
 
                   {/* RUNDA NA TELEFONIE (DYNAMICZNA: R1 LUB R2) */}
-                  <td className="mobile-only-col" style={{ padding: '8px 4px', textAlign: 'center', color: '#475569', fontWeight: 800, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
-                    {store.round2Started
-                      ? (totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–')
-                      : (totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–')}
+                  <td className="mobile-only-col" style={{ padding: '8px 2px', textAlign: 'center', fontWeight: 800, fontSize: '12px', borderRight: '1px solid #e2e8f0' }}>
+                    {(() => {
+                      const activeRRel = store.round2Started ? r2Rel : r1Rel;
+                      const activeStrokes = store.round2Started ? totalStrokes(player.scores[2] || []) : totalStrokes(player.scores[1] || []);
+                      if (activeStrokes === 0) return <span style={{ color: '#cbd5e1' }}>–</span>;
+                      if (activeRRel < 0) return <span style={{ color: '#dc2626' }}>{relativeLabel(activeRRel)}</span>;
+                      if (activeRRel === 0) return <span style={{ color: '#0f172a' }}>E</span>;
+                      return <span style={{ color: '#0f172a' }}>{relativeLabel(activeRRel)}</span>;
+                    })()}
                   </td>
 
                   {/* RUNDA 1 NA LAPTOPIE */}
@@ -561,10 +584,10 @@ export function Leaderboard({
                     {strokes || '–'}
                   </td>
 
-                  {/* STRZAŁKA */}
-                  <td style={{ padding: '8px 2px', textAlign: 'center', color: '#94a3b8' }}>
+                  {/* STRZAŁKA (TYLKO NA DESKTOP) */}
+                  <td className="desktop-only-col" style={{ padding: '10px 4px', textAlign: 'center', color: '#94a3b8' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                      <ChevronRight size={14} />
+                      <ChevronRight size={15} />
                     </div>
                   </td>
                 </tr>
