@@ -11,8 +11,8 @@ import {
   ZoomIn,
   Menu,
 } from 'lucide-react';
-import type { Player, Round, Store, Tournament } from '@/types';
-import { ROUNDS, flagEmoji } from '@/types';
+import type { Category, Player, Round, Store, Tournament } from '@/types';
+import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
 import {
   combinedStat,
   holeStats,
@@ -134,17 +134,19 @@ export function PlayerModal({
   );
   const [modalTab, setModalTab] = useState<'rozpiska' | 'statystyki'>('rozpiska');
   const [roundTab, setRoundTab] = useState<Round>(1);
+  const [statCategoryFilter, setStatCategoryFilter] = useState<Category | 'Wszystkie'>('Wszystkie');
   const [inspectedHole, setInspectedHole] = useState<number | null>(null);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [activeStatCategory, setActiveStatCategory] = useState<{ key: StatCategory; label: string } | null>(null);
 
   const holes = roundTab === 1 ? holesR1 : holesR2;
 
-  // Tylko aktywni zawodnicy bieżącego turnieju do statystyk
-  const activeTourneyPlayers = useMemo(
-    () => store.players.filter((p) => p.isActive !== false),
-    [store.players]
-  );
+  // Aktywni zawodnicy bieżącego turnieju przefiltrowani pod wybraną kategorię statystyk
+  const activeTourneyPlayers = useMemo(() => {
+    const active = store.players.filter((p) => p.isActive !== false);
+    if (statCategoryFilter === 'Wszystkie') return active;
+    return active.filter((p) => p.category === statCategoryFilter);
+  }, [store.players, statCategoryFilter]);
 
   const ranks = useMemo(() => {
     const map = new Map<StatCategory, Map<string, number>>();
@@ -346,20 +348,23 @@ export function PlayerModal({
           }
           .modal-close-main {
             background: #f1f5f9;
-            border: 1px solid #cbd5e1;
+            border: 1.5px solid #cbd5e1;
             border-radius: 50%;
-            width: 38px;
-            height: 38px;
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             color: #0f172a;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
             transition: all 0.15s ease;
+            flex-shrink: 0;
           }
           .modal-close-main:hover {
-            background: #e2e8f0;
-            border-color: #94a3b8;
+            background: #fee2e2;
+            border-color: #ef4444;
+            color: #dc2626;
           }
 
           @media (max-width: 640px) {
@@ -383,10 +388,10 @@ export function PlayerModal({
               width: 100% !important;
             }
             .modal-close-main {
-              width: 40px !important;
-              height: 40px !important;
+              width: 46px !important;
+              height: 46px !important;
               background: #f1f5f9 !important;
-              border: 1px solid #cbd5e1 !important;
+              border: 1.5px solid #94a3b8 !important;
             }
             .player-modal-body {
               padding: 10px 6px !important;
@@ -547,7 +552,7 @@ export function PlayerModal({
                 </div>
 
                 <button className="modal-close-main" onClick={onClose} title="Zamknij">
-                  <X size={22} />
+                  <X size={26} />
                 </button>
               </div>
             </div>
@@ -970,10 +975,36 @@ export function PlayerModal({
 
                 {modalTab === 'statystyki' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* PRZEŁĄCZNIK KATEGORII W STATYSTYKACH */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '4px', flexWrap: 'nowrap' }}>
+                      {(['Wszystkie', ...CATEGORIES] as (Category | 'Wszystkie')[]).map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setStatCategoryFilter(cat)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '16px',
+                            border: '1px solid',
+                            borderColor: statCategoryFilter === cat ? '#1b88cc' : '#cbd5e1',
+                            background: statCategoryFilter === cat ? '#eff6ff' : '#ffffff',
+                            color: statCategoryFilter === cat ? '#1b88cc' : '#475569',
+                            fontSize: '11px',
+                            fontWeight: statCategoryFilter === cat ? 800 : 600,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {cat === 'Wszystkie' ? 'Wszystkie (Absolut)' : cat}
+                        </button>
+                      ))}
+                    </div>
+
                     {/* WYNIKI CAŁKOWITE */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <TrendingDown size={12} color="#1b88cc" /> WYNIKI CAŁKOWITE
+                        <TrendingDown size={12} color="#1b88cc" /> WYNIKI CAŁKOWITE ({statCategoryFilter})
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {TOTAL_CARDS.map(renderStatCard)}
@@ -983,7 +1014,7 @@ export function PlayerModal({
                     {/* WEDŁUG PAR */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <Target size={12} color="#1b88cc" /> WEDŁUG PAR
+                        <Target size={12} color="#1b88cc" /> WEDŁUG PAR ({statCategoryFilter})
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {PAR_CARDS.map(renderStatCard)}
@@ -993,7 +1024,7 @@ export function PlayerModal({
                     {/* SKUTECZNOŚĆ */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <Award size={12} color="#1b88cc" /> SKUTECZNOŚĆ
+                        <Award size={12} color="#1b88cc" /> SKUTECZNOŚĆ ({statCategoryFilter})
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {PERF_CARDS.map(renderStatCard)}
@@ -1039,14 +1070,14 @@ export function PlayerModal({
           >
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <small style={{ color: '#64748b', fontSize: '10px', fontWeight: '800' }}>KLASYFIKACJA KATEGORII</small>
+                <small style={{ color: '#64748b', fontSize: '10px', fontWeight: '800' }}>KLASYFIKACJA KATEGORII ({statCategoryFilter})</small>
                 <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '900', color: '#0f172a' }}>{activeStatCategory.label}</h3>
               </div>
               <button
                 onClick={() => setActiveStatCategory(null)}
-                style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
-                <X size={16} />
+                <X size={20} />
               </button>
             </div>
 
@@ -1118,8 +1149,8 @@ export function PlayerModal({
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '50%',
-                width: '36px',
-                height: '36px',
+                width: '40px',
+                height: '40px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1127,7 +1158,7 @@ export function PlayerModal({
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
               }}
             >
-              <X size={20} />
+              <X size={22} />
             </button>
           </div>
         </div>
