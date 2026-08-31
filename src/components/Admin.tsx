@@ -29,6 +29,7 @@ import {
   GripVertical,
   Dices,
   Globe,
+  Clock,
 } from 'lucide-react';
 import type { Category, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, COUNTRIES, ROUNDS, flagEmoji } from '@/types';
@@ -165,7 +166,7 @@ export function Admin({
     ['pole', 'Pole', <BarChart3 size={15} key="a" />],
     ['zawodnicy', 'Zawodnicy', <Users size={15} key="b" />],
     ['kluby', 'Kluby & Flagi Krajów', <Shield size={15} key="club" />],
-    ['flighty', 'Flighty', <Flag size={15} key="c" />],
+    ['flighty', 'Flighty & Tee Times', <Flag size={15} key="c" />],
     ['rundy', 'Rundy', <Layers size={15} key="e" />],
     ['wyniki', 'Korekta wyników', <Edit3 size={15} key="d" />],
   ];
@@ -358,7 +359,6 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* SEKCJA FLAG NARODOWYCH DLA KRAJÓW */}
       <div className="admin-panel">
         <div className="panel-heading">
           <div>
@@ -417,7 +417,6 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
         </div>
       </div>
 
-      {/* SEKCJA LOGOTYPÓW KLUBÓW (KLASYFIKACJA DRUŻYNOWA) */}
       <div className="admin-panel">
         <div className="panel-heading">
           <div>
@@ -660,14 +659,12 @@ function TournamentManager({
       const t = playoffModal.tournament;
       const overrides = playoffModal.overrides;
 
-      // 1. Sortujemy wszystkich uczestników według wpisanej pozycji Absolute
       const sortedByAbsolute = [...playoffModal.candidates].sort((a, b) => {
         const rankA = Number(overrides[a.playerId] ?? a.rank);
         const rankB = Number(overrides[b.playerId] ?? b.rank);
         return rankA - rankB;
       });
 
-      // 2. Ustalamy relatywną pozycję wewnątrz każdej kategorii (aby Pierre był 1. również w Men!)
       const categoryCounters: Record<string, number> = {};
       const pointsToSave: any[] = [];
 
@@ -682,7 +679,7 @@ function TournamentManager({
         pointsToSave.push({
           tournament_id: t.id,
           player_id: c.playerId,
-          rank: absoluteRank, // Oficjalna ranga nadrzędna
+          rank: absoluteRank,
           strokes: Number(c.strokes) || 0,
           points: Number(categoryPoints),
           category: cat,
@@ -1454,7 +1451,6 @@ function PlayerManager({
 
   return (
     <div className="management-grid" style={{ alignItems: 'start', position: 'relative' }}>
-      {/* LEWA STRONA: PRZYKLEJONY FORMULARZ */}
       <div
         className="admin-panel compact"
         style={{
@@ -1664,7 +1660,6 @@ function PlayerManager({
         </div>
       </div>
 
-      {/* PRAWA STRONA: LISTA Z NIEZALEŻNYM SCROLLEM */}
       <div className="admin-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="panel-heading">
           <div>
@@ -1790,11 +1785,15 @@ function FlightManager({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [startHole, setStartHole] = useState(1);
+  const [teeTime, setTeeTime] = useState('10:00');
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverFlightId, setDragOverFlightId] = useState<string | null>(null);
 
+  // AUTOMATYCZNY GENERATOR: GRUPY, CZAS I INTERWAŁY
   const [autoGroupSize, setAutoGroupSize] = useState(4);
   const [autoMode, setAutoMode] = useState<'random' | 'score'>('random');
+  const [autoStartTime, setAutoStartTime] = useState('10:00');
+  const [autoIntervalMinutes, setAutoIntervalMinutes] = useState(0); // 0 = shotgun (jednocześnie)
 
   const holesR1 = store.holesByRound[1] || [];
   const holesR2 = store.holesByRound[2] || [];
@@ -1834,6 +1833,7 @@ function FlightManager({
           code: generatedCode,
           round,
           startHole,
+          teeTime: teeTime || '10:00',
           playerIds: [],
         },
       ],
@@ -1850,6 +1850,7 @@ function FlightManager({
         round,
         startHole,
         code: generatedCode,
+        teeTime: teeTime || '10:00',
         tournamentId: activeTournament?.id,
       });
 
@@ -1867,7 +1868,7 @@ function FlightManager({
   const handleAutoGenerateFlights = async () => {
     if (activePlayers.length === 0) return;
     const confirm = window.confirm(
-      `Wygenerować automatyczne flighty dla Rundy ${round} (${autoMode === 'random' ? 'Losowo' : 'Według wyników'}) po ${autoGroupSize} osób?\nDotychczasowe flighty w tej rundzie zostaną zastąpione nowymi.`
+      `Wygenerować automatyczne flighty dla Rundy ${round} (${autoMode === 'random' ? 'Losowo' : 'Według wyników'}) po ${autoGroupSize} osób?\nGodzina startu: ${autoStartTime}${autoIntervalMinutes > 0 ? `, co ${autoIntervalMinutes} minut` : ' (Shotgun - jednocześnie)'}.\nDotychczasowe flighty w tej rundzie zostaną zastąpione.`
     );
     if (!confirm) return;
 
@@ -1888,17 +1889,28 @@ function FlightManager({
       const newFlightsList: Flight[] = [];
       const updatedPlayers = [...store.players];
 
+      // Parsowanie godziny startowej (np. 10:00)
+      const [startHourStr, startMinStr] = autoStartTime.split(':');
+      let baseMinutes = (parseInt(startHourStr, 10) || 10) * 60 + (parseInt(startMinStr, 10) || 0);
+
       for (let g = 0; g < totalGroups; g++) {
         const groupPlayers = pool.slice(g * autoGroupSize, (g + 1) * autoGroupSize);
         const flightName = `Flight ${String.fromCharCode(65 + (g % 26))}${g >= 26 ? Math.floor(g / 26) : ''}`;
         const flightCode = String(Math.floor(1000 + Math.random() * 9000));
         const shotHole = (g % 18) + 1;
 
+        // Wyliczenie godziny dla flightu
+        const currentGroupMinutes = baseMinutes + g * autoIntervalMinutes;
+        const groupH = Math.floor(currentGroupMinutes / 60) % 24;
+        const groupM = currentGroupMinutes % 60;
+        const calculatedTeeTime = `${String(groupH).padStart(2, '0')}:${String(groupM).padStart(2, '0')}`;
+
         const created = await createFlight({
           name: flightName,
           round,
           startHole: shotHole,
           code: flightCode,
+          teeTime: calculatedTeeTime,
           tournamentId: activeTournament?.id,
         });
 
@@ -1922,6 +1934,7 @@ function FlightManager({
           code: flightCode,
           round,
           startHole: shotHole,
+          teeTime: calculatedTeeTime,
           playerIds: pIds,
         });
       }
@@ -1932,7 +1945,7 @@ function FlightManager({
         players: updatedPlayers,
       }));
 
-      flash(`Wygenerowano ${newFlightsList.length} flightów dla Rundy ${round}!`);
+      flash(`Wygenerowano ${newFlightsList.length} flightów z czasem startu dla Rundy ${round}!`);
     } catch (err) {
       console.error(err);
       flash('Błąd generowania flightów.');
@@ -1943,14 +1956,18 @@ function FlightManager({
     const nextName = window.prompt('Nazwa flightu', flight.name);
     const nextCode = window.prompt('Kod Flightu (4 cyfry)', flight.code);
     const nextStart = window.prompt('Dołek startowy (shotgun)', String(flight.startHole ?? 1));
+    const nextTeeTime = window.prompt('Godzina startu (Tee Time, np. 10:00, 10:08)', flight.teeTime || '10:00');
     if (!nextName?.trim() || !nextCode || nextCode.length !== 4) return;
 
     const parsedStart = Math.max(1, Math.min(18, Number(nextStart) || 1));
+    const finalTeeTime = nextTeeTime?.trim() || '10:00';
 
     onUpdateStore((prev) => ({
       ...prev,
       flights: prev.flights.map((f) =>
-        f.id === flight.id ? { ...f, name: nextName.trim(), code: nextCode, startHole: parsedStart } : f
+        f.id === flight.id
+          ? { ...f, name: nextName.trim(), code: nextCode, startHole: parsedStart, teeTime: finalTeeTime }
+          : f
       ),
     }));
 
@@ -1958,6 +1975,7 @@ function FlightManager({
       name: nextName.trim(),
       code: nextCode,
       startHole: parsedStart,
+      teeTime: finalTeeTime,
     })
       .then(() => flash('Flight zmieniony.'))
       .catch(() => flash('Błąd edycji flightu.'));
@@ -2024,7 +2042,7 @@ function FlightManager({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 320px 1fr', gap: '16px', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '340px 320px 1fr', gap: '16px', alignItems: 'start' }}>
       
       {/* KOLUMNA 1: TWORZENIE & GENERATOR RANDOM */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'sticky', top: '16px' }}>
@@ -2032,7 +2050,7 @@ function FlightManager({
           <p className="eyebrow">
             <span /> FLIGHTY RUNDY
           </p>
-          <h2>Utwórz grupę</h2>
+          <h2>Utwórz pojedynczy flight</h2>
           <div className="round-switcher">
             {ROUNDS.map((r) => (
               <button
@@ -2054,14 +2072,26 @@ function FlightManager({
               placeholder="np. Flight A"
             />
           </div>
-          <div className="form-field">
-            <label className="form-field-label">Kod Flightu (4 cyfry)</label>
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="Auto-generowanie"
-            />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div className="form-field">
+              <label className="form-field-label">Kod (4 cyfry)</label>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="Auto"
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-field-label">Godzina startu</label>
+              <input
+                type="time"
+                value={teeTime}
+                onChange={(e) => setTeeTime(e.target.value)}
+              />
+            </div>
           </div>
+
           <div className="form-field">
             <label className="form-field-label">
               Dołek startowy <span>(Shotgun)</span>
@@ -2074,6 +2104,7 @@ function FlightManager({
               onChange={(e) => setStartHole(Math.max(1, Math.min(18, Number(e.target.value))))}
             />
           </div>
+
           <div className="form-actions">
             <button className="primary-button full" onClick={create}>
               <Plus size={16} /> Utwórz pojedynczy flight
@@ -2081,33 +2112,58 @@ function FlightManager({
           </div>
         </div>
 
-        {/* GENERATOR AUTOMATYCZNY */}
+        {/* GENERATOR AUTOMATYCZNY Z INTERWAŁAMI CZASOWYMI */}
         <div className="admin-panel compact" style={{ background: '#f8fafc', border: '1px solid #cbd5e1' }}>
           <p className="eyebrow" style={{ color: '#0284c7' }}>
-            <span style={{ background: '#0284c7' }} /> SZYBKI GENERATOR
+            <span style={{ background: '#0284c7' }} /> SZYBKI GENERATOR TEE TIMES
           </p>
-          <h2 style={{ fontSize: '15px' }}>Losuj lub ustaw grupy</h2>
+          <h2 style={{ fontSize: '15px' }}>Losuj lub ustaw grupy i godziny</h2>
           
-          <div className="form-field">
-            <label className="form-field-label">Liczba osób w grupie</label>
-            <select value={autoGroupSize} onChange={(e) => setAutoGroupSize(Number(e.target.value))}>
-              <option value={2}>2 graczy</option>
-              <option value={3}>3 graczy</option>
-              <option value={4}>4 graczy</option>
-              <option value={5}>5 graczy</option>
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div className="form-field">
+              <label className="form-field-label">Osób w grupie</label>
+              <select value={autoGroupSize} onChange={(e) => setAutoGroupSize(Number(e.target.value))}>
+                <option value={2}>2 graczy</option>
+                <option value={3}>3 graczy</option>
+                <option value={4}>4 graczy</option>
+                <option value={5}>5 graczy</option>
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label className="form-field-label">Tryb podziału</label>
+              <select value={autoMode} onChange={(e) => setAutoMode(e.target.value as any)}>
+                <option value="random">🎲 Losowo</option>
+                <option value="score">🏆 Wyniki</option>
+              </select>
+            </div>
           </div>
 
-          <div className="form-field">
-            <label className="form-field-label">Tryb podziału</label>
-            <select value={autoMode} onChange={(e) => setAutoMode(e.target.value as any)}>
-              <option value="random">🎲 Losowo (Random)</option>
-              <option value="score">🏆 Według wyników (Score)</option>
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div className="form-field">
+              <label className="form-field-label">Start 1. flightu</label>
+              <input
+                type="time"
+                value={autoStartTime}
+                onChange={(e) => setAutoStartTime(e.target.value)}
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-field-label">Interwał (odstęp)</label>
+              <select value={autoIntervalMinutes} onChange={(e) => setAutoIntervalMinutes(Number(e.target.value))}>
+                <option value={0}>Jednocześnie (Shotgun)</option>
+                <option value={6}>Co 6 minut</option>
+                <option value={8}>Co 8 minut</option>
+                <option value={10}>Co 10 minut</option>
+                <option value={12}>Co 12 minut</option>
+                <option value={15}>Co 15 minut</option>
+              </select>
+            </div>
           </div>
 
-          <button className="secondary-button full" onClick={handleAutoGenerateFlights} style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#7dd3fc', fontWeight: 700 }}>
-            <Dices size={16} /> Wygeneruj wszystkie grupy
+          <button className="secondary-button full" onClick={handleAutoGenerateFlights} style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#7dd3fc', fontWeight: 800, marginTop: '6px' }}>
+            <Dices size={16} /> Wygeneruj wszystkie grupy z Tee Times
           </button>
         </div>
       </div>
@@ -2191,7 +2247,7 @@ function FlightManager({
         className="flight-list"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
           gap: '12px',
           maxHeight: 'calc(100vh - 120px)',
           overflowY: 'auto',
@@ -2226,12 +2282,16 @@ function FlightManager({
                       {flight.name}
                       <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>({flightMembers.length})</span>
                     </h2>
-                    <p style={{ margin: '2px 0 0 0', fontSize: '11px' }}>
-                      KOD <strong>{flight.code}</strong> · <MapPin size={11} className="inline" /> Start {flight.startHole ?? 1}
+                    <p style={{ margin: '2px 0 0 0', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span>KOD: <strong>{flight.code}</strong></span>
+                      <span>·</span>
+                      <span><MapPin size={11} className="inline" /> Start #{flight.startHole ?? 1}</span>
+                      <span>·</span>
+                      <span style={{ color: '#0284c7', fontWeight: 800 }}><Clock size={11} className="inline" /> {flight.teeTime || '10:00'}</span>
                     </p>
                   </div>
                   <div className="row-actions">
-                    <button onClick={() => editFlight(flight)} title="Edytuj flight">
+                    <button onClick={() => editFlight(flight)} title="Edytuj flight i godzinę">
                       <Edit3 size={13} />
                     </button>
                     <button onClick={() => removeFlight(flight.id)} title="Usuń flight">
