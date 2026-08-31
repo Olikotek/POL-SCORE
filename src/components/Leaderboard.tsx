@@ -228,7 +228,7 @@ export function Leaderboard({
           }
           .player-subline-mobile {
             display: block !important;
-            font-size: 10px !important;
+            font-size: 9px !important;
             color: #64748b !important;
             white-space: nowrap !important;
             overflow: hidden !important;
