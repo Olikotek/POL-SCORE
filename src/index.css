@@ -877,12 +877,23 @@ input::placeholder { color: var(--slate-400); }
   font-size: 14px; font-weight: 500;
 }
 
-/* ---- RESPONSIVE ---- */
+/* ---- RESPONSIVE & MOBILE POLISH (IPHONE & ANDROID) ---- */
 @media (max-width: 900px) {
-  .desktop-nav { display: none; }
+  .desktop-nav {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .desktop-nav::-webkit-scrollbar { display: none; }
+  .desktop-nav .nav-button {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  
   .mobile-only { display: flex; }
   .desktop-only { display: none; }
-  .mobile-nav { display: flex; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .management-grid { grid-template-columns: 1fr; }
   .course-assignment-grid { grid-template-columns: 1fr; }
@@ -894,12 +905,22 @@ input::placeholder { color: var(--slate-400); }
 }
 
 @media (max-width: 500px) {
-  .page-wrap { padding: 16px; }
+  .page-wrap { padding: 14px 10px; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .override-grid { grid-template-columns: repeat(3, 1fr); }
   .modal-hole-grid { grid-template-columns: repeat(5, 1fr); }
   .numpad-grid { grid-template-columns: repeat(3, 1fr); }
   .section-intro { flex-direction: column; }
-  .topbar-inner { padding: 0 16px; }
+  .topbar-inner { padding: 0 12px; }
   .brand small { display: none; }
+
+  /* Zapewnienie, że modale i karty nie uciekają poza ekran smartfona */
+  .modal-overlay {
+    padding: 8px;
+    align-items: flex-end;
+  }
+  .modal-panel {
+    border-radius: 16px 16px 0 0;
+    max-height: 88vh;
+  }
 }
