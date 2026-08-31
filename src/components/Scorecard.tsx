@@ -299,6 +299,29 @@ export function Scorecard({
       </section>
     );
 
+  // Podział dołków na 2 rzędy (1-9 oraz 10-18)
+  const firstNine = holeOrder.slice(0, 9);
+  const secondNine = holeOrder.slice(9, 18);
+
+  const renderHoleButton = (holeNum: number, originalIdx: number) => {
+    const hIndex = holeNum - 1;
+    const allSaved = activeFlight.playerIds.every(
+      (id) =>
+        (drafts[id]?.[hIndex] ??
+          store.players.find((p) => p.id === id)?.scores[round][hIndex] ??
+          0) > 0
+    );
+    return (
+      <button
+        key={originalIdx}
+        className={`hole-grid-btn ${holeIdx === originalIdx ? 'active' : ''} ${allSaved ? 'hole-done' : ''}`}
+        onClick={() => { setHoleIdx(originalIdx); setExpandedPlayerId(null); }}
+      >
+        {holeNum}
+      </button>
+    );
+  };
+
   return (
     <section className="scorecard-wrapper">
       <style>{`
@@ -311,19 +334,56 @@ export function Scorecard({
           display: block;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           overflow: hidden;
-          padding: 16px 20px;
-          margin-bottom: 16px;
+          padding: 14px 16px;
+          margin-bottom: 12px;
           border-radius: 16px;
           background: #ffffff;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
           border: 1px solid #f1f5f9;
         }
+        .holes-grid-container {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          width: 100%;
+        }
+        .holes-grid-row {
+          display: grid;
+          grid-template-columns: repeat(9, 1fr);
+          gap: 5px;
+          width: 100%;
+        }
+        .hole-grid-btn {
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          font-weight: 800;
+          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          background: #ffffff;
+          color: #334155;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .hole-grid-btn.active {
+          background: #1b88cc !important;
+          color: #ffffff !important;
+          border-color: #1b88cc !important;
+          box-shadow: 0 2px 8px rgba(27, 136, 204, 0.35);
+        }
+        .hole-grid-btn.hole-done {
+          background: #f0fdf4;
+          border-color: #86efac;
+          color: #16a34a;
+        }
         .numpad-container {
           display: flex;
           justify-content: flex-end;
-          padding-top: 16px;
+          padding-top: 14px;
           border-top: 1px solid #f1f5f9;
-          margin-top: 14px;
+          margin-top: 12px;
         }
         .numpad-grid {
           display: grid;
@@ -337,76 +397,70 @@ export function Scorecard({
             padding: 0 2px;
           }
           .scorecard-player-card {
-            padding: 12px 10px !important;
-            margin-bottom: 10px !important;
+            padding: 10px 8px !important;
+            margin-bottom: 8px !important;
             border-radius: 12px !important;
           }
-          .player-info-container {
-            gap: 8px !important;
+          .holes-grid-row {
+            gap: 4px !important;
+          }
+          .hole-grid-btn {
+            height: 34px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
           }
           .honour-badge {
-            width: 22px !important;
-            height: 22px !important;
-            font-size: 11px !important;
+            width: 20px !important;
+            height: 20px !important;
+            font-size: 10px !important;
             border-radius: 4px !important;
           }
           .player-avatar-box {
-            width: 42px !important;
-            height: 42px !important;
+            width: 40px !important;
+            height: 40px !important;
           }
           .player-avatar-box img,
           .player-avatar-box .avatar {
-            width: 42px !important;
-            height: 42px !important;
-            font-size: 14px !important;
-          }
-          .player-flag-badge {
-            width: 16px !important;
-            height: 12px !important;
-            bottom: -1px !important;
-            right: -2px !important;
-          }
-          .player-name-text {
-            font-size: 14px !important;
-            max-width: 110px !important;
-          }
-          .player-score-rel {
-            font-size: 12px !important;
-          }
-          .btn-ctrl {
             width: 40px !important;
             height: 40px !important;
+            font-size: 13px !important;
+          }
+          .player-flag-badge {
+            bottom: -2px !important;
+            right: -3px !important;
+          }
+          .player-flag-badge img {
+            width: 15px !important;
+            height: 10px !important;
+          }
+          .btn-ctrl {
+            width: 38px !important;
+            height: 38px !important;
             border-radius: 8px !important;
           }
           .score-shape-box {
-            width: 40px !important;
-            height: 40px !important;
-            font-size: 17px !important;
-            border-radius: 8px !important;
-          }
-          .score-shape-box svg {
-            width: 44px !important;
-            height: 44px !important;
-          }
-          .numpad-container {
-            justify-content: center !important;
-            padding-top: 12px !important;
-            margin-top: 10px !important;
-          }
-          .numpad-grid {
-            width: 100% !important;
-            gap: 6px !important;
-          }
-          .numpad-grid button {
-            height: 42px !important;
+            width: 38px !important;
+            height: 38px !important;
             font-size: 16px !important;
             border-radius: 8px !important;
           }
-          .hole-dots button {
-            width: 38px !important;
+          .score-shape-box svg {
+            width: 42px !important;
+            height: 42px !important;
+          }
+          .numpad-container {
+            justify-content: center !important;
+            padding-top: 10px !important;
+            margin-top: 8px !important;
+          }
+          .numpad-grid {
+            width: 100% !important;
+            gap: 5px !important;
+          }
+          .numpad-grid button {
             height: 38px !important;
-            font-size: 14px !important;
-            border-radius: 8px !important;
+            font-size: 15px !important;
+            border-radius: 6px !important;
           }
         }
       `}</style>
@@ -431,55 +485,32 @@ export function Scorecard({
         </div>
       </div>
 
-      <div className="tee-order-bar">
-        <span className="tee-order-label">KOLEJNOŚĆ STARTU (HONOUR)</span>
-        {currentPlayers.map((p) => {
-          const honour = honourMap.get(p.id) ?? 0;
-          return (
-            <span className="tee-order-item" key={p.id}>
-              <span className="tee-order-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{honour}</span>
-              {p.name}
-            </span>
-          );
-        })}
-      </div>
-
-      <div className="scorecard-shell" style={{ border: 'none', background: 'transparent', padding: '0', marginBottom: '24px' }}>
-        <div className="slider-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '16px 20px', borderRadius: '16px', marginBottom: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <span style={{ color: '#64748b', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px' }}>AKTUALNY DOŁEK</span>
-            <span style={{ fontSize: '30px', fontWeight: '800', color: '#0f172a', lineHeight: '1' }}>{activeHole.number}</span>
-            <span style={{ color: '#94a3b8', fontSize: '15px', fontWeight: '600' }}>/ 18</span>
+      {/* NAGŁÓWEK DOŁKA ORAZ SIATKA 2x9 DOŁKÓW */}
+      <div className="scorecard-shell" style={{ border: 'none', background: 'transparent', padding: '0', marginBottom: '16px' }}>
+        <div className="slider-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '14px 18px', borderRadius: '14px', marginBottom: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>AKTUALNY DOŁEK</span>
+            <span style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a', lineHeight: '1' }}>{activeHole.number}</span>
+            <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>/ 18</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-            <span style={{ color: '#0f172a', fontSize: '17px', fontWeight: '800', lineHeight: '1' }}>PAR {activeHole.par}</span>
-            <span style={{ color: '#64748b', fontSize: '13px', fontWeight: '600', lineHeight: '1' }}>{activeHole.meters} M</span>
+            <span style={{ color: '#0f172a', fontSize: '16px', fontWeight: '800', lineHeight: '1' }}>PAR {activeHole.par}</span>
+            <span style={{ color: '#64748b', fontSize: '12px', fontWeight: '600', lineHeight: '1' }}>{activeHole.meters} M</span>
           </div>
         </div>
 
-        <div className="hole-dots" style={{ overflowX: 'auto', paddingBottom: '12px', justifyContent: 'flex-start', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
-          {holeOrder.map((holeNum, idx) => {
-            const hIndex = holeNum - 1;
-            const allSaved = activeFlight.playerIds.every(
-              (id) =>
-                (drafts[id]?.[hIndex] ??
-                  store.players.find((p) => p.id === id)?.scores[round][hIndex] ??
-                  0) > 0
-            );
-            return (
-              <button
-                key={idx}
-                className={`${holeIdx === idx ? 'active' : ''} ${allSaved ? 'hole-done' : ''}`}
-                onClick={() => { setHoleIdx(idx); setExpandedPlayerId(null); }}
-                style={{ flexShrink: 0, width: '46px', height: '46px', fontSize: '16px', borderRadius: '12px', transition: 'all 0.2s' }}
-              >
-                {holeNum}
-              </button>
-            );
-          })}
+        {/* 2 RZĘDY PO 9 DOŁKÓW */}
+        <div className="holes-grid-container">
+          <div className="holes-grid-row">
+            {firstNine.map((holeNum, idx) => renderHoleButton(holeNum, idx))}
+          </div>
+          <div className="holes-grid-row">
+            {secondNine.map((holeNum, idx) => renderHoleButton(holeNum, idx + 9))}
+          </div>
         </div>
       </div>
 
+      {/* LISTA ZAWODNIKÓW Z KARTAMI WPROWADZANIA */}
       <div className="score-entry-list">
         {currentPlayers.map((player) => {
           const playerScores = drafts[player.id] ?? player.scores[round];
@@ -487,59 +518,77 @@ export function Scorecard({
           const honour = honourMap.get(player.id) ?? 0;
           const isExpanded = expandedPlayerId === player.id;
           
+          // Podział na Imię i Nazwisko
+          const nameParts = player.name.trim().split(/\s+/);
+          const firstName = nameParts.length > 1 ? nameParts[0] : '';
+          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : player.name;
+
           return (
             <div className={`scorecard-player-card ${isExpanded ? 'numpad-selected' : ''}`} key={player.id}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
                 
-                <div className="player-info-container" style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-                  <div className="honour-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', fontSize: '14px', fontWeight: '700', flexShrink: 0, background: '#1e293b', color: '#fff', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                  {/* NUMER HONOUR */}
+                  <div className="honour-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', fontSize: '12px', fontWeight: '800', flexShrink: 0, background: '#1e293b', color: '#fff', borderRadius: '6px' }}>
                     {honour}
                   </div>
 
-                  <div className="player-avatar-box" style={{ position: 'relative', flexShrink: 0, width: '56px', height: '56px' }}>
+                  {/* AVATAR + FLAGA */}
+                  <div className="player-avatar-box" style={{ position: 'relative', flexShrink: 0, width: '46px', height: '46px' }}>
                     {player.avatar ? (
                       <img
                         src={player.avatar}
                         alt={player.name}
-                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', display: 'block' }}
                       />
                     ) : (
-                      <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '18px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                      <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '15px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                         {initials(player.name)}
                       </div>
                     )}
-                    <span className="player-flag-badge" style={{ position: 'absolute', bottom: '-2px', right: '-4px', fontSize: '16px', lineHeight: '1', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}>
+                    
+                    {/* FLAGA */}
+                    <span className="player-flag-badge" style={{ position: 'absolute', bottom: '-2px', right: '-2px', lineHeight: 1, zIndex: 2 }}>
                       {player.flagImage ? (
-                        <img src={player.flagImage} alt="" style={{ width: '20px', height: '14px', borderRadius: '2px', objectFit: 'cover', border: '1px solid #fff', display: 'block' }} />
+                        <img src={player.flagImage} alt="" style={{ width: '18px', height: '12px', borderRadius: '2px', objectFit: 'cover', border: '1.5px solid #ffffff', display: 'block' }} />
                       ) : (
-                        flagEmoji(player.flag)
+                        <span style={{ fontSize: '13px', display: 'block' }}>{flagEmoji(player.flag)}</span>
                       )}
                     </span>
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
-                    <b className="player-name-text" style={{ fontSize: '18px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#0f172a' }}>
-                      {player.name}
-                    </b>
-                    <span className="player-score-rel" style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', flexShrink: 0 }}>
-                      {formatRelativeScore(playerScores, holes)}
-                    </span>
+                  {/* IMIĘ NAD NAZWISKIEM */}
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', justifyContent: 'center' }}>
+                    {firstName && (
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {firstName}
+                      </span>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', minWidth: 0, overflow: 'hidden' }}>
+                      <b style={{ fontSize: '15px', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#0f172a', lineHeight: 1.2 }}>
+                        {lastName}
+                      </b>
+                      <span style={{ color: '#64748b', fontSize: '12px', fontWeight: '700', flexShrink: 0 }}>
+                        {formatRelativeScore(playerScores, holes)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="entry-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                {/* PRZYCISKI WPROWADZANIA WYNIKU */}
+                <div className="entry-controls" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
                   <button 
                     className="btn-ctrl"
                     onClick={() => changeDraft(player.id, -1)}
-                    style={{ width: '48px', height: '48px', borderRadius: '12px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
+                    style={{ width: '44px', height: '44px', borderRadius: '10px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
                   >
-                    <Minus size={20} />
+                    <Minus size={18} />
                   </button>
                   
                   <button 
                     className="btn-ctrl"
                     onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
-                    style={{ padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px' }}
+                    style={{ padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px' }}
                   >
                     <ScoreShape value={value} par={activeHole.par} />
                   </button>
@@ -547,13 +596,14 @@ export function Scorecard({
                   <button 
                     className="btn-ctrl"
                     onClick={() => changeDraft(player.id, 1)}
-                    style={{ width: '48px', height: '48px', borderRadius: '12px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
+                    style={{ width: '44px', height: '44px', borderRadius: '10px', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', cursor: 'pointer', transition: 'background 0.1s' }}
                   >
-                    <Plus size={20} />
+                    <Plus size={18} />
                   </button>
                 </div>
               </div>
 
+              {/* ROZWIJANA KLAWIATURA NUMERYCZNA */}
               {isExpanded && (
                 <div className="numpad-container">
                   <div className="numpad-grid">
@@ -561,16 +611,16 @@ export function Scorecard({
                       <button 
                         key={n} 
                         onClick={() => setDraftDirect(player.id, n)}
-                        style={{ height: '46px', borderRadius: '10px', background: '#1e293b', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '18px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                        style={{ height: '42px', borderRadius: '8px', background: '#1e293b', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '17px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                       >
                         {n}
                       </button>
                     ))}
                     <button 
                       onClick={() => setDraftDirect(player.id, 0)}
-                      style={{ height: '46px', borderRadius: '10px', background: '#ef4444', color: '#ffffff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
+                      style={{ height: '42px', borderRadius: '8px', background: '#ef4444', color: '#ffffff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
                     >
-                      <X size={20} />
+                      <X size={18} />
                     </button>
                   </div>
                 </div>
@@ -584,7 +634,7 @@ export function Scorecard({
         className={`bulk-save ${feedback ? 'saved' : ''}`}
         disabled={!canSave || saving}
         onClick={saveHole}
-        style={{ marginTop: '20px', padding: '16px', fontSize: '15px', fontWeight: '700', borderRadius: '14px', background: feedback ? '#10b981' : '#0f172a', color: '#fff', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        style={{ marginTop: '16px', padding: '16px', fontSize: '15px', fontWeight: '800', borderRadius: '14px', background: feedback ? '#10b981' : '#0f172a', color: '#fff', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
       >
         {feedback ? <Check size={18} /> : <Save size={18} />}{' '}
         {feedback ? 'Zapisano! Następny dołek...' : `Zapisz wyniki dla dołka ${activeHole.number}`}
