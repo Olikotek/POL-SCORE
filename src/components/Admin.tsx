@@ -660,17 +660,33 @@ function TournamentManager({
       const t = playoffModal.tournament;
       const overrides = playoffModal.overrides;
 
-      const pointsToSave = playoffModal.candidates.map((c) => {
-        const finalRank = Number(overrides[c.playerId] ?? c.rank);
-        const points = getBasePointsForPosition(finalRank);
-        return {
+      // 1. Sortujemy wszystkich uczestników według wpisanej pozycji Absolute
+      const sortedByAbsolute = [...playoffModal.candidates].sort((a, b) => {
+        const rankA = Number(overrides[a.playerId] ?? a.rank);
+        const rankB = Number(overrides[b.playerId] ?? b.rank);
+        return rankA - rankB;
+      });
+
+      // 2. Ustalamy relatywną pozycję wewnątrz każdej kategorii (aby Pierre był 1. również w Men!)
+      const categoryCounters: Record<string, number> = {};
+      const pointsToSave: any[] = [];
+
+      sortedByAbsolute.forEach((c) => {
+        const absoluteRank = Number(overrides[c.playerId] ?? c.rank);
+        const cat = c.category || 'Men';
+
+        categoryCounters[cat] = (categoryCounters[cat] || 0) + 1;
+        const categoryRank = categoryCounters[cat];
+        const categoryPoints = getBasePointsForPosition(categoryRank);
+
+        pointsToSave.push({
           tournament_id: t.id,
           player_id: c.playerId,
-          rank: finalRank,
+          rank: absoluteRank, // Oficjalna ranga nadrzędna
           strokes: Number(c.strokes) || 0,
-          points: Number(points),
-          category: c.category,
-        };
+          points: Number(categoryPoints),
+          category: cat,
+        });
       });
 
       await supabase.from('league_points').delete().eq('tournament_id', t.id);
@@ -684,7 +700,7 @@ function TournamentManager({
       );
 
       setPlayoffModal(null);
-      flash('Kolejność i punkty zostały zapisane!');
+      flash('Kolejność Absolute oraz kategorie zostały zsynchronizowane i zapisane!');
     } catch (err) {
       console.error(err);
       flash('Błąd zapisu dogrywki w bazie.');
@@ -885,7 +901,7 @@ function TournamentManager({
             </div>
 
             <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 14px 0' }}>
-              Turniej: <strong>{playoffModal.tournament.name}</strong>. Wprowadź ostateczne miejsca po dogrywce:
+              Turniej: <strong>{playoffModal.tournament.name}</strong>. Wprowadź ostateczne miejsca po dogrywce (automatycznie ustali kolejność we wszystkich kategoriach):
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, paddingRight: '4px', marginBottom: '16px' }}>
@@ -904,7 +920,7 @@ function TournamentManager({
                           </span>
                         )}
                       </div>
-                      <small style={{ color: '#64748b' }}>Łącznie uderzeń: <b>{c.strokes}</b> · Punkty: <b style={{ color: '#0284c7' }}>{pts} pkt</b></small>
+                      <small style={{ color: '#64748b' }}>Kategoria: <b>{c.category}</b> · Uderzenia: <b>{c.strokes}</b> · Punkty bazowe: <b style={{ color: '#0284c7' }}>{pts} pkt</b></small>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1404,7 +1420,6 @@ function PlayerManager({
     setGender(p.gender ?? 'Male');
     setPreferredFoot(p.preferred_foot ?? p.preferredFoot ?? 'Right');
     
-    // Pobranie samego roku z daty urodzenia (np. z '1995-04-12' -> '1995')
     const rawDate = p.birth_date ?? p.birthDate ?? '';
     const parsedYear = rawDate ? String(rawDate).slice(0, 4) : '';
     setBirthYear(parsedYear);
