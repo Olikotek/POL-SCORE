@@ -592,11 +592,25 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* SUMA (DESKTOP) / TOT (MOBILE) - POGRUBIONE 13PX */}
+                  {/* SUMA (DESKTOP) / TOT (MOBILE) */}
                   <td className="col-sum" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {total < 0 ? (
-                        <span style={{ color: '#dc2626', fontWeight: 800, fontSize: '13px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#fee2e2',
+                            color: '#dc2626',
+                            fontWeight: 800,
+                            fontSize: '13px',
+                            borderRadius: '6px',
+                            padding: '3px 6px',
+                            minWidth: '32px',
+                            lineHeight: 1.1,
+                          }}
+                        >
                           {relativeLabel(total)}
                         </span>
                       ) : (
