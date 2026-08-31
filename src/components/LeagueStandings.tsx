@@ -131,13 +131,12 @@ export function LeagueStandings({
 
   const isGeneralView = categoryFilter === 'Wszystkie';
 
-  // --- KLASYFIKACJA INDYWIDUALNA ---
+  // --- KLASYFIKACJA INDYWIDUALNA (DZIEDZICZY KOLEJNOŚĆ Z ABSOLUTE) ---
   const standings = useMemo(() => {
     if (dbPlayers.length === 0 || leagueTournaments.length === 0) return [];
 
     const relevantPlayers = isGeneralView
       ? dbPlayers.filter((p) => {
-          // Ukrywamy zdublowany profil z samym Polish Open w widoku Absolut
           if (p.name.includes('Wiktor Sokołowski') && (p.category === 'Junior' || p.name.includes('\u200B'))) {
             const hasMainWiktor = dbPlayers.some(
               (o) => o.name.includes('Wiktor Sokołowski') && o.category !== 'Junior' && !o.name.includes('\u200B')
@@ -178,6 +177,7 @@ export function LeagueStandings({
       const isPO = !!t.isPolishOpen;
       const tIdStr = String(t.id);
       const tScores = dbScores.filter((s) => String(s.tournament_id) === tIdStr);
+      const tLeaguePoints = dbLeaguePoints.filter((lp) => String(lp.tournament_id) === tIdStr);
 
       const r1Course = t.round1CourseId;
       const r2Course = t.round2CourseId || r1Course;
@@ -205,11 +205,11 @@ export function LeagueStandings({
           }
         });
 
-        if (scores[1].some((s) => s > 0) || scores[2].some((s) => s > 0)) {
-          const savedLp = dbLeaguePoints.find(
-            (lp) => String(lp.tournament_id) === tIdStr && String(lp.player_id) === String(p.id)
-          );
+        const savedLp = tLeaguePoints.find(
+          (lp) => String(lp.player_id) === String(p.id)
+        );
 
+        if (scores[1].some((s) => s > 0) || scores[2].some((s) => s > 0) || savedLp) {
           allTournamentParticipants.push({
             id: p.id,
             name: p.name,
@@ -227,18 +227,13 @@ export function LeagueStandings({
         }
       });
 
-      const categoryParticipants = isGeneralView
-        ? allTournamentParticipants
-        : allTournamentParticipants.filter((p) => p.category === categoryFilter);
-
-      categoryParticipants.sort((a, b) => {
-        if (isGeneralView) {
-          if (a.savedRank !== undefined && b.savedRank !== undefined) {
-            return a.savedRank - b.savedRank;
-          }
-          if (a.savedRank !== undefined) return -1;
-          if (b.savedRank !== undefined) return 1;
+      // 1. ZAWSZE NAJPIERW USTALAMY GŁÓWNĄ KOLEJNOŚĆ ABSOLUTE DLA TEGO TURNIEJU
+      allTournamentParticipants.sort((a, b) => {
+        if (a.savedRank !== undefined && b.savedRank !== undefined) {
+          return a.savedRank - b.savedRank;
         }
+        if (a.savedRank !== undefined) return -1;
+        if (b.savedRank !== undefined) return 1;
 
         const relA = combinedRelative(a, holes1, holes2);
         const relB = combinedRelative(b, holes1, holes2);
@@ -250,8 +245,13 @@ export function LeagueStandings({
         );
       });
 
+      // 2. FILTRUJEMY GRACZY DO DANEJ KATEGORII Z ZACHOWANIEM DOKŁADNIE TEJ SAMEJ KOLEJNOŚCI Z ABSOLUTA
+      const categoryParticipants = isGeneralView
+        ? allTournamentParticipants
+        : allTournamentParticipants.filter((p) => p.category === categoryFilter);
+
       categoryParticipants.forEach((part, idx) => {
-        const categoryRank = idx + 1;
+        const categoryRank = idx + 1; // 1. w kategorii, 2. w kategorii itd.
         const pts = getBasePointsForPosition(categoryRank);
         const pData = playerMap[String(part.id)];
 
@@ -274,7 +274,7 @@ export function LeagueStandings({
       });
     });
 
-    // Dopasowanie 37 pkt (m.13) w Polish Open do głównego profilu Wiktora w widoku Absolut
+    // Dopasowanie 37 pkt (m.13) w Polish Open dla Wiktora Sokołowskiego w widoku Absolut
     const poTournament = leagueTournaments.find((t) => t.isPolishOpen);
     if (poTournament && isGeneralView) {
       const poIdStr = String(poTournament.id);
@@ -392,7 +392,7 @@ export function LeagueStandings({
       }[] = [];
 
       CATEGORIES.forEach((cat) => {
-        const catParticipants: (Player & { holesPlayed: number; rel: number })[] = [];
+        const catParticipants: (Player & { holesPlayed: number; rel: number; savedRank?: number })[] = [];
 
         dbPlayers.forEach((p) => {
           const savedLp = tLeaguePoints.find((lp) => String(lp.player_id) === String(p.id));
@@ -434,11 +434,19 @@ export function LeagueStandings({
               ...playerObj,
               holesPlayed: playedHolesCount,
               rel,
+              savedRank: savedLp ? Number(savedLp.rank) : undefined,
             });
           }
         });
 
+        // W drużynówce dziedziczymy oficjalną pozycję z Absoluta
         catParticipants.sort((a, b) => {
+          if (a.savedRank !== undefined && b.savedRank !== undefined) {
+            return a.savedRank - b.savedRank;
+          }
+          if (a.savedRank !== undefined) return -1;
+          if (b.savedRank !== undefined) return 1;
+
           if (a.holesPlayed !== b.holesPlayed) {
             return b.holesPlayed - a.holesPlayed;
           }
