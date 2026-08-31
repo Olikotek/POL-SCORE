@@ -125,7 +125,7 @@ export function LeagueStandings({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [dbTournaments, tournaments]);
 
-  // Włączamy Polish Open do klasyfikacji drużynowej
+  // Włączamy wszystkie turnieje ligowe wraz z Polish Open
   const teamEligibleTournaments = useMemo(() => {
     return leagueTournaments;
   }, [leagueTournaments]);
@@ -170,6 +170,7 @@ export function LeagueStandings({
       const isPO = !!t.isPolishOpen;
       const tIdStr = String(t.id);
       const tScores = dbScores.filter((s) => String(s.tournament_id) === tIdStr);
+      const tLeaguePoints = dbLeaguePoints.filter((lp) => String(lp.tournament_id) === tIdStr);
 
       const r1Course = t.round1CourseId;
       const r2Course = t.round2CourseId || r1Course;
@@ -197,8 +198,8 @@ export function LeagueStandings({
           }
         });
 
-        const savedLp = dbLeaguePoints.find(
-          (lp) => String(lp.tournament_id) === tIdStr && String(lp.player_id) === String(p.id)
+        const savedLp = tLeaguePoints.find(
+          (lp) => String(lp.player_id) === String(p.id)
         );
 
         if (scores[1].some((s) => s > 0) || scores[2].some((s) => s > 0) || savedLp) {
@@ -490,7 +491,7 @@ export function LeagueStandings({
               )
             ) : (
               <span>
-                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie ligowej oraz Polish Open.
+                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie. Suma ze wszystkich rozegranych turniejów ligowych oraz Polish Open.
               </span>
             )}
           </p>
@@ -688,7 +689,7 @@ export function LeagueStandings({
                       }}
                       title={t.name}
                     >
-                      {isPO ? '🏆 MP (POLISH OPEN)' : `R${idx + 1}`}
+                      {isPO ? '🏆 POLISH OPEN' : `R${idx + 1}`}
                     </th>
                   );
                 })}
@@ -934,142 +935,257 @@ export function LeagueStandings({
                 const isExpanded = !!expandedClubs[club.clubName];
 
                 return (
-                  <tr
-                    key={club.clubName}
-                    style={{
-                      background: isEven ? '#ffffff' : '#f8fafc',
-                      borderBottom: isExpanded ? 'none' : '1px solid #e2e8f0',
-                    }}
-                  >
-                    <td
+                  <>
+                    <tr
+                      key={club.clubName}
                       onClick={() => toggleClubExpanded(club.clubName)}
-                      style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0', cursor: 'pointer' }}
+                      style={{
+                        background: isEven ? '#ffffff' : '#f8fafc',
+                        borderBottom: isExpanded ? 'none' : '1px solid #e2e8f0',
+                        cursor: 'pointer',
+                        transition: 'background 0.1s ease',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                        {club.rank === 1 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
-                            1
-                          </span>
-                        ) : club.rank === 2 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
-                            2
-                          </span>
-                        ) : club.rank === 3 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
-                            3
-                          </span>
-                        ) : (
-                          <span style={{ fontWeight: 800, fontSize: '13px', color: '#475569' }}>
-                            {club.rank}
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                      {/* POZYCJA PODIUM */}
+                      <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                          {club.rank === 1 ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
+                              1
+                            </span>
+                          ) : club.rank === 2 ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
+                              2
+                            </span>
+                          ) : club.rank === 3 ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
+                              3
+                            </span>
+                          ) : (
+                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#475569' }}>
+                              {club.rank}
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                    <td
-                      onClick={() => toggleClubExpanded(club.clubName)}
-                      style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0', cursor: 'pointer' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                        {club.logoUrl ? (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setLightboxClub({ name: club.clubName, logoUrl: club.logoUrl! });
-                            }}
-                            title="Kliknij, aby powiększyć herb"
-                            style={{ position: 'relative', cursor: 'zoom-in' }}
-                          >
-                            <img
-                              src={club.logoUrl}
-                              alt={club.clubName}
+                      {/* LOGO KLUBU (POWIĘKSZENIE W LIGHTBOXIE) */}
+                      <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                          {club.logoUrl ? (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxClub({ name: club.clubName, logoUrl: club.logoUrl! });
+                              }}
+                              title="Kliknij, aby powiększyć herb"
+                              style={{ position: 'relative', cursor: 'zoom-in' }}
+                            >
+                              <img
+                                src={club.logoUrl}
+                                alt={club.clubName}
+                                style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '6px',
+                                  objectFit: 'contain',
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  padding: '2px',
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <span
                               style={{
                                 width: '36px',
                                 height: '36px',
                                 borderRadius: '6px',
-                                objectFit: 'contain',
-                                background: '#f8fafc',
-                                border: '1px solid #e2e8f0',
-                                padding: '2px',
+                                background: '#f1f5f9',
+                                border: '1px solid #cbd5e1',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '11px',
+                                fontWeight: 900,
+                                color: '#475569',
                               }}
-                            />
-                          </div>
-                        ) : (
-                          <span
+                            >
+                              {club.clubName.slice(0, 2).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* NAZWA KLUBU */}
+                      <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
+                            {club.clubName}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* SUMA PUNKTÓW DRUŻYNY */}
+                      <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                        {club.finalTotalPoints.toFixed(0)}
+                      </td>
+
+                      {/* PUNKTY W RUNDACH */}
+                      {teamEligibleTournaments.map((t) => {
+                        const tIdStr = String(t.id);
+                        const isPO = !!t.isPolishOpen;
+                        const tourneyData = club.tournamentPoints[tIdStr];
+                        const pts = tourneyData?.totalPoints || 0;
+
+                        return (
+                          <td
+                            key={tIdStr}
                             style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '6px',
-                              background: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '11px',
-                              fontWeight: 900,
-                              color: '#475569',
+                              padding: '10px 8px',
+                              textAlign: 'center',
+                              fontSize: '13px',
+                              fontWeight: pts > 0 ? 800 : 500,
+                              color: pts > 0 ? (isPO ? '#be123c' : '#0f172a') : '#cbd5e1',
+                              background: isPO ? '#fff1f2' : undefined,
+                              borderRight: '1px solid #e2e8f0',
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            {club.clubName.slice(0, 2).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                            {pts > 0 ? pts : '–'}
+                          </td>
+                        );
+                      })}
 
-                    <td
-                      onClick={() => toggleClubExpanded(club.clubName)}
-                      style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0', cursor: 'pointer' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                          {club.clubName}
-                        </span>
-                      </div>
-                    </td>
+                      {/* ROZWIJANIE */}
+                      <td style={{ padding: '10px 6px', textAlign: 'center', color: '#64748b' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </div>
+                      </td>
+                    </tr>
 
-                    <td
-                      onClick={() => toggleClubExpanded(club.clubName)}
-                      style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap', cursor: 'pointer' }}
-                    >
-                      {club.finalTotalPoints.toFixed(0)}
-                    </td>
+                    {/* SZCZEGÓŁOWY PANEL Z ZIELONYMI PUNKTUJĄCYMI I ROZWIJALNĄ REZERWĄ */}
+                    {isExpanded && (
+                      <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                        <td colSpan={teamEligibleTournaments.length + 5} style={{ padding: '16px 20px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                              <p style={{ margin: 0, fontSize: '12px', fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Punkty i skład klubu {club.clubName} w poszczególnych rundach:
+                              </p>
+                              <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 800, background: '#dcfce7', padding: '2px 8px', borderRadius: '4px', border: '1px solid #86efac' }}>
+                                ★ Gracze na zielonym tle punktują do sumy drużyny (kliknij gracza, by rozwinąć rezerwę)
+                              </span>
+                            </div>
 
-                    {teamEligibleTournaments.map((t) => {
-                      const tIdStr = String(t.id);
-                      const isPO = !!t.isPolishOpen;
-                      const tourneyData = club.tournamentPoints[tIdStr];
-                      const pts = tourneyData?.totalPoints || 0;
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
+                              {teamEligibleTournaments.map((t, idx) => {
+                                const tIdStr = String(t.id);
+                                const isPO = !!t.isPolishOpen;
+                                const tourneyData = club.tournamentPoints[tIdStr];
+                                if (!tourneyData || Object.keys(tourneyData.groupedMembers).length === 0) return null;
 
-                      return (
-                        <td
-                          key={tIdStr}
-                          onClick={() => toggleClubExpanded(club.clubName)}
-                          style={{
-                            padding: '10px 8px',
-                            textAlign: 'center',
-                            fontSize: '13px',
-                            fontWeight: pts > 0 ? 800 : 500,
-                            color: pts > 0 ? (isPO ? '#be123c' : '#0f172a') : '#cbd5e1',
-                            background: isPO ? '#fff1f2' : undefined,
-                            borderRight: '1px solid #e2e8f0',
-                            whiteSpace: 'nowrap',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {pts > 0 ? pts : '–'}
+                                return (
+                                  <div
+                                    key={tIdStr}
+                                    style={{
+                                      background: '#ffffff',
+                                      border: '1px solid #cbd5e1',
+                                      borderRadius: '8px',
+                                      overflow: 'hidden',
+                                      boxShadow: '0 2px 5px rgba(0,0,0,0.03)',
+                                    }}
+                                  >
+                                    {/* NAGŁÓWEK KARTY RUNDY */}
+                                    <div style={{ background: isPO ? '#881337' : '#0b1329', padding: '9px 12px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ fontSize: '12px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {isPO ? `🏆 ${t.name}` : `R${idx + 1}: ${t.name}`}
+                                      </span>
+                                      <span style={{ fontSize: '12px', fontWeight: 900, color: isPO ? '#ffe4e6' : '#38bdf8', whiteSpace: 'nowrap' }}>
+                                        {tourneyData.totalPoints} pkt
+                                      </span>
+                                    </div>
+
+                                    {/* LISTA GRUP WIEKOWYCH */}
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                      {Object.values(tourneyData.groupedMembers).map((group) => {
+                                        if (!group.countingPlayer) return null;
+                                        const groupKey = `${club.clubName}_${tIdStr}_${group.categoryLabel}`;
+                                        const isGroupOpen = !!expandedGroups[groupKey];
+
+                                        return (
+                                          <div key={group.categoryLabel} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            {/* ZAWODNIK PUNKTUJĄCY NA ZIELONO */}
+                                            <div
+                                              onClick={() => group.reserves.length > 0 && toggleGroupExpanded(groupKey)}
+                                              style={{
+                                                padding: '8px 10px',
+                                                background: '#f0fdf4',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                cursor: group.reserves.length > 0 ? 'pointer' : 'default',
+                                              }}
+                                            >
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                                                <span style={{ fontWeight: 900, fontSize: '11px', color: '#15803d', background: '#dcfce7', padding: '1px 5px', borderRadius: '3px', border: '1px solid #86efac' }}>
+                                                  {group.categoryLabel}
+                                                </span>
+                                                <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                                  {group.countingPlayer.playerName}
+                                                </span>
+                                                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>
+                                                  (m.{group.countingPlayer.rank})
+                                                </span>
+                                              </div>
+
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                                                <span style={{ background: '#16a34a', color: '#ffffff', padding: '2px 7px', borderRadius: '4px', fontWeight: 900, fontSize: '11px' }}>
+                                                  +{group.countingPlayer.points} pkt
+                                                </span>
+                                                {group.reserves.length > 0 && (
+                                                  <span style={{ color: '#16a34a', display: 'flex', alignItems: 'center' }}>
+                                                    {isGroupOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+
+                                            {/* ROZWIJANA REZERWA W TEJ KATEGORII */}
+                                            {isGroupOpen && group.reserves.length > 0 && (
+                                              <div style={{ background: '#ffffff', padding: '4px 10px 6px 20px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                <small style={{ color: '#94a3b8', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' }}>
+                                                  Pozostali zawodnicy (rezerwa w {group.categoryLabel}):
+                                                </small>
+                                                {group.reserves.map((res, rIdx) => (
+                                                  <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#64748b' }}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                      <span style={{ color: '#cbd5e1', fontSize: '10px' }}>↳</span>
+                                                      {res.playerName} (m.{res.rank})
+                                                    </span>
+                                                    <span style={{ color: '#94a3b8', textDecoration: 'line-through', fontWeight: 600 }}>
+                                                      ({res.points} pkt)
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </td>
-                      );
-                    })}
-
-                    <td
-                      onClick={() => toggleClubExpanded(club.clubName)}
-                      style={{ padding: '10px 6px', textAlign: 'center', color: '#64748b', cursor: 'pointer' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </div>
-                    </td>
-                  </tr>
+                      </tr>
+                    )}
+                  </>
                 );
               })}
             </tbody>
@@ -1108,7 +1224,7 @@ export function LeagueStandings({
         />
       )}
 
-      {/* LIGHTBOX HERBU */}
+      {/* LIGHTBOX POWIĘKSZENIA HERBU KLUBU */}
       {lightboxClub && (
         <div
           style={{
