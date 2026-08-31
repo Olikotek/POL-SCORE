@@ -230,6 +230,7 @@ function App() {
             store={store}
             onEnter={() => setView('karta')}
             onOpenPlayer={setModalPlayerId}
+            onRefresh={refresh}
           />
         )}
         {view === 'teetimes' && (
