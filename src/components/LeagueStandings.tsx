@@ -125,9 +125,8 @@ export function LeagueStandings({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [dbTournaments, tournaments]);
 
-  // Włączamy wszystkie turnieje ligowe wraz z Polish Open
   const teamEligibleTournaments = useMemo(() => {
-    return leagueTournaments;
+    return leagueTournaments.filter((t) => !t.isPolishOpen);
   }, [leagueTournaments]);
 
   const isGeneralView = categoryFilter === 'Wszystkie';
@@ -170,7 +169,6 @@ export function LeagueStandings({
       const isPO = !!t.isPolishOpen;
       const tIdStr = String(t.id);
       const tScores = dbScores.filter((s) => String(s.tournament_id) === tIdStr);
-      const tLeaguePoints = dbLeaguePoints.filter((lp) => String(lp.tournament_id) === tIdStr);
 
       const r1Course = t.round1CourseId;
       const r2Course = t.round2CourseId || r1Course;
@@ -183,7 +181,7 @@ export function LeagueStandings({
         ? store.holesByCourse[r2Course]
         : (store?.holesByRound?.[2] || holes1);
 
-      const allTournamentParticipants: (Player & { savedRank?: number; savedPoints?: number; savedCategory?: string })[] = [];
+      const allTournamentParticipants: (Player & { savedRank?: number })[] = [];
 
       dbPlayers.forEach((p) => {
         const scores: Record<1 | 2, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
@@ -198,15 +196,15 @@ export function LeagueStandings({
           }
         });
 
-        const savedLp = tLeaguePoints.find(
-          (lp) => String(lp.player_id) === String(p.id)
-        );
+        if (scores[1].some((s) => s > 0) || scores[2].some((s) => s > 0)) {
+          const savedLp = dbLeaguePoints.find(
+            (lp) => String(lp.tournament_id) === tIdStr && String(lp.player_id) === String(p.id)
+          );
 
-        if (scores[1].some((s) => s > 0) || scores[2].some((s) => s > 0) || savedLp) {
           allTournamentParticipants.push({
             id: p.id,
             name: p.name,
-            category: (savedLp?.category as Category) || p.category,
+            category: p.category,
             avatar: p.avatar,
             club: p.club,
             flag: p.flag || 'PL',
@@ -216,22 +214,22 @@ export function LeagueStandings({
             flightId: { 1: null, 2: null },
             scores,
             savedRank: savedLp ? Number(savedLp.rank) : undefined,
-            savedPoints: savedLp ? Number(savedLp.points) : undefined,
-            savedCategory: savedLp?.category,
           });
         }
       });
 
       const categoryParticipants = isGeneralView
         ? allTournamentParticipants
-        : allTournamentParticipants.filter((p) => (p.savedCategory || p.category) === categoryFilter);
+        : allTournamentParticipants.filter((p) => p.category === categoryFilter);
 
       categoryParticipants.sort((a, b) => {
-        if (a.savedRank !== undefined && b.savedRank !== undefined) {
-          return a.savedRank - b.savedRank;
+        if (isGeneralView) {
+          if (a.savedRank !== undefined && b.savedRank !== undefined) {
+            return a.savedRank - b.savedRank;
+          }
+          if (a.savedRank !== undefined) return -1;
+          if (b.savedRank !== undefined) return 1;
         }
-        if (a.savedRank !== undefined) return -1;
-        if (b.savedRank !== undefined) return 1;
 
         const relA = combinedRelative(a, holes1, holes2);
         const relB = combinedRelative(b, holes1, holes2);
@@ -244,8 +242,8 @@ export function LeagueStandings({
       });
 
       categoryParticipants.forEach((part, idx) => {
-        const categoryRank = part.savedRank !== undefined ? part.savedRank : (idx + 1);
-        const pts = part.savedPoints !== undefined ? part.savedPoints : getBasePointsForPosition(categoryRank);
+        const categoryRank = idx + 1;
+        const pts = getBasePointsForPosition(categoryRank);
         const pData = playerMap[String(part.id)];
 
         if (pData) {
@@ -349,7 +347,6 @@ export function LeagueStandings({
     teamEligibleTournaments.forEach((t) => {
       const tIdStr = String(t.id);
       const tScores = dbScores.filter((s) => String(s.tournament_id) === tIdStr);
-      const tLeaguePoints = dbLeaguePoints.filter((lp) => String(lp.tournament_id) === tIdStr);
 
       const tournamentPlayersWithPts: {
         player: any;
@@ -361,32 +358,20 @@ export function LeagueStandings({
 
       CATEGORIES.forEach((cat) => {
         const catParticipants = dbPlayers.filter((p) => {
-          const savedLp = tLeaguePoints.find((lp) => String(lp.player_id) === String(p.id));
-          const effectiveCat = savedLp?.category || p.category;
-          if (effectiveCat !== cat) return false;
-
+          if (p.category !== cat) return false;
           const pScores = tScores.filter((s) => String(s.player_id) === String(p.id));
-          return pScores.some((s) => Number(s.strokes ?? s.score ?? 0) > 0) || !!savedLp;
+          return pScores.some((s) => Number(s.strokes ?? s.score ?? 0) > 0);
         });
 
         catParticipants.sort((a, b) => {
-          const lpA = tLeaguePoints.find((lp) => String(lp.player_id) === String(a.id));
-          const lpB = tLeaguePoints.find((lp) => String(lp.player_id) === String(b.id));
-
-          if (lpA?.rank !== undefined && lpB?.rank !== undefined) {
-            return Number(lpA.rank) - Number(lpB.rank);
-          }
-
           const sumA = tScores.filter((s) => String(s.player_id) === String(a.id)).reduce((acc, s) => acc + Number(s.strokes ?? s.score ?? 0), 0);
           const sumB = tScores.filter((s) => String(s.player_id) === String(b.id)).reduce((acc, s) => acc + Number(s.strokes ?? s.score ?? 0), 0);
           return sumA - sumB;
         });
 
         catParticipants.forEach((p, idx) => {
-          const savedLp = tLeaguePoints.find((lp) => String(lp.player_id) === String(p.id));
-          const rank = savedLp?.rank !== undefined ? Number(savedLp.rank) : (idx + 1);
-          const pts = savedLp?.points !== undefined ? Number(savedLp.points) : getBasePointsForPosition(rank);
-
+          const rank = idx + 1;
+          const pts = getBasePointsForPosition(rank);
           if (p.club && p.club.trim()) {
             tournamentPlayersWithPts.push({
               player: p,
@@ -442,7 +427,7 @@ export function LeagueStandings({
       .filter((c) => c.finalTotalPoints > 0)
       .sort((a, b) => b.finalTotalPoints - a.finalTotalPoints)
       .map((c, idx) => ({ ...c, rank: idx + 1 }));
-  }, [dbPlayers, dbScores, dbLeaguePoints, teamEligibleTournaments, clubLogos]);
+  }, [dbPlayers, dbScores, teamEligibleTournaments, clubLogos]);
 
   const toggleClubExpanded = (clubName: string) => {
     setExpandedClubs((prev) => ({ ...prev, [clubName]: !prev[clubName] }));
@@ -491,7 +476,7 @@ export function LeagueStandings({
               )
             ) : (
               <span>
-                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie. Suma ze wszystkich rozegranych turniejów ligowych oraz Polish Open.
+                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie. Suma ze wszystkich 8 rund ligowych (bez MP).
               </span>
             )}
           </p>
@@ -689,7 +674,7 @@ export function LeagueStandings({
                       }}
                       title={t.name}
                     >
-                      {isPO ? '🏆 POLISH OPEN' : `R${idx + 1}`}
+                      {isPO ? '🏆 POLISH OPEN' : `T${idx + 1}`}
                     </th>
                   );
                 })}
@@ -733,6 +718,7 @@ export function LeagueStandings({
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                   >
+                    {/* POZYCJA Z PODŚWIETLENIEM 1, 2, 3 */}
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         {item.rank === 1 ? (
@@ -755,6 +741,7 @@ export function LeagueStandings({
                       </div>
                     </td>
 
+                    {/* FLAGA NARODOWA */}
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         {p.flag_image || p.flagImage ? (
@@ -778,6 +765,7 @@ export function LeagueStandings({
                       </div>
                     </td>
 
+                    {/* ZAWODNIK + AVATAR + KLUB */}
                     <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
                         {p.avatar ? (
@@ -831,10 +819,12 @@ export function LeagueStandings({
                       </div>
                     </td>
 
+                    {/* PUNKTY CAŁKOWITE (LICZBA CAŁKOWITA LUB NATURALNY FORMAT) */}
                     <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                       {Number.isInteger(item.finalTotalPoints) ? item.finalTotalPoints : item.finalTotalPoints.toFixed(1)}
                     </td>
 
+                    {/* PUNKTY W TURNIEJACH */}
                     {leagueTournaments.map((t) => {
                       const tIdStr = String(t.id);
                       const score = item.scoresByTournament[tIdStr];
@@ -875,6 +865,7 @@ export function LeagueStandings({
                       );
                     })}
 
+                    {/* STRZAŁKA */}
                     <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         <ChevronRight size={15} />
@@ -905,26 +896,23 @@ export function LeagueStandings({
                   SUMA PUNKTÓW
                 </th>
 
-                {teamEligibleTournaments.map((t, idx) => {
-                  const isPO = !!t.isPolishOpen;
-                  return (
-                    <th
-                      key={t.id}
-                      style={{
-                        padding: '12px 8px',
-                        textAlign: 'center',
-                        fontSize: '11px',
-                        background: isPO ? '#881337' : '#f8fafc',
-                        color: isPO ? '#ffe4e6' : '#475569',
-                        borderRight: '1px solid #e2e8f0',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={t.name}
-                    >
-                      {isPO ? '🏆 MP' : `R${idx + 1}`}
-                    </th>
-                  );
-                })}
+                {teamEligibleTournaments.map((t, idx) => (
+                  <th
+                    key={t.id}
+                    style={{
+                      padding: '12px 8px',
+                      textAlign: 'center',
+                      fontSize: '11px',
+                      background: '#f8fafc',
+                      color: '#475569',
+                      borderRight: '1px solid #e2e8f0',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={t.name}
+                  >
+                    R{idx + 1}
+                  </th>
+                ))}
 
                 <th style={{ padding: '12px 8px', width: '40px', textAlign: 'center' }}></th>
               </tr>
@@ -1036,7 +1024,6 @@ export function LeagueStandings({
                       {/* PUNKTY W RUNDACH */}
                       {teamEligibleTournaments.map((t) => {
                         const tIdStr = String(t.id);
-                        const isPO = !!t.isPolishOpen;
                         const tourneyData = club.tournamentPoints[tIdStr];
                         const pts = tourneyData?.totalPoints || 0;
 
@@ -1048,8 +1035,7 @@ export function LeagueStandings({
                               textAlign: 'center',
                               fontSize: '13px',
                               fontWeight: pts > 0 ? 800 : 500,
-                              color: pts > 0 ? (isPO ? '#be123c' : '#0f172a') : '#cbd5e1',
-                              background: isPO ? '#fff1f2' : undefined,
+                              color: pts > 0 ? '#0f172a' : '#cbd5e1',
                               borderRight: '1px solid #e2e8f0',
                               whiteSpace: 'nowrap',
                             }}
@@ -1084,7 +1070,6 @@ export function LeagueStandings({
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
                               {teamEligibleTournaments.map((t, idx) => {
                                 const tIdStr = String(t.id);
-                                const isPO = !!t.isPolishOpen;
                                 const tourneyData = club.tournamentPoints[tIdStr];
                                 if (!tourneyData || Object.keys(tourneyData.groupedMembers).length === 0) return null;
 
@@ -1100,11 +1085,11 @@ export function LeagueStandings({
                                     }}
                                   >
                                     {/* NAGŁÓWEK KARTY RUNDY */}
-                                    <div style={{ background: isPO ? '#881337' : '#0b1329', padding: '9px 12px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ background: '#0b1329', padding: '9px 12px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                                       <span style={{ fontSize: '12px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {isPO ? `🏆 ${t.name}` : `R${idx + 1}: ${t.name}`}
+                                        R{idx + 1}: {t.name}
                                       </span>
-                                      <span style={{ fontSize: '12px', fontWeight: 900, color: isPO ? '#ffe4e6' : '#38bdf8', whiteSpace: 'nowrap' }}>
+                                      <span style={{ fontSize: '12px', fontWeight: 900, color: '#38bdf8', whiteSpace: 'nowrap' }}>
                                         {tourneyData.totalPoints} pkt
                                       </span>
                                     </div>
