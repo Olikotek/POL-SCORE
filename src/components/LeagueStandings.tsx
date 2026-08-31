@@ -126,12 +126,12 @@ export function LeagueStandings({
   }, [dbTournaments, tournaments]);
 
   const teamEligibleTournaments = useMemo(() => {
-    return leagueTournaments.filter((t) => !t.isPolishOpen);
+    return leagueTournaments;
   }, [leagueTournaments]);
 
   const isGeneralView = categoryFilter === 'Wszystkie';
 
-  // --- KLASYFIKACJA INDYWIDUALNA ---
+  // --- KLASYFIKACJA INDYWIDUALNA (BEZ ZMIAN) ---
   const standings = useMemo(() => {
     if (dbPlayers.length === 0 || leagueTournaments.length === 0) return [];
 
@@ -305,7 +305,7 @@ export function LeagueStandings({
     }));
   }, [dbPlayers, dbScores, dbLeaguePoints, leagueTournaments, categoryFilter, isGeneralView, store]);
 
-  // --- KLASYFIKACJA DRUŻYNOWA PFFG ---
+  // --- KLASYFIKACJA DRUŻYNOWA PFFG (NAPRAWIONA PUNKTACJA KATEGORII + DNF) ---
   const teamStandings = useMemo(() => {
     if (dbPlayers.length === 0 || teamEligibleTournaments.length === 0) return [];
 
@@ -347,6 +347,18 @@ export function LeagueStandings({
     teamEligibleTournaments.forEach((t) => {
       const tIdStr = String(t.id);
       const tScores = dbScores.filter((s) => String(s.tournament_id) === tIdStr);
+      const tLeaguePoints = dbLeaguePoints.filter((lp) => String(lp.tournament_id) === tIdStr);
+
+      const r1Course = t.round1CourseId;
+      const r2Course = t.round2CourseId || r1Course;
+
+      const holes1: Hole[] = (r1Course && store?.holesByCourse?.[r1Course])
+        ? store.holesByCourse[r1Course]
+        : (store?.holesByRound?.[1] || []);
+
+      const holes2: Hole[] = (r2Course && store?.holesByCourse?.[r2Course])
+        ? store.holesByCourse[r2Course]
+        : (store?.holesByRound?.[2] || holes1);
 
       const tournamentPlayersWithPts: {
         player: any;
@@ -357,26 +369,76 @@ export function LeagueStandings({
       }[] = [];
 
       CATEGORIES.forEach((cat) => {
-        const catParticipants = dbPlayers.filter((p) => {
-          if (p.category !== cat) return false;
+        const catParticipants: (Player & { holesPlayed: number; rel: number })[] = [];
+
+        dbPlayers.forEach((p) => {
+          const savedLp = tLeaguePoints.find((lp) => String(lp.player_id) === String(p.id));
+          const effectiveCat = savedLp?.category || p.category;
+          if (effectiveCat !== cat) return;
+
+          const scores: Record<1 | 2, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
           const pScores = tScores.filter((s) => String(s.player_id) === String(p.id));
-          return pScores.some((s) => Number(s.strokes ?? s.score ?? 0) > 0);
+          let playedHolesCount = 0;
+
+          pScores.forEach((s) => {
+            const r = Number(s.round ?? s.round_number ?? 1);
+            const h = Number(s.hole_number ?? s.hole ?? 1);
+            const val = Number(s.strokes ?? s.score ?? 0);
+            if ((r === 1 || r === 2) && h >= 1 && h <= 18 && val > 0) {
+              scores[r as 1 | 2][h - 1] = val;
+              playedHolesCount++;
+            }
+          });
+
+          if (playedHolesCount > 0 || savedLp) {
+            const playerObj: Player = {
+              id: p.id,
+              name: p.name,
+              category: p.category,
+              avatar: p.avatar,
+              club: p.club,
+              flag: p.flag || 'PL',
+              flagImage: p.flag_image || p.flagImage,
+              isAmateur: !!p.is_amateur,
+              isActive: true,
+              flightId: { 1: null, 2: null },
+              scores,
+            };
+
+            const rel = combinedRelative(playerObj, holes1, holes2);
+
+            catParticipants.push({
+              ...playerObj,
+              holesPlayed: playedHolesCount,
+              rel,
+            });
+          }
         });
 
+        // Prawidłowe sortowanie: gracze z pełną liczbą dołków wyżej niż DNF, potem wynik do PAR i countback
         catParticipants.sort((a, b) => {
-          const sumA = tScores.filter((s) => String(s.player_id) === String(a.id)).reduce((acc, s) => acc + Number(s.strokes ?? s.score ?? 0), 0);
-          const sumB = tScores.filter((s) => String(s.player_id) === String(b.id)).reduce((acc, s) => acc + Number(s.strokes ?? s.score ?? 0), 0);
-          return sumA - sumB;
+          if (a.holesPlayed !== b.holesPlayed) {
+            return b.holesPlayed - a.holesPlayed;
+          }
+          if (a.rel !== b.rel) {
+            return a.rel - b.rel;
+          }
+          return compareCountback(
+            { scoresR1: a.scores[1], scoresR2: a.scores[2] },
+            { scoresR1: b.scores[1], scoresR2: b.scores[2] }
+          );
         });
 
+        // Przypisanie punktów kategorii (1. msc = 100 pkt, 2. msc = 80 pkt, etc.)
         catParticipants.forEach((p, idx) => {
-          const rank = idx + 1;
-          const pts = getBasePointsForPosition(rank);
+          const categoryRank = idx + 1;
+          const pts = getBasePointsForPosition(categoryRank);
+
           if (p.club && p.club.trim()) {
             tournamentPlayersWithPts.push({
               player: p,
               points: pts,
-              rank,
+              rank: categoryRank,
               category: cat,
               club: p.club.trim(),
             });
@@ -384,6 +446,7 @@ export function LeagueStandings({
         });
       });
 
+      // Podział na grupy wiekowe w klubach
       clubsSet.forEach((clubName) => {
         const clubPlayersInTourney = tournamentPlayersWithPts.filter((item) => item.club === clubName);
         const groupedMembers: Record<string, { categoryLabel: string; countingPlayer: any; reserves: any[] }> = {};
@@ -427,7 +490,7 @@ export function LeagueStandings({
       .filter((c) => c.finalTotalPoints > 0)
       .sort((a, b) => b.finalTotalPoints - a.finalTotalPoints)
       .map((c, idx) => ({ ...c, rank: idx + 1 }));
-  }, [dbPlayers, dbScores, teamEligibleTournaments, clubLogos]);
+  }, [dbPlayers, dbScores, dbLeaguePoints, teamEligibleTournaments, clubLogos, store]);
 
   const toggleClubExpanded = (clubName: string) => {
     setExpandedClubs((prev) => ({ ...prev, [clubName]: !prev[clubName] }));
@@ -476,7 +539,7 @@ export function LeagueStandings({
               )
             ) : (
               <span>
-                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie. Suma ze wszystkich 8 rund ligowych (bez MP).
+                Klasyfikacja Drużynowa: <strong>1 najlepszy wynik z każdej kategorii wiekowej</strong> (MEN, SENIOR, WOMEN, JUNIOR) w każdej rundzie. Suma ze wszystkich rozegranych turniejów ligowych oraz Polish Open.
               </span>
             )}
           </p>
@@ -718,7 +781,6 @@ export function LeagueStandings({
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                   >
-                    {/* POZYCJA Z PODŚWIETLENIEM 1, 2, 3 */}
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         {item.rank === 1 ? (
@@ -741,7 +803,6 @@ export function LeagueStandings({
                       </div>
                     </td>
 
-                    {/* FLAGA NARODOWA */}
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         {p.flag_image || p.flagImage ? (
@@ -765,7 +826,6 @@ export function LeagueStandings({
                       </div>
                     </td>
 
-                    {/* ZAWODNIK + AVATAR + KLUB */}
                     <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
                         {p.avatar ? (
@@ -819,12 +879,10 @@ export function LeagueStandings({
                       </div>
                     </td>
 
-                    {/* PUNKTY CAŁKOWITE (LICZBA CAŁKOWITA LUB NATURALNY FORMAT) */}
                     <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#0284c7', background: '#f0f9ff', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                       {Number.isInteger(item.finalTotalPoints) ? item.finalTotalPoints : item.finalTotalPoints.toFixed(1)}
                     </td>
 
-                    {/* PUNKTY W TURNIEJACH */}
                     {leagueTournaments.map((t) => {
                       const tIdStr = String(t.id);
                       const score = item.scoresByTournament[tIdStr];
@@ -865,7 +923,6 @@ export function LeagueStandings({
                       );
                     })}
 
-                    {/* STRZAŁKA */}
                     <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         <ChevronRight size={15} />
@@ -896,23 +953,26 @@ export function LeagueStandings({
                   SUMA PUNKTÓW
                 </th>
 
-                {teamEligibleTournaments.map((t, idx) => (
-                  <th
-                    key={t.id}
-                    style={{
-                      padding: '12px 8px',
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      background: '#f8fafc',
-                      color: '#475569',
-                      borderRight: '1px solid #e2e8f0',
-                      whiteSpace: 'nowrap',
-                    }}
-                    title={t.name}
-                  >
-                    R{idx + 1}
-                  </th>
-                ))}
+                {teamEligibleTournaments.map((t, idx) => {
+                  const isPO = !!t.isPolishOpen;
+                  return (
+                    <th
+                      key={t.id}
+                      style={{
+                        padding: '12px 8px',
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        background: isPO ? '#881337' : '#f8fafc',
+                        color: isPO ? '#ffe4e6' : '#475569',
+                        borderRight: '1px solid #e2e8f0',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={t.name}
+                    >
+                      {isPO ? '🏆 MP' : `R${idx + 1}`}
+                    </th>
+                  );
+                })}
 
                 <th style={{ padding: '12px 8px', width: '40px', textAlign: 'center' }}></th>
               </tr>
@@ -1024,6 +1084,7 @@ export function LeagueStandings({
                       {/* PUNKTY W RUNDACH */}
                       {teamEligibleTournaments.map((t) => {
                         const tIdStr = String(t.id);
+                        const isPO = !!t.isPolishOpen;
                         const tourneyData = club.tournamentPoints[tIdStr];
                         const pts = tourneyData?.totalPoints || 0;
 
@@ -1035,7 +1096,8 @@ export function LeagueStandings({
                               textAlign: 'center',
                               fontSize: '13px',
                               fontWeight: pts > 0 ? 800 : 500,
-                              color: pts > 0 ? '#0f172a' : '#cbd5e1',
+                              color: pts > 0 ? (isPO ? '#be123c' : '#0f172a') : '#cbd5e1',
+                              background: isPO ? '#fff1f2' : undefined,
                               borderRight: '1px solid #e2e8f0',
                               whiteSpace: 'nowrap',
                             }}
@@ -1070,6 +1132,7 @@ export function LeagueStandings({
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
                               {teamEligibleTournaments.map((t, idx) => {
                                 const tIdStr = String(t.id);
+                                const isPO = !!t.isPolishOpen;
                                 const tourneyData = club.tournamentPoints[tIdStr];
                                 if (!tourneyData || Object.keys(tourneyData.groupedMembers).length === 0) return null;
 
@@ -1085,11 +1148,11 @@ export function LeagueStandings({
                                     }}
                                   >
                                     {/* NAGŁÓWEK KARTY RUNDY */}
-                                    <div style={{ background: '#0b1329', padding: '9px 12px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ background: isPO ? '#881337' : '#0b1329', padding: '9px 12px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                                       <span style={{ fontSize: '12px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        R{idx + 1}: {t.name}
+                                        {isPO ? `🏆 ${t.name}` : `R${idx + 1}: ${t.name}`}
                                       </span>
-                                      <span style={{ fontSize: '12px', fontWeight: 900, color: '#38bdf8', whiteSpace: 'nowrap' }}>
+                                      <span style={{ fontSize: '12px', fontWeight: 900, color: isPO ? '#ffe4e6' : '#38bdf8', whiteSpace: 'nowrap' }}>
                                         {tourneyData.totalPoints} pkt
                                       </span>
                                     </div>
@@ -1209,7 +1272,7 @@ export function LeagueStandings({
         />
       )}
 
-      {/* LIGHTBOX POWIĘKSZENIA HERBU KLUBU */}
+      {/* LIGHTBOX HERBU */}
       {lightboxClub && (
         <div
           style={{
