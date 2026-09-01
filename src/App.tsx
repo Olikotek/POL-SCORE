@@ -28,6 +28,11 @@ function App() {
 
   const openAdmin = () => setView('admin');
 
+  const handleGoToLeaderboard = () => {
+    setView('wyniki');
+    refresh();
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     refresh();
@@ -90,7 +95,7 @@ function App() {
       <header className="topbar">
         {/* GÓRNY PASEK UTILITY */}
         <div className="topbar-utility">
-          <button className="brand" onClick={() => setView('wyniki')}>
+          <button className="brand" onClick={handleGoToLeaderboard}>
             <span className="brand-mark">
               {logoUrl ? (
                 <img src={logoUrl} alt="PFFG" />
@@ -122,11 +127,11 @@ function App() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
-                    cursor: 'pointer',
                     maxWidth: '140px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    cursor: 'pointer',
                   }}
                 >
                   {userProfile?.avatar ? (
@@ -187,14 +192,14 @@ function App() {
           </div>
         </div>
 
-        {/* POZIOMO PRZEWIJANY PASEK ZAKŁADEK DLA KAŻDEGO TELEFONU */}
+        {/* POZIOMO PRZEWIJANY PASEK ZAKŁADEK */}
         <div className="topbar-nav-bar">
           <nav className="desktop-nav">
             <Nav
               active={view === 'wyniki'}
               icon={<Trophy size={14} />}
               label="Tabela na żywo"
-              onClick={() => setView('wyniki')}
+              onClick={handleGoToLeaderboard}
             />
             <Nav
               active={view === 'teetimes'}
@@ -287,7 +292,7 @@ function App() {
             store={store}
             activeFlight={flight}
             setActiveFlight={setFlight}
-            onBack={() => setView('wyniki')}
+            onBack={handleGoToLeaderboard}
           />
         )}
       </main>
