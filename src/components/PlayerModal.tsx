@@ -215,6 +215,18 @@ export function PlayerModal({
     };
   }, [player.id, leaguePoints, tournaments]);
 
+  // Tablica skumulowanych wyników (narastająco od dołka 1 do 18)
+  const cumulativeRelativeScores = useMemo(() => {
+    const currentRoundScores = player.scores[roundTab] || [];
+    let runningRel = 0;
+    return holes.map((h, idx) => {
+      const s = currentRoundScores[idx] || 0;
+      if (s === 0) return null;
+      runningRel += (s - h.par);
+      return runningRel;
+    });
+  }, [player.scores, roundTab, holes]);
+
   const renderStatCard = (card: { key: StatCategory; label: string }) => {
     const result = combinedStat(player, holesR1, holesR2, card.key);
     const rankVal = ranks.get(card.key)?.get(player.id);
@@ -275,6 +287,8 @@ export function PlayerModal({
   const renderHoleCell = (h: { number: number; par: number; meters: number }, idx: number) => {
     const score = player.scores[roundTab]?.[idx] || 0;
     const isActive = inspectedHole === idx;
+    const runningRel = cumulativeRelativeScores[idx];
+
     return (
       <button
         key={h.number}
@@ -295,7 +309,7 @@ export function PlayerModal({
         <small style={{ fontWeight: 800, color: '#64748b', fontSize: '10px' }}>{h.number}</small>
         <ScoreShape value={score} par={h.par} size="sm" />
         <em style={{ fontSize: '10px', fontStyle: 'normal', color: '#64748b', fontWeight: 800 }}>
-          {score > 0 ? relativeLabel(score - h.par) : '–'}
+          {runningRel !== null ? relativeLabel(runningRel) : '–'}
         </em>
       </button>
     );
@@ -975,7 +989,7 @@ export function PlayerModal({
 
                 {modalTab === 'statystyki' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {/* PRZEŁĄCZNIK KATEGORII W STATYSTYKACH */}
+                    {/* PRZEŁĄCZNIK KATEGORII W STATYSTYKI */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '4px', flexWrap: 'nowrap' }}>
                       {(['Wszystkie', ...CATEGORIES] as (Category | 'Wszystkie')[]).map((cat) => (
                         <button
