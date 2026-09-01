@@ -1789,11 +1789,10 @@ function FlightManager({
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverFlightId, setDragOverFlightId] = useState<string | null>(null);
 
-  // AUTOMATYCZNY GENERATOR: GRUPY, CZAS I INTERWAŁY
   const [autoGroupSize, setAutoGroupSize] = useState(4);
   const [autoMode, setAutoMode] = useState<'random' | 'score'>('random');
   const [autoStartTime, setAutoStartTime] = useState('10:00');
-  const [autoIntervalMinutes, setAutoIntervalMinutes] = useState(0); // 0 = shotgun (jednocześnie)
+  const [autoIntervalMinutes, setAutoIntervalMinutes] = useState(0);
 
   const holesR1 = store.holesByRound[1] || [];
   const holesR2 = store.holesByRound[2] || [];
@@ -1889,7 +1888,6 @@ function FlightManager({
       const newFlightsList: Flight[] = [];
       const updatedPlayers = [...store.players];
 
-      // Parsowanie godziny startowej (np. 10:00)
       const [startHourStr, startMinStr] = autoStartTime.split(':');
       let baseMinutes = (parseInt(startHourStr, 10) || 10) * 60 + (parseInt(startMinStr, 10) || 0);
 
@@ -1899,7 +1897,6 @@ function FlightManager({
         const flightCode = String(Math.floor(1000 + Math.random() * 9000));
         const shotHole = (g % 18) + 1;
 
-        // Wyliczenie godziny dla flightu
         const currentGroupMinutes = baseMinutes + g * autoIntervalMinutes;
         const groupH = Math.floor(currentGroupMinutes / 60) % 24;
         const groupM = currentGroupMinutes % 60;
@@ -2042,10 +2039,49 @@ function FlightManager({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '340px 320px 1fr', gap: '16px', alignItems: 'start' }}>
-      
+    <div className="flight-manager-grid">
+      <style>{`
+        .flight-manager-grid {
+          display: grid;
+          grid-template-columns: 340px 320px 1fr;
+          gap: 16px;
+          align-items: start;
+        }
+
+        .sticky-col-desktop {
+          position: sticky;
+          top: 16px;
+          max-height: calc(100vh - 120px);
+        }
+
+        @media (max-width: 1024px) {
+          .flight-manager-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 16px !important;
+            width: 100% !important;
+            overflow-x: hidden !important;
+          }
+
+          .sticky-col-desktop {
+            position: static !important;
+            max-height: none !important;
+            width: 100% !important;
+          }
+
+          .flight-list-scroll {
+            max-height: none !important;
+            grid-template-columns: 1fr !important;
+          }
+
+          .unassigned-scroll-list {
+            max-height: 280px !important;
+          }
+        }
+      `}</style>
+
       {/* KOLUMNA 1: TWORZENIE & GENERATOR RANDOM */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'sticky', top: '16px' }}>
+      <div className="sticky-col-desktop" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div className="admin-panel compact">
           <p className="eyebrow">
             <span /> FLIGHTY RUNDY
@@ -2112,7 +2148,7 @@ function FlightManager({
           </div>
         </div>
 
-        {/* GENERATOR AUTOMATYCZNY Z INTERWAŁAMI CZASOWYMI */}
+        {/* GENERATOR AUTOMATYCZNY */}
         <div className="admin-panel compact" style={{ background: '#f8fafc', border: '1px solid #cbd5e1' }}>
           <p className="eyebrow" style={{ color: '#0284c7' }}>
             <span style={{ background: '#0284c7' }} /> SZYBKI GENERATOR TEE TIMES
@@ -2170,13 +2206,10 @@ function FlightManager({
 
       {/* KOLUMNA 2: DOSTĘPNI ZAWODNICY */}
       <div
-        className="admin-panel compact"
+        className="admin-panel compact sticky-col-desktop"
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDropUnassign}
         style={{
-          position: 'sticky',
-          top: '16px',
-          maxHeight: 'calc(100vh - 120px)',
           display: 'flex',
           flexDirection: 'column',
           border: dragOverFlightId === 'unassigned' ? '2px dashed #0284c7' : undefined,
@@ -2188,12 +2221,12 @@ function FlightManager({
             <p className="eyebrow">
               <span /> DOSTĘPNI ({unassignedPlayers.length})
             </p>
-            <h2 style={{ fontSize: '14px', margin: 0 }}>Przeciągnij do flightu</h2>
+            <h2 style={{ fontSize: '14px', margin: 0 }}>Przeciągnij lub wybierz flight</h2>
           </div>
           <Users size={16} className="muted-icon" />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+        <div className="unassigned-scroll-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
           {unassignedPlayers.map((p, idx) => {
             const rel = combinedRelative(p, holesR1, holesR2);
             return (
@@ -2212,19 +2245,20 @@ function FlightManager({
                   fontSize: '11px',
                   cursor: 'grab',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  gap: '6px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <GripVertical size={13} style={{ color: '#94a3b8' }} />
-                  <span style={{ fontWeight: 800, color: '#64748b', fontSize: '10px', width: '14px' }}>{idx + 1}.</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                  <GripVertical size={13} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                  <span style={{ fontWeight: 800, color: '#64748b', fontSize: '10px', width: '14px', flexShrink: 0 }}>{idx + 1}.</span>
                   {p.avatar ? (
-                    <img src={p.avatar} alt={p.name} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
+                    <img src={p.avatar} alt={p.name} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
-                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>
+                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>
                       {initials(p.name)}
                     </span>
                   )}
-                  <b>
+                  <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p.flagImage || (p as any).flag_image ? (
                       <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '12px', height: '8px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
                     ) : (
@@ -2233,9 +2267,41 @@ function FlightManager({
                     {p.name}
                   </b>
                 </div>
-                <span style={{ fontWeight: 800, fontSize: '10px', color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
-                  {rel > 0 ? `+${rel}` : rel}
-                </span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                  <span style={{ fontWeight: 800, fontSize: '10px', color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
+                    {rel > 0 ? `+${rel}` : rel}
+                  </span>
+
+                  {/* Szybki selektor przypisania (zwłaszcza na mobile) */}
+                  {roundFlights.length > 0 && (
+                    <select
+                      defaultValue=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          assignPlayer(p.id, e.target.value);
+                          e.target.value = '';
+                        }
+                      }}
+                      style={{
+                        fontSize: '10px',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        border: '1px solid #94a3b8',
+                        background: '#f8fafc',
+                        color: '#0284c7',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        maxWidth: '90px',
+                      }}
+                    >
+                      <option value="" disabled>+ Flight</option>
+                      {roundFlights.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -2244,7 +2310,7 @@ function FlightManager({
 
       {/* KOLUMNA 3: KAFELKI FLIGHTÓW */}
       <div
-        className="flight-list"
+        className="flight-list flight-list-scroll"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -2312,7 +2378,7 @@ function FlightManager({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          padding: '4px 6px',
+                          padding: '6px 8px',
                           background: '#f8fafc',
                           border: '1px solid #e2e8f0',
                           borderRadius: '5px',
@@ -2320,16 +2386,16 @@ function FlightManager({
                           cursor: 'grab',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <GripVertical size={11} style={{ color: '#94a3b8' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1 }}>
+                          <GripVertical size={11} style={{ color: '#94a3b8', flexShrink: 0 }} />
                           {p.avatar ? (
-                            <img src={p.avatar} alt={p.name} style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={p.avatar} alt={p.name} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                           ) : (
-                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 800 }}>
+                            <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 800, flexShrink: 0 }}>
                               {initials(p.name)}
                             </span>
                           )}
-                          <b>
+                          <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {p.flagImage || (p as any).flag_image ? (
                               <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '11px', height: '7px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
                             ) : (
@@ -2338,16 +2404,16 @@ function FlightManager({
                             {p.name}
                           </b>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                           <span style={{ fontSize: '10px', fontWeight: 700, color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
                             {rel > 0 ? `+${rel}` : rel}
                           </span>
                           <button
                             onClick={() => assignPlayer(p.id, null)}
                             title="Usuń z tego flightu"
-                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '1px' }}
+                            style={{ background: '#fee2e2', border: 'none', color: '#ef4444', borderRadius: '4px', cursor: 'pointer', padding: '3px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >
-                            <UserMinus size={12} />
+                            <UserMinus size={13} />
                           </button>
                         </div>
                       </div>
@@ -2366,10 +2432,10 @@ function FlightManager({
                         e.target.value = '';
                       }
                     }}
-                    style={{ fontSize: '11px', padding: '4px 6px', width: '100%', background: '#f0fdf4', borderColor: '#86efac' }}
+                    style={{ fontSize: '11px', padding: '5px 8px', width: '100%', background: '#f0fdf4', borderColor: '#86efac', fontWeight: 700 }}
                   >
                     <option value="" disabled>
-                      + Dodaj gracza...
+                      + Dodaj gracza do grupy...
                     </option>
                     {unassignedPlayers.map((p) => {
                       const rel = combinedRelative(p, holesR1, holesR2);
