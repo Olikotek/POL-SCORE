@@ -133,7 +133,14 @@ export function PlayerModal({
     hideScorecardTab ? (initialTab === 'scorecard' ? 'personal' : initialTab) : initialTab
   );
   const [modalTab, setModalTab] = useState<'rozpiska' | 'statystyki'>('rozpiska');
-  const [roundTab, setRoundTab] = useState<Round>(1);
+
+  // Automatyczny wybór Rundy 2 jeśli R2 wystartowała lub zawodnik ma w niej wyniki
+  const [roundTab, setRoundTab] = useState<Round>(() => {
+    if (store.round2Started) return 2;
+    const hasR2Scores = player.scores[2] && player.scores[2].some((s) => s > 0);
+    return hasR2Scores ? 2 : 1;
+  });
+
   const [statCategoryFilter, setStatCategoryFilter] = useState<Category | 'Wszystkie'>('Wszystkie');
   const [inspectedHole, setInspectedHole] = useState<number | null>(null);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
