@@ -1791,8 +1791,9 @@ function FlightManager({
 
   const [autoGroupSize, setAutoGroupSize] = useState(4);
   const [autoMode, setAutoMode] = useState<'random' | 'score'>('random');
+  const [autoStartType, setAutoStartType] = useState<'hole1' | 'shotgun'>('hole1');
   const [autoStartTime, setAutoStartTime] = useState('10:00');
-  const [autoIntervalMinutes, setAutoIntervalMinutes] = useState(0);
+  const [autoIntervalMinutes, setAutoIntervalMinutes] = useState(10);
 
   const holesR1 = store.holesByRound[1] || [];
   const holesR2 = store.holesByRound[2] || [];
@@ -1821,6 +1822,7 @@ function FlightManager({
     if (!name.trim()) return;
     const fallbackId = `flight-${Date.now()}`;
     const generatedCode = code.length === 4 ? code : String(Math.floor(1000 + Math.random() * 9000));
+    const finalTeeTime = teeTime || '10:00';
 
     onUpdateStore((prev) => ({
       ...prev,
@@ -1832,7 +1834,7 @@ function FlightManager({
           code: generatedCode,
           round,
           startHole,
-          teeTime: teeTime || '10:00',
+          teeTime: finalTeeTime,
           playerIds: [],
         },
       ],
@@ -1849,7 +1851,7 @@ function FlightManager({
         round,
         startHole,
         code: generatedCode,
-        teeTime: teeTime || '10:00',
+        teeTime: finalTeeTime,
         tournamentId: activeTournament?.id,
       });
 
@@ -1865,9 +1867,14 @@ function FlightManager({
   };
 
   const handleAutoGenerateFlights = async () => {
-    if (activePlayers.length === 0) return;
+    if (activePlayers.length === 0) {
+      alert('Brak aktywnych zawodników w turnieju do przydzielenia.');
+      return;
+    }
+
+    const typeDesc = autoStartType === 'hole1' ? 'Start od 1. dołka (Tee Times)' : 'Shotgun (Różne dołki startowe)';
     const confirm = window.confirm(
-      `Wygenerować automatyczne flighty dla Rundy ${round} (${autoMode === 'random' ? 'Losowo' : 'Według wyników'}) po ${autoGroupSize} osób?\nGodzina startu: ${autoStartTime}${autoIntervalMinutes > 0 ? `, co ${autoIntervalMinutes} minut` : ' (Shotgun - jednocześnie)'}.\nDotychczasowe flighty w tej rundzie zostaną zastąpione.`
+      `Wygenerować automatyczne flighty dla Rundy ${round}?\n\n- Tryb: ${autoMode === 'random' ? 'Losowo' : 'Według wyników'}\n- Format startu: ${typeDesc}\n- Grupy: po ${autoGroupSize} osób\n- Start pierwszego flightu: ${autoStartTime}\n- Odstęp między grupami: ${autoIntervalMinutes} min\n\nDotychczasowe flighty w tej rundzie zostaną usunięte i utworzone na nowo.`
     );
     if (!confirm) return;
 
@@ -1888,16 +1895,19 @@ function FlightManager({
       const newFlightsList: Flight[] = [];
       const updatedPlayers = [...store.players];
 
-      const [startHourStr, startMinStr] = autoStartTime.split(':');
-      let baseMinutes = (parseInt(startHourStr, 10) || 10) * 60 + (parseInt(startMinStr, 10) || 0);
+      const [startHourStr, startMinStr] = (autoStartTime || '10:00').split(':');
+      let baseTotalMinutes = (parseInt(startHourStr, 10) || 10) * 60 + (parseInt(startMinStr, 10) || 0);
 
       for (let g = 0; g < totalGroups; g++) {
         const groupPlayers = pool.slice(g * autoGroupSize, (g + 1) * autoGroupSize);
         const flightName = `Flight ${String.fromCharCode(65 + (g % 26))}${g >= 26 ? Math.floor(g / 26) : ''}`;
         const flightCode = String(Math.floor(1000 + Math.random() * 9000));
-        const shotHole = (g % 18) + 1;
+        
+        // Wybór dołka: w formacie 'hole1' wszyscy ruszają z dołka 1, w 'shotgun' kolejno z dołków 1..18
+        const assignedStartHole = autoStartType === 'hole1' ? 1 : (g % 18) + 1;
 
-        const currentGroupMinutes = baseMinutes + g * autoIntervalMinutes;
+        // Wyliczenie Tee Time dla grupy
+        const currentGroupMinutes = baseTotalMinutes + (g * autoIntervalMinutes);
         const groupH = Math.floor(currentGroupMinutes / 60) % 24;
         const groupM = currentGroupMinutes % 60;
         const calculatedTeeTime = `${String(groupH).padStart(2, '0')}:${String(groupM).padStart(2, '0')}`;
@@ -1905,7 +1915,7 @@ function FlightManager({
         const created = await createFlight({
           name: flightName,
           round,
-          startHole: shotHole,
+          startHole: assignedStartHole,
           code: flightCode,
           teeTime: calculatedTeeTime,
           tournamentId: activeTournament?.id,
@@ -1930,7 +1940,7 @@ function FlightManager({
           name: flightName,
           code: flightCode,
           round,
-          startHole: shotHole,
+          startHole: assignedStartHole,
           teeTime: calculatedTeeTime,
           playerIds: pIds,
         });
@@ -1949,10 +1959,29 @@ function FlightManager({
     }
   };
 
+  const handleQuickTimeChange = (flight: Flight, newTime: string) => {
+    if (!newTime) return;
+    onUpdateStore((prev) => ({
+      ...prev,
+      flights: prev.flights.map((f) =>
+        f.id === flight.id ? { ...f, teeTime: newTime } : f
+      ),
+    }));
+
+    updateFlight(flight.id, {
+      name: flight.name,
+      code: flight.code,
+      startHole: flight.startHole ?? 1,
+      teeTime: newTime,
+    })
+      .then(() => flash(`Zmieniono godzinę ${flight.name} na ${newTime}`))
+      .catch(() => flash('Błąd zapisu godziny.'));
+  };
+
   const editFlight = (flight: Flight) => {
     const nextName = window.prompt('Nazwa flightu', flight.name);
     const nextCode = window.prompt('Kod Flightu (4 cyfry)', flight.code);
-    const nextStart = window.prompt('Dołek startowy (shotgun)', String(flight.startHole ?? 1));
+    const nextStart = window.prompt('Dołek startowy (np. 1 dla standardowego startu)', String(flight.startHole ?? 1));
     const nextTeeTime = window.prompt('Godzina startu (Tee Time, np. 10:00, 10:08)', flight.teeTime || '10:00');
     if (!nextName?.trim() || !nextCode || nextCode.length !== 4) return;
 
@@ -2130,7 +2159,7 @@ function FlightManager({
 
           <div className="form-field">
             <label className="form-field-label">
-              Dołek startowy <span>(Shotgun)</span>
+              Dołek startowy <span>(Domyślnie 1)</span>
             </label>
             <input
               type="number"
@@ -2155,6 +2184,14 @@ function FlightManager({
           </p>
           <h2 style={{ fontSize: '15px' }}>Losuj lub ustaw grupy i godziny</h2>
           
+          <div className="form-field">
+            <label className="form-field-label">Format startu</label>
+            <select value={autoStartType} onChange={(e) => setAutoStartType(e.target.value as any)}>
+              <option value="hole1">⛳ Start z 1. dołka (Tee Times w odstępach)</option>
+              <option value="shotgun">🚀 Shotgun (Grupy ruszają z różnych dołków)</option>
+            </select>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div className="form-field">
               <label className="form-field-label">Osób w grupie</label>
@@ -2188,7 +2225,7 @@ function FlightManager({
             <div className="form-field">
               <label className="form-field-label">Interwał (odstęp)</label>
               <select value={autoIntervalMinutes} onChange={(e) => setAutoIntervalMinutes(Number(e.target.value))}>
-                <option value={0}>Jednocześnie (Shotgun)</option>
+                <option value={0}>Jednocześnie (0 min)</option>
                 <option value={6}>Co 6 minut</option>
                 <option value={8}>Co 8 minut</option>
                 <option value={10}>Co 10 minut</option>
@@ -2312,7 +2349,7 @@ function FlightManager({
         className="flight-list flight-list-scroll"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
           gap: '12px',
           maxHeight: 'calc(100vh - 120px)',
           overflowY: 'auto',
@@ -2351,18 +2388,37 @@ function FlightManager({
                       <span>KOD: <strong>{flight.code}</strong></span>
                       <span>·</span>
                       <span><MapPin size={11} className="inline" /> Start #{flight.startHole ?? 1}</span>
-                      <span>·</span>
-                      <span style={{ color: '#0284c7', fontWeight: 800 }}><Clock size={11} className="inline" /> {flight.teeTime || '10:00'}</span>
                     </p>
                   </div>
-                  <div className="row-actions">
-                    <button onClick={() => editFlight(flight)} title="Edytuj flight i godzinę">
+                  <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button onClick={() => editFlight(flight)} title="Edytuj flight i dołek">
                       <Edit3 size={13} />
                     </button>
                     <button onClick={() => removeFlight(flight.id)} title="Usuń flight">
                       <X size={13} />
                     </button>
                   </div>
+                </div>
+
+                {/* BEZPOŚREDNIA EDYCJA GODZINY STARTU NA KAFELKU */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={12} color="#0284c7" /> Czas startu:
+                  </span>
+                  <input
+                    type="time"
+                    value={flight.teeTime || '10:00'}
+                    onChange={(e) => handleQuickTimeChange(flight, e.target.value)}
+                    style={{
+                      fontSize: '11px',
+                      padding: '2px 6px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '4px',
+                      fontWeight: 800,
+                      color: '#0284c7',
+                      background: '#ffffff',
+                    }}
+                  />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px', minHeight: '35px' }}>
@@ -2530,7 +2586,6 @@ function RoundManager({
       return;
     }
 
-    // Aktualizacja lokalnego stanu wyłącznie dla wybranej rundy
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.map((p) => ({
@@ -2540,7 +2595,6 @@ function RoundManager({
     }));
 
     try {
-      // Przekazanie ID turnieju zabezpiecza przed skasowaniem innych zawodów
       await resetRoundScores(r, activeTournament.id);
       flash(`Wyzerowano wyniki Rundy ${r} w turnieju "${activeTournament.name}".`);
     } catch {
