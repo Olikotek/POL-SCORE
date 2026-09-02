@@ -631,11 +631,19 @@ export async function reflightForRound2(
   }
 }
 
-export async function resetRoundScores(round: Round) {
+export async function resetRoundScores(round: Round, tournamentId?: string | null) {
+  const tId = await resolveTournamentId(tournamentId);
+
+  if (!tId) {
+    alert('[BLOKADA BEZPIECZEŃSTWA] Nie wybrano turnieju. Operacja anulowana.');
+    throw new Error('Brak tournament_id przy resetowaniu rundy.');
+  }
+
   const { error } = await supabase
     .from('scores')
     .delete()
-    .eq('round', round);
+    .eq('round', Number(round))
+    .eq('tournament_id', tId);
 
   if (error) {
     alert(`Błąd czyszczenia wyników rundy: ${error.message}`);
