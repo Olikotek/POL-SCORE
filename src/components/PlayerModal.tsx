@@ -61,6 +61,8 @@ const AVERAGE_CARDS: { key: StatCategory; label: string }[] = [
   { key: 'avgBack9', label: 'BACK 9 AVERAGE' },
 ];
 
+const ALL_CARDS = [...TOTAL_CARDS, ...PAR_CARDS, ...PERF_CARDS, ...STREAK_CARDS, ...AVERAGE_CARDS];
+
 function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: number; size?: 'sm' | 'md' }) {
   const dim = size === 'sm' ? '26px' : '36px';
   const fontSize = size === 'sm' ? '11px' : '14px';
@@ -314,13 +316,13 @@ export function PlayerModal({
     return active.filter((p) => p.category === statCategoryFilter);
   }, [store.players, statCategoryFilter]);
 
-  // LAZY: wyliczamy rangę TYLKO wtedy, gdy użytkownik jest w zakładce statystyk
+  // LAZY: obliczamy mapy rang TYLKO dla aktywnego widoku statystyk
   const statRankCache = useMemo(() => {
     if (activeView !== 'scorecard' || modalTab !== 'statystyki') {
       return new Map<StatCategory, Map<string, number>>();
     }
     const map = new Map<StatCategory, Map<string, number>>();
-    [...TOTAL_CARDS, ...PAR_CARDS, ...PERF_CARDS, ...STREAK_CARDS, ...AVERAGE_CARDS].forEach((c) => {
+    ALL_CARDS.forEach((c) => {
       map.set(c.key, statRankMap(activeTourneyPlayers, holesR1, holesR2, c.key, 'combined'));
     });
     return map;
@@ -573,16 +575,18 @@ export function PlayerModal({
 
           @media (max-width: 640px) {
             .player-modal-overlay {
-              padding: 0 !important;
+              padding: 12px 8px !important;
             }
             .player-modal-panel {
-              max-height: 100vh !important;
-              height: 100vh !important;
-              border-radius: 0 !important;
-              border: none !important;
+              max-height: 92vh !important;
+              height: auto !important;
+              border-radius: 12px !important;
+              border: 1px solid #cbd5e1 !important;
+              box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2) !important;
+              max-width: calc(100vw - 16px) !important;
             }
             .player-modal-header {
-              padding: 10px 12px 8px 12px !important;
+              padding: 12px 14px 10px 14px !important;
             }
             .header-main-layout {
               flex-direction: column-reverse !important;
@@ -594,11 +598,11 @@ export function PlayerModal({
               width: 100% !important;
             }
             .modal-close-main {
-              width: 38px !important;
-              height: 38px !important;
+              width: 42px !important;
+              height: 42px !important;
             }
             .player-modal-body {
-              padding: 10px 10px !important;
+              padding: 12px 14px !important;
             }
             .player-nav-tabs button {
               padding: 4px 8px !important;
@@ -1292,7 +1296,7 @@ export function PlayerModal({
               borderRadius: '14px',
               width: '100%',
               maxWidth: '620px',
-              maxHeight: '90vh',
+              maxHeight: '85vh',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
