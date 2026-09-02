@@ -1,13 +1,14 @@
 // src/components/Leaderboard.tsx
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, memo } from 'react';
 import {
   ChevronRight,
   ClipboardList,
   ChevronDown,
   RefreshCw,
   Check,
+  MapPin,
 } from 'lucide-react';
-import type { Category, Store } from '@/types';
+import type { Category, Store, Player } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import {
   combinedRelative,
@@ -27,6 +28,24 @@ export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
   Junior: 'Juniorzy',
   'Senior+': 'Seniorzy+',
 };
+
+function formatShortPlayerName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+  }
+  return fullName;
+}
+
+function initialsLocal(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export function Leaderboard({
   store,
@@ -52,15 +71,16 @@ export function Leaderboard({
   const holesR1 = holesByRound[1] || [];
   const holesR2 = holesByRound[2] || [];
 
-  const handleSelectCategory = async (cat: Category | 'Wszystkie') => {
+  const handleSelectCategory = (cat: Category | 'Wszystkie') => {
     setFilter(cat);
     localStorage.setItem('pffg_live_category', cat);
     setDropdownOpen(false);
 
     if (onRefresh) {
       setIsRefreshing(true);
-      await onRefresh();
-      setTimeout(() => setIsRefreshing(false), 400);
+      Promise.resolve(onRefresh()).finally(() => {
+        setTimeout(() => setIsRefreshing(false), 300);
+      });
     }
   };
 
@@ -70,7 +90,7 @@ export function Leaderboard({
         setDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside, { passive: true });
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
@@ -133,6 +153,43 @@ export function Leaderboard({
     sessionStorage.setItem(storageKey, JSON.stringify(currentRanksObj));
   }, [sorted, ranks, filter, store.tournamentName]);
 
+  // Zoptymalizowane przeliczenie wierszy raz w pamięci podręcznej (likwidacja lagu)
+  const preparedRows = useMemo(() => {
+    const tiedCounts = new Map<number, number>();
+    ranks.forEach((r) => tiedCounts.set(r, (tiedCounts.get(r) || 0) + 1));
+
+    return sorted.map((player, index) => {
+      const rank = ranks[index];
+      const isTied = (tiedCounts.get(rank) || 0) > 1;
+      const display = isTied ? `T${rank}` : ordinalLabel(rank);
+
+      const total = combinedRelative(player, holesR1, holesR2);
+      const r1Rel = relative(player.scores[1] || [], holesR1);
+      const r2Rel = relative(player.scores[2] || [], holesR2);
+      const s1 = totalStrokes(player.scores[1] || []);
+      const s2 = totalStrokes(player.scores[2] || []);
+      const strokes = s1 + (store.round2Started ? s2 : 0);
+      const thru = thruLabel(player);
+      const delta = positionDeltas.get(player.id) ?? { type: 'same', diff: 0 };
+
+      return {
+        player,
+        rank,
+        display,
+        total,
+        r1Rel,
+        r2Rel,
+        s1,
+        s2,
+        strokes,
+        thru,
+        delta,
+        shortName: formatShortPlayerName(player.name),
+        initials: initialsLocal(player.name),
+      };
+    });
+  }, [sorted, ranks, holesR1, holesR2, store.round2Started, positionDeltas]);
+
   return (
     <section className="leaderboard-container">
       <style>{`
@@ -142,12 +199,19 @@ export function Leaderboard({
           padding: 16px 20px;
           border: 1px solid #cbd5e1;
           box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .leaderboard-top-info {
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #f1f5f9;
         }
         .leaderboard-top-controls {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
           margin-bottom: 12px;
           flex-wrap: nowrap;
         }
@@ -156,6 +220,7 @@ export function Leaderboard({
           border-radius: 8px;
           width: 100%;
           overflow-x: auto;
+          box-sizing: border-box;
         }
         .leaderboard-main-table {
           width: 100%;
@@ -195,29 +260,44 @@ export function Leaderboard({
         .player-subline-mobile { display: none; }
         .player-club-desktop { display: inline; font-size: 11px; font-weight: 500; color: #64748b; white-space: nowrap; margin-left: 6px; }
 
+        /* TELEFON: PEŁNE ROZCIĄGNIĘCIE DO KRAWĘDZI I ZERO ZWŁOKI PRZY KLIKANIU */
         @media (max-width: 640px) {
           .leaderboard-container {
-            padding: 8px 4px !important;
+            padding: 8px 0 !important;
             border-radius: 0 !important;
-            border: none !important;
+            border-left: none !important;
+            border-right: none !important;
             box-shadow: none !important;
-            margin: 0 !important;
+            width: 100vw !important;
+            position: relative !important;
+            left: 50% !important;
+            right: 50% !important;
+            margin-left: -50vw !important;
+            margin-right: -50vw !important;
+          }
+          .leaderboard-top-info {
+            padding: 0 12px 6px 12px !important;
+            margin-bottom: 8px !important;
           }
           .leaderboard-top-controls {
             gap: 6px !important;
             margin-bottom: 8px !important;
+            padding: 0 10px !important;
           }
           .btn-enter-text {
-            display: none !important;
+            display: inline !important;
+            font-size: 11px !important;
           }
           .btn-enter-score {
-            padding: 8px 12px !important;
+            padding: 6px 10px !important;
+            gap: 4px !important;
           }
           .leaderboard-table-wrap {
-            border-radius: 6px;
-            border-left: none;
-            border-right: none;
+            border-radius: 0 !important;
+            border-left: none !important;
+            border-right: none !important;
             overflow-x: hidden !important;
+            width: 100% !important;
           }
           .leaderboard-main-table {
             table-layout: fixed !important;
@@ -227,10 +307,10 @@ export function Leaderboard({
           .mobile-only-col { display: table-cell !important; }
 
           .col-pos { width: 34px !important; }
-          .col-nat { width: 30px !important; }
+          .col-nat { width: 28px !important; }
           .col-player { width: auto !important; }
           .col-sum { width: 46px !important; }
-          .col-holes { width: 38px !important; }
+          .col-holes { width: 40px !important; }
           .col-r-mob { width: 40px !important; text-align: center !important; }
 
           .header-country-desktop { display: none !important; }
@@ -262,9 +342,22 @@ export function Leaderboard({
         }
       `}</style>
 
+      {/* TYTUŁ TURNIEJU I POLE */}
+      <div className="leaderboard-top-info">
+        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
+          {store.tournamentName}
+        </h2>
+        {store.courses[0]?.name && (
+          <p style={{ margin: '2px 0 0 0', fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <MapPin size={12} color="#0284c7" />
+            <span>{store.courses[0].name}</span>
+          </p>
+        )}
+      </div>
+
       {/* PASEK KONTROLNY: KATEGORIA + ODŚWIEŻANIE + WPROWADŹ WYNIK */}
       <div className="leaderboard-top-controls">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
           <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button
               type="button"
@@ -272,12 +365,12 @@ export function Leaderboard({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '5px',
                 background: '#ffffff',
                 border: '1px solid #cbd5e1',
                 borderRadius: '8px',
-                padding: '7px 12px',
-                fontSize: '12.5px',
+                padding: '6px 10px',
+                fontSize: '12px',
                 fontWeight: 800,
                 color: '#0f172a',
                 cursor: 'pointer',
@@ -285,7 +378,7 @@ export function Leaderboard({
               }}
             >
               <span>{CATEGORY_NAMES_PL[filter]}</span>
-              <ChevronDown size={14} style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+              <ChevronDown size={13} style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
 
             {dropdownOpen && (
@@ -295,7 +388,7 @@ export function Leaderboard({
                   top: 'calc(100% + 4px)',
                   left: 0,
                   zIndex: 50,
-                  minWidth: '220px',
+                  minWidth: '200px',
                   background: '#ffffff',
                   border: '1px solid #cbd5e1',
                   borderRadius: '8px',
@@ -335,14 +428,15 @@ export function Leaderboard({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
           {onRefresh && (
             <button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 setIsRefreshing(true);
-                await onRefresh();
-                setTimeout(() => setIsRefreshing(false), 400);
+                Promise.resolve(onRefresh()).finally(() => {
+                  setTimeout(() => setIsRefreshing(false), 300);
+                });
               }}
               title="Odśwież wyniki"
               style={{
@@ -352,13 +446,12 @@ export function Leaderboard({
                 background: '#ffffff',
                 border: '1px solid #cbd5e1',
                 borderRadius: '8px',
-                padding: '8px 10px',
+                padding: '6px 8px',
                 color: '#475569',
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
               }}
             >
-              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
           )}
 
@@ -368,22 +461,22 @@ export function Leaderboard({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '4px',
               background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
               color: '#ffffff',
               border: 'none',
               borderRadius: '8px',
-              padding: '8px 14px',
-              fontSize: '12.5px',
+              padding: '6px 12px',
+              fontSize: '12px',
               fontWeight: 800,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
               boxShadow: '0 2px 6px rgba(11, 19, 41, 0.12)',
             }}
           >
-            <ClipboardList size={15} />
+            <ClipboardList size={14} />
             <span className="btn-enter-text">Wprowadź wynik</span>
-            <ChevronRight size={14} />
+            <ChevronRight size={13} />
           </button>
         </div>
       </div>
@@ -393,53 +486,36 @@ export function Leaderboard({
         <table className="leaderboard-main-table">
           <thead>
             <tr>
-              <th className="col-pos" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>POS</th>
-              <th className="desktop-only-col col-delta" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>+/-</th>
-              <th className="col-nat" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="col-pos" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>POS</th>
+              <th className="desktop-only-col col-delta" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>+/-</th>
+              <th className="col-nat" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>
                 <span className="header-country-desktop">KRAJ</span>
                 <span className="header-country-mobile">NAT</span>
               </th>
-              <th className="col-player" style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-              <th className="col-sum" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="col-player" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+              <th className="col-sum" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>
                 <span className="header-tot-desktop">SUMA</span>
                 <span className="header-tot-mobile">TOT</span>
               </th>
-              <th className="col-holes" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+              <th className="col-holes" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
               
-              <th className="mobile-only-col col-r-mob" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="mobile-only-col col-r-mob" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>
                 {store.round2Started ? 'R2' : 'R1'}
               </th>
 
-              <th className="desktop-only-col col-r1" style={{ padding: '10px 6px', borderRight: '1px solid #e2e8f0' }}>R1</th>
+              <th className="desktop-only-col col-r1" style={{ padding: '9px 6px', borderRight: '1px solid #e2e8f0' }}>R1</th>
               {store.round2Started && (
-                <th className="desktop-only-col col-r2" style={{ padding: '10px 6px', borderRight: '1px solid #e2e8f0' }}>R2</th>
+                <th className="desktop-only-col col-r2" style={{ padding: '9px 6px', borderRight: '1px solid #e2e8f0' }}>R2</th>
               )}
-              <th className="desktop-only-col col-strokes" style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+              <th className="desktop-only-col col-strokes" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
               
-              <th className="desktop-only-col col-arrow" style={{ padding: '10px 2px' }}></th>
+              <th className="desktop-only-col col-arrow" style={{ padding: '9px 2px' }}></th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map((player, index) => {
-              const total = combinedRelative(player, holesR1, holesR2);
-              const r1Rel = relative(player.scores[1] || [], holesR1);
-              const r2Rel = relative(player.scores[2] || [], holesR2);
-              const strokes = totalStrokes(player.scores[1] || []) + (store.round2Started ? totalStrokes(player.scores[2] || []) : 0);
-              const thru = thruLabel(player);
-              const rank = ranks[index];
-              const tiedCount = ranks.filter((r) => r === rank).length;
-              const isTied = tiedCount > 1;
-              const display = isTied ? `T${rank}` : ordinalLabel(rank);
-              const delta = positionDeltas.get(player.id) ?? { type: 'same', diff: 0 };
+            {preparedRows.map((row, index) => {
+              const { player, display, total, r1Rel, r2Rel, s1, s2, strokes, thru, delta, shortName, initials } = row;
               const isEven = index % 2 === 0;
-
-              const formatShortPlayerName = (fullName: string) => {
-                const parts = fullName.trim().split(/\s+/);
-                if (parts.length >= 2) {
-                  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
-                }
-                return fullName;
-              };
 
               return (
                 <tr
@@ -449,10 +525,7 @@ export function Leaderboard({
                     background: isEven ? '#ffffff' : '#f8fafc',
                     borderBottom: '1px solid #e2e8f0',
                     cursor: 'pointer',
-                    transition: 'background 0.1s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                 >
                   {/* POZYCJA */}
                   <td className="col-pos" style={{ padding: '8px 2px', fontWeight: 800, fontSize: '12px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
@@ -490,8 +563,8 @@ export function Leaderboard({
                   </td>
 
                   {/* ZAWODNIK + POWIĘKSZONE ZDJĘCIE */}
-                  <td className="col-player" style={{ padding: '6px 8px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <td className="col-player" style={{ padding: '6px 6px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                       {player.avatar ? (
                         <img
                           src={player.avatar}
@@ -522,7 +595,7 @@ export function Leaderboard({
                             border: '1px solid #cbd5e1',
                           }}
                         >
-                          {initialsLocal(player.name)}
+                          {initials}
                         </span>
                       )}
 
@@ -533,7 +606,7 @@ export function Leaderboard({
                           </span>
 
                           <span className="player-name-mobile">
-                            {formatShortPlayerName(player.name)}
+                            {shortName}
                           </span>
 
                           {player.isAmateur && (
@@ -570,7 +643,7 @@ export function Leaderboard({
                             fontWeight: 900,
                             fontSize: '12.5px',
                             borderRadius: '5px',
-                            padding: '3px 6px',
+                            padding: '3px 5px',
                             minWidth: '32px',
                             lineHeight: 1.1,
                           }}
@@ -597,7 +670,7 @@ export function Leaderboard({
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {(() => {
                         const activeRRel = store.round2Started ? r2Rel : r1Rel;
-                        const activeStrokes = store.round2Started ? totalStrokes(player.scores[2] || []) : totalStrokes(player.scores[1] || []);
+                        const activeStrokes = store.round2Started ? s2 : s1;
                         if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '12.5px', fontWeight: 500 }}>–</span>;
                         if (activeRRel === 0) return <span style={{ color: '#475569', fontSize: '12.5px', fontWeight: 600 }}>E</span>;
                         return <span style={{ color: '#475569', fontSize: '12.5px', fontWeight: 600 }}>{relativeLabel(activeRRel)}</span>;
@@ -608,7 +681,7 @@ export function Leaderboard({
                   {/* RUNDA 1 DESKTOP */}
                   <td className="desktop-only-col col-r1" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
+                      {s1 > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
                     </div>
                   </td>
 
@@ -616,7 +689,7 @@ export function Leaderboard({
                   {store.round2Started && (
                     <td className="desktop-only-col col-r2" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
+                        {s2 > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
                       </div>
                     </td>
                   )}
@@ -640,7 +713,7 @@ export function Leaderboard({
           </tbody>
         </table>
 
-        {sorted.length === 0 && (
+        {preparedRows.length === 0 && (
           <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>
             Brak aktywnych zawodników w wybranej kategorii.
           </div>
@@ -648,14 +721,4 @@ export function Leaderboard({
       </div>
     </section>
   );
-}
-
-function initialsLocal(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
 }
