@@ -2273,7 +2273,6 @@ function FlightManager({
                     {rel > 0 ? `+${rel}` : rel}
                   </span>
 
-                  {/* Szybki selektor przypisania (zwłaszcza na mobile) */}
                   {roundFlights.length > 0 && (
                     <select
                       defaultValue=""
@@ -2515,12 +2514,23 @@ function RoundManager({
     }
   };
 
+  // ZABEZPIECZONA FUNKCJA: wymaga wpisania słowa "RESET" i podania activeTournament.id
   const handleResetRound = async (r: Round) => {
-    const confirm = window.confirm(
-      `CZY NA PEWNO chcesz wyzerować WSZYSTKIE wyniki dla Rundy ${r}?\n\nZawodnicy oraz ich przydziały do flightów zostaną zachowani, ale ich karty wyników będą puste.`
-    );
-    if (!confirm) return;
+    if (!activeTournament?.id) {
+      alert('BŁĄD: Musisz najpierw wybrać aktywny turniej, aby zresetować jego rundę!');
+      return;
+    }
 
+    const verification = window.prompt(
+      `UWAGA: Chcesz wyzerować wyniki wyłącznie RUNDY ${r} dla turnieju: "${activeTournament.name}".\n\nWpisz dokładnie słowo "RESET" (wielkimi literami), aby potwierdzić operację:`
+    );
+
+    if (verification !== 'RESET') {
+      flash('Operacja anulowana.');
+      return;
+    }
+
+    // Aktualizacja lokalnego stanu wyłącznie dla wybranej rundy
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.map((p) => ({
@@ -2530,8 +2540,9 @@ function RoundManager({
     }));
 
     try {
-      await resetRoundScores(r);
-      flash(`Wyzerowano wyniki Rundy ${r}.`);
+      // Przekazanie ID turnieju zabezpiecza przed skasowaniem innych zawodów
+      await resetRoundScores(r, activeTournament.id);
+      flash(`Wyzerowano wyniki Rundy ${r} w turnieju "${activeTournament.name}".`);
     } catch {
       flash(`Błąd podczas zerowania Rundy ${r}.`);
     }
@@ -2620,20 +2631,23 @@ function RoundManager({
         <h3 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <RotateCcw size={18} /> Czyszczenie i reset wyników
         </h3>
+        <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 12px 0' }}>
+          Operacja usuwa wyłącznie wyniki wskazanej rundy w wybranym turnieju. Wymaga wpisania hasła potwierdzającego.
+        </p>
         <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
           <button
             className="secondary-button"
-            style={{ borderColor: '#fca5a5', color: '#dc2626', background: '#fef2f2' }}
+            style={{ borderColor: '#fca5a5', color: '#dc2626', background: '#fef2f2', fontWeight: 800 }}
             onClick={() => handleResetRound(1)}
           >
-            <RotateCcw size={15} /> Wyzeruj wyniki Rundy 1
+            <RotateCcw size={15} /> Wyzeruj tylko Rundę 1 (Bieżący turniej)
           </button>
           <button
             className="secondary-button"
-            style={{ borderColor: '#fca5a5', color: '#dc2626', background: '#fef2f2' }}
+            style={{ borderColor: '#fca5a5', color: '#dc2626', background: '#fef2f2', fontWeight: 800 }}
             onClick={() => handleResetRound(2)}
           >
-            <RotateCcw size={15} /> Wyzeruj wyniki Rundy 2
+            <RotateCcw size={15} /> Wyzeruj tylko Rundę 2 (Bieżący turniej)
           </button>
         </div>
       </div>
