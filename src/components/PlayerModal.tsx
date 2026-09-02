@@ -70,8 +70,8 @@ const ALL_STATS: StatCategory[] = [
 ].map((c) => c.key);
 
 function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: number; size?: 'sm' | 'md' }) {
-  const dim = size === 'sm' ? '28px' : '36px';
-  const fontSize = size === 'sm' ? '12px' : '14px';
+  const dim = size === 'sm' ? '26px' : '36px';
+  const fontSize = size === 'sm' ? '11px' : '14px';
 
   if (!value || value === 0) {
     return (
@@ -86,7 +86,7 @@ function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: nu
   if (value === 1) {
     return (
       <div style={{ position: 'relative', width: dim, height: dim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg viewBox="0 0 26 26" style={{ position: 'absolute', width: size === 'sm' ? '30px' : '40px', height: size === 'sm' ? '30px' : '40px', left: '-1px', top: '-1px' }}>
+        <svg viewBox="0 0 26 26" style={{ position: 'absolute', width: size === 'sm' ? '28px' : '40px', height: size === 'sm' ? '28px' : '40px', left: '-1px', top: '-1px' }}>
           <g transform="translate(1,1)">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#000" strokeWidth="4" strokeLinejoin="round" />
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
@@ -124,7 +124,6 @@ function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: nu
   return <div style={style}>{value}</div>;
 }
 
-// Komponent rozwijanego mini-scorecardu dla wybranej statystyki (styl BlueGolf w barwach PFFG)
 function StatMiniScorecard({
   player,
   statKey,
@@ -140,7 +139,6 @@ function StatMiniScorecard({
   const holes = round === 1 ? holesR1 : holesR2;
   const scores = player.scores[round] || [];
 
-  // Filtrujemy tylko te indeksy dołków, które kwalifikują się do tej statystyki
   const targetHoleIndices = useMemo(() => {
     const indices: number[] = [];
     holes.forEach((h, idx) => {
@@ -174,9 +172,9 @@ function StatMiniScorecard({
   const subtotalRel = subtotalScore > 0 ? subtotalScore - subtotalPar : 0;
 
   return (
-    <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px', marginTop: '6px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '8px', marginTop: '6px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>RUNDA:</span>
           {ROUNDS.map((r) => (
             <button
@@ -184,7 +182,7 @@ function StatMiniScorecard({
               type="button"
               onClick={() => setRound(r)}
               style={{
-                padding: '2px 8px',
+                padding: '2px 6px',
                 borderRadius: '4px',
                 border: '1px solid',
                 borderColor: round === r ? '#0284c7' : '#cbd5e1',
@@ -199,43 +197,43 @@ function StatMiniScorecard({
             </button>
           ))}
         </div>
-        <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a' }}>
+        <div style={{ fontSize: '10px', fontWeight: 800, color: '#0f172a' }}>
           Do Par: <span style={{ color: subtotalRel < 0 ? '#ef4444' : '#0f172a' }}>{relativeLabel(subtotalRel)}</span> ({subtotalScore} ud.)
         </div>
       </div>
 
       {targetHoleIndices.length === 0 ? (
-        <div style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
-          Brak dołków spełniających to kryterium w Rundzie {round}.
+        <div style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', fontSize: '10px' }}>
+          Brak dołków spełniających kryterium w Rundzie {round}.
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '11px' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '10px' }}>
             <thead>
               <tr style={{ background: '#e2e8f0', color: '#475569' }}>
-                <th style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800 }}>#</th>
+                <th style={{ padding: '3px', border: '1px solid #cbd5e1', fontWeight: 800 }}>#</th>
                 {targetHoleIndices.map((idx) => (
-                  <th key={idx} style={{ padding: '4px', border: '1px solid #cbd5e1', minWidth: '32px' }}>
+                  <th key={idx} style={{ padding: '3px', border: '1px solid #cbd5e1', minWidth: '28px' }}>
                     {holes[idx].number}
                   </th>
                 ))}
-                <th style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800 }}>SUM</th>
+                <th style={{ padding: '3px', border: '1px solid #cbd5e1', fontWeight: 800 }}>SUM</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800, color: '#64748b' }}>Par</td>
+                <td style={{ padding: '3px', border: '1px solid #cbd5e1', fontWeight: 800, color: '#64748b' }}>Par</td>
                 {targetHoleIndices.map((idx) => (
-                  <td key={idx} style={{ padding: '4px', border: '1px solid #cbd5e1', color: '#64748b', fontWeight: 700 }}>
+                  <td key={idx} style={{ padding: '3px', border: '1px solid #cbd5e1', color: '#64748b', fontWeight: 700 }}>
                     {holes[idx].par}
                   </td>
                 ))}
-                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800, color: '#64748b' }}>
+                <td style={{ padding: '3px', border: '1px solid #cbd5e1', fontWeight: 800, color: '#64748b' }}>
                   {subtotalPar}
                 </td>
               </tr>
               <tr style={{ background: '#ffffff' }}>
-                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 900, color: '#0284c7' }}>R{round}</td>
+                <td style={{ padding: '3px', border: '1px solid #cbd5e1', fontWeight: 900, color: '#0284c7' }}>R{round}</td>
                 {targetHoleIndices.map((idx) => (
                   <td key={idx} style={{ padding: '2px', border: '1px solid #cbd5e1' }}>
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -243,7 +241,7 @@ function StatMiniScorecard({
                     </div>
                   </td>
                 ))}
-                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 900, color: '#0284c7' }}>
+                <td style={{ padding: '3px', border: '1px solid #cbd5e1', fontWeight: 900, color: '#0284c7' }}>
                   {subtotalScore || '–'}
                 </td>
               </tr>
@@ -335,7 +333,9 @@ export function PlayerModal({
   const playerAge = calculateAge(player.birthDate);
 
   const playerHistory = useMemo(() => {
-    const rows = (leaguePoints || []).filter((lp: any) => String(lp.player_id) === String(player.id));
+    const pIdStr = String(player.id).trim();
+    const rows = (leaguePoints || []).filter((lp: any) => String(lp.player_id ?? lp.playerId ?? '').trim() === pIdStr);
+
     let firsts = 0;
     let seconds = 0;
     let thirds = 0;
@@ -343,7 +343,8 @@ export function PlayerModal({
     let totalPoints = 0;
 
     const list = rows.map((lp: any) => {
-      const t = (tournaments || []).find((item) => String(item.id) === String(lp.tournament_id));
+      const tId = String(lp.tournament_id ?? lp.tournamentId ?? '');
+      const t = (tournaments || []).find((item) => String(item.id) === tId);
       const r = Number(lp.rank) || 1;
       const pts = Number(lp.points) || 0;
 
@@ -354,14 +355,16 @@ export function PlayerModal({
       totalPoints += pts;
 
       return {
-        id: lp.tournament_id,
+        id: tId,
         name: t?.name || 'Turniej Ligi PFFG',
-        date: t?.date || '2026',
+        date: t?.date || '2026-01-01',
         courseName: t?.courseName || 'Pole Turniejowe PFFG',
         rank: r,
         points: pts,
       };
     });
+
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return {
       events: list.length,
@@ -398,37 +401,29 @@ export function PlayerModal({
         key={card.key}
         onClick={() => {
           setActiveStatCategory(card);
-          setExpandedPlayerId(player.id); // domyślnie rozwijamy bieżącego zawodnika
+          setExpandedPlayerId(null);
         }}
         style={{
           cursor: 'pointer',
-          padding: '12px 14px',
+          padding: '10px 12px',
           borderRadius: '10px',
           background: '#ffffff',
           border: '1px solid #cbd5e1',
           boxShadow: '0 2px 4px rgba(15, 23, 42, 0.03)',
           transition: 'all 0.15s ease',
         }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#1b88cc';
-          e.currentTarget.style.boxShadow = '0 4px 12px rgba(27, 136, 204, 0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = '#cbd5e1';
-          e.currentTarget.style.boxShadow = '0 2px 4px rgba(15, 23, 42, 0.03)';
-        }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <small style={{ fontWeight: 800, color: '#64748b', fontSize: '10px', letterSpacing: '0.04em' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <small style={{ fontWeight: 800, color: '#64748b', fontSize: '9px', letterSpacing: '0.04em' }}>
             {card.label}
           </small>
           <span
             style={{
               background: isTop5 ? '#16a34a' : '#0f172a',
               color: '#ffffff',
-              padding: '2px 6px',
+              padding: '2px 5px',
               borderRadius: '4px',
-              fontSize: '10px',
+              fontSize: '9px',
               fontWeight: 900,
               display: 'inline-flex',
               alignItems: 'center',
@@ -438,7 +433,7 @@ export function PlayerModal({
             {display}
           </span>
         </div>
-        <strong style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', display: 'block', lineHeight: 1.1 }}>
+        <strong style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a', display: 'block', lineHeight: 1.1 }}>
           {result.display}
         </strong>
       </div>
@@ -544,14 +539,16 @@ export function PlayerModal({
 
           @media (max-width: 640px) {
             .player-modal-overlay {
-              padding: 4px !important;
+              padding: 0 !important;
             }
             .player-modal-panel {
-              max-height: 96vh !important;
-              border-radius: 10px !important;
+              max-height: 100vh !important;
+              height: 100vh !important;
+              border-radius: 0 !important;
+              border: none !important;
             }
             .player-modal-header {
-              padding: 10px 10px 8px 10px !important;
+              padding: 10px 12px 8px 12px !important;
             }
             .header-main-layout {
               flex-direction: column-reverse !important;
@@ -563,13 +560,11 @@ export function PlayerModal({
               width: 100% !important;
             }
             .modal-close-main {
-              width: 46px !important;
-              height: 46px !important;
-              background: #f1f5f9 !important;
-              border: 1.5px solid #94a3b8 !important;
+              width: 38px !important;
+              height: 38px !important;
             }
             .player-modal-body {
-              padding: 10px 6px !important;
+              padding: 10px 10px !important;
             }
             .player-nav-tabs button {
               padding: 4px 8px !important;
@@ -584,7 +579,7 @@ export function PlayerModal({
               margin-bottom: 8px !important;
             }
             .modal-summary-bar strong {
-              font-size: 17px !important;
+              font-size: 16px !important;
             }
             .modal-hole-grid {
               gap: 1px !important;
@@ -609,6 +604,9 @@ export function PlayerModal({
               padding-left: 0 !important;
               padding-top: 8px !important;
             }
+            .stat-grid-mobile {
+              grid-template-columns: 1fr !important;
+            }
           }
         `}</style>
 
@@ -620,7 +618,6 @@ export function PlayerModal({
           <div className="player-modal-header" style={{ padding: '16px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
             <div className="header-main-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
               
-              {/* SEKCJA DANYCH ZAWODNIKA */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                 {player.avatar ? (
                   <div style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} onClick={() => setShowPhotoLightbox(true)} title="Powiększ zdjęcie">
@@ -642,7 +639,7 @@ export function PlayerModal({
                     ) : (
                       <span className="flag-emoji" style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 2px', lineHeight: 1, fontSize: '11px', flexShrink: 0 }}>{flagEmoji(player.flag)}</span>
                     )}
-                    <h1 style={{ fontSize: '17px', fontWeight: 900, margin: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <h1 style={{ fontSize: '16px', fontWeight: 900, margin: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {player.name}
                     </h1>
                     {player.isAmateur && (
@@ -659,7 +656,6 @@ export function PlayerModal({
                 </div>
               </div>
 
-              {/* SEKCJA PRZYCISKÓW / ZAKŁADEK I ZAMKNIĘCIE */}
               <div className="header-nav-row">
                 <div className="player-nav-tabs" style={{ display: 'flex', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '30px', padding: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                   <button
@@ -727,7 +723,7 @@ export function PlayerModal({
                 </div>
 
                 <button className="modal-close-main" onClick={onClose} title="Zamknij">
-                  <X size={26} />
+                  <X size={22} />
                 </button>
               </div>
             </div>
@@ -805,8 +801,8 @@ export function PlayerModal({
                   </h3>
                 </div>
 
-                <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', minWidth: '450px' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
                         <th style={{ padding: '8px 10px' }}>Ranking</th>
@@ -878,12 +874,12 @@ export function PlayerModal({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
                   <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    ROZEGRANE TURNIEJE 2026
+                    ROZEGRANE TURNIEJE 2026 ({playerHistory.list.length})
                   </h3>
                 </div>
 
-                <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', minWidth: '400px' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
                         <th style={{ padding: '8px 10px' }}>Data</th>
@@ -896,7 +892,7 @@ export function PlayerModal({
                     <tbody>
                       {playerHistory.list.map((t) => (
                         <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 10px', color: '#64748b' }}>{t.date}</td>
+                          <td style={{ padding: '8px 10px', color: '#64748b', whiteSpace: 'nowrap' }}>{t.date}</td>
                           <td style={{ padding: '8px 10px', fontWeight: 800, color: '#0284c7' }}>{t.name}</td>
                           <td style={{ padding: '8px 10px', color: '#475569' }}>{t.courseName}</td>
                           <td style={{ padding: '8px 10px', textAlign: 'center' }}>
@@ -1150,8 +1146,7 @@ export function PlayerModal({
 
                 {modalTab === 'statystyki' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {/* PRZEŁĄCZNIK KATEGORII W STATYSTYKI */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '4px', flexWrap: 'nowrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '4px', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
                       {(['Wszystkie', ...CATEGORIES] as (Category | 'Wszystkie')[]).map((cat) => (
                         <button
                           key={cat}
@@ -1176,52 +1171,47 @@ export function PlayerModal({
                       ))}
                     </div>
 
-                    {/* WYNIKI CAŁKOWITE */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         <TrendingDown size={12} color="#1b88cc" /> WYNIKI CAŁKOWITE ({statCategoryFilter})
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      <div className="stat-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {TOTAL_CARDS.map(renderStatCard)}
                       </div>
                     </div>
 
-                    {/* WEDŁUG PAR */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         <Target size={12} color="#1b88cc" /> RANKINGI WEDŁUG PAR ({statCategoryFilter})
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      <div className="stat-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {PAR_CARDS.map(renderStatCard)}
                       </div>
                     </div>
 
-                    {/* SKUTECZNOŚĆ (BIRDIE, PARS...) */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         <Award size={12} color="#1b88cc" /> SKUTECZNOŚĆ ({statCategoryFilter})
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      <div className="stat-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {PERF_CARDS.map(renderStatCard)}
                       </div>
                     </div>
 
-                    {/* SERIE (STREAKS) */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         <Zap size={12} color="#f59e0b" /> SERIE (STREAKS) ({statCategoryFilter})
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                      <div className="stat-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
                         {STREAK_CARDS.map(renderStatCard)}
                       </div>
                     </div>
 
-                    {/* ŚREDNIE (AVERAGES) */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         <BarChart3 size={12} color="#0284c7" /> ŚREDNIE UDERZEŃ ({statCategoryFilter})
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      <div className="stat-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {AVERAGE_CARDS.map(renderStatCard)}
                       </div>
                     </div>
@@ -1244,7 +1234,7 @@ export function PlayerModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '12px',
+            padding: '10px',
             backdropFilter: 'blur(4px)',
           }}
           onClick={() => setActiveStatCategory(null)}
@@ -1256,33 +1246,31 @@ export function PlayerModal({
               borderRadius: '14px',
               width: '100%',
               maxWidth: '620px',
-              maxHeight: '85vh',
+              maxHeight: '90vh',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
             }}
           >
-            {/* NAGŁÓWEK KLASYFIKACJI */}
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0b1329', color: '#ffffff' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0b1329', color: '#ffffff' }}>
               <div>
-                <small style={{ color: '#38bdf8', fontSize: '10px', fontWeight: '800', letterSpacing: '0.04em' }}>
+                <small style={{ color: '#38bdf8', fontSize: '9px', fontWeight: '800', letterSpacing: '0.04em' }}>
                   TABLICA STATYSTYCZNA PFFG · {statCategoryFilter.toUpperCase()}
                 </small>
-                <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '900', color: '#ffffff' }}>
+                <h3 style={{ margin: '2px 0 0 0', fontSize: '15px', fontWeight: '900', color: '#ffffff' }}>
                   {activeStatCategory.label}
                 </h3>
               </div>
               <button
                 onClick={() => setActiveStatCategory(null)}
-                style={{ border: 'none', background: '#1e293b', color: '#fff', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                style={{ border: 'none', background: '#1e293b', color: '#fff', borderRadius: '50%', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* LISTA ZAWODNIKÓW W RANKINGU Z ROZWIJANIEM */}
-            <div style={{ overflowY: 'auto', padding: '10px 14px', flex: 1, background: '#f8fafc' }}>
+            <div style={{ overflowY: 'auto', padding: '10px 12px', flex: 1, background: '#f8fafc', WebkitOverflowScrolling: 'touch' }}>
               {categoryLeaderboard.map((item, idx) => {
                 const isCurrentPlayer = item.player.id === player.id;
                 const isExpanded = expandedPlayerId === item.player.id;
@@ -1299,7 +1287,6 @@ export function PlayerModal({
                       boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                     }}
                   >
-                    {/* WIERSZ ZAWODNIKA */}
                     <div
                       onClick={() => setExpandedPlayerId(isExpanded ? null : item.player.id)}
                       style={{
@@ -1313,7 +1300,7 @@ export function PlayerModal({
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                        <span style={{ fontWeight: '900', width: '24px', fontSize: '12px', color: idx < 3 ? '#0284c7' : '#64748b' }}>
+                        <span style={{ fontWeight: '900', width: '22px', fontSize: '12px', color: idx < 3 ? '#0284c7' : '#64748b' }}>
                           {idx + 1}.
                         </span>
                         {item.player.avatar ? (
@@ -1328,7 +1315,7 @@ export function PlayerModal({
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontWeight: '900', fontSize: '14px', color: '#0284c7' }}>
                           {item.display}
                         </span>
@@ -1336,9 +1323,8 @@ export function PlayerModal({
                       </div>
                     </div>
 
-                    {/* ROZWIJANY MINI-SCORECARD DLA DOŁKÓW TEJ STATYSTYKI */}
                     {isExpanded && (
-                      <div style={{ padding: '8px 12px 12px 12px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
+                      <div style={{ padding: '6px 10px 10px 10px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
                         <StatMiniScorecard
                           player={item.player}
                           statKey={activeStatCategory.key}
