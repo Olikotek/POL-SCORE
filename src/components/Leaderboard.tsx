@@ -6,6 +6,7 @@ import {
   ChevronDown,
   RefreshCw,
   Check,
+  MapPin,
 } from 'lucide-react';
 import type { Category, Store } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
@@ -143,11 +144,16 @@ export function Leaderboard({
           border: 1px solid #cbd5e1;
           box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
         }
+        .leaderboard-top-info {
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #f1f5f9;
+        }
         .leaderboard-top-controls {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
           margin-bottom: 12px;
           flex-wrap: nowrap;
         }
@@ -197,26 +203,35 @@ export function Leaderboard({
 
         @media (max-width: 640px) {
           .leaderboard-container {
-            padding: 8px 4px !important;
+            padding: 10px 8px !important;
             border-radius: 0 !important;
-            border: none !important;
+            border-left: none !important;
+            border-right: none !important;
             box-shadow: none !important;
-            margin: 0 !important;
+            margin: 0 -16px !important;
+            width: calc(100% + 32px) !important;
           }
-          .leaderboard-top-controls {
-            gap: 6px !important;
+          .leaderboard-top-info {
+            padding: 0 4px 6px 4px !important;
             margin-bottom: 8px !important;
           }
+          .leaderboard-top-controls {
+            gap: 4px !important;
+            margin-bottom: 8px !important;
+            padding: 0 2px !important;
+          }
           .btn-enter-text {
-            display: none !important;
+            display: inline !important;
+            font-size: 11px !important;
           }
           .btn-enter-score {
-            padding: 8px 12px !important;
+            padding: 6px 8px !important;
+            gap: 4px !important;
           }
           .leaderboard-table-wrap {
-            border-radius: 6px;
-            border-left: none;
-            border-right: none;
+            border-radius: 0 !important;
+            border-left: none !important;
+            border-right: none !important;
             overflow-x: hidden !important;
           }
           .leaderboard-main-table {
@@ -227,11 +242,11 @@ export function Leaderboard({
           .mobile-only-col { display: table-cell !important; }
 
           .col-pos { width: 34px !important; }
-          .col-nat { width: 30px !important; }
+          .col-nat { width: 28px !important; }
           .col-player { width: auto !important; }
-          .col-sum { width: 46px !important; }
+          .col-sum { width: 44px !important; }
           .col-holes { width: 38px !important; }
-          .col-r-mob { width: 40px !important; text-align: center !important; }
+          .col-r-mob { width: 38px !important; text-align: center !important; }
 
           .header-country-desktop { display: none !important; }
           .header-country-mobile { display: inline !important; }
@@ -241,7 +256,7 @@ export function Leaderboard({
           .player-name-desktop { display: none !important; }
           .player-name-mobile {
             display: inline !important;
-            font-size: 13px !important;
+            font-size: 12.5px !important;
             font-weight: 800 !important;
             color: #0f172a !important;
             white-space: nowrap !important;
@@ -250,7 +265,7 @@ export function Leaderboard({
           }
           .player-subline-mobile {
             display: block !important;
-            font-size: 10px !important;
+            font-size: 9.5px !important;
             color: #64748b !important;
             white-space: nowrap !important;
             overflow: hidden !important;
@@ -262,9 +277,22 @@ export function Leaderboard({
         }
       `}</style>
 
+      {/* TYTUŁ TURNIEJU I MIEJSCE */}
+      <div className="leaderboard-top-info">
+        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
+          {store.tournamentName}
+        </h2>
+        {store.courses[0]?.name && (
+          <p style={{ margin: '2px 0 0 0', fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <MapPin size={11} color="#0284c7" />
+            <span>{store.courses[0].name}</span>
+          </p>
+        )}
+      </div>
+
       {/* PASEK KONTROLNY: KATEGORIA + ODŚWIEŻANIE + WPROWADŹ WYNIK */}
       <div className="leaderboard-top-controls">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
           <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button
               type="button"
@@ -272,12 +300,12 @@ export function Leaderboard({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '5px',
                 background: '#ffffff',
                 border: '1px solid #cbd5e1',
                 borderRadius: '8px',
-                padding: '7px 12px',
-                fontSize: '12.5px',
+                padding: '6px 10px',
+                fontSize: '12px',
                 fontWeight: 800,
                 color: '#0f172a',
                 cursor: 'pointer',
@@ -285,7 +313,7 @@ export function Leaderboard({
               }}
             >
               <span>{CATEGORY_NAMES_PL[filter]}</span>
-              <ChevronDown size={14} style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+              <ChevronDown size={13} style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
             </button>
 
             {dropdownOpen && (
@@ -295,7 +323,7 @@ export function Leaderboard({
                   top: 'calc(100% + 4px)',
                   left: 0,
                   zIndex: 50,
-                  minWidth: '220px',
+                  minWidth: '200px',
                   background: '#ffffff',
                   border: '1px solid #cbd5e1',
                   borderRadius: '8px',
@@ -335,7 +363,7 @@ export function Leaderboard({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
           {onRefresh && (
             <button
               type="button"
@@ -352,13 +380,13 @@ export function Leaderboard({
                 background: '#ffffff',
                 border: '1px solid #cbd5e1',
                 borderRadius: '8px',
-                padding: '8px 10px',
+                padding: '6px 8px',
                 color: '#475569',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
             >
-              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
           )}
 
@@ -368,22 +396,22 @@ export function Leaderboard({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '4px',
               background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
               color: '#ffffff',
               border: 'none',
               borderRadius: '8px',
-              padding: '8px 14px',
-              fontSize: '12.5px',
+              padding: '6px 10px',
+              fontSize: '12px',
               fontWeight: 800,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
               boxShadow: '0 2px 6px rgba(11, 19, 41, 0.12)',
             }}
           >
-            <ClipboardList size={15} />
+            <ClipboardList size={14} />
             <span className="btn-enter-text">Wprowadź wynik</span>
-            <ChevronRight size={14} />
+            <ChevronRight size={13} />
           </button>
         </div>
       </div>
@@ -393,30 +421,30 @@ export function Leaderboard({
         <table className="leaderboard-main-table">
           <thead>
             <tr>
-              <th className="col-pos" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>POS</th>
-              <th className="desktop-only-col col-delta" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>+/-</th>
-              <th className="col-nat" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="col-pos" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>POS</th>
+              <th className="desktop-only-col col-delta" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>+/-</th>
+              <th className="col-nat" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>
                 <span className="header-country-desktop">KRAJ</span>
                 <span className="header-country-mobile">NAT</span>
               </th>
-              <th className="col-player" style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-              <th className="col-sum" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="col-player" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+              <th className="col-sum" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>
                 <span className="header-tot-desktop">SUMA</span>
                 <span className="header-tot-mobile">TOT</span>
               </th>
-              <th className="col-holes" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+              <th className="col-holes" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
               
-              <th className="mobile-only-col col-r-mob" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="mobile-only-col col-r-mob" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>
                 {store.round2Started ? 'R2' : 'R1'}
               </th>
 
-              <th className="desktop-only-col col-r1" style={{ padding: '10px 6px', borderRight: '1px solid #e2e8f0' }}>R1</th>
+              <th className="desktop-only-col col-r1" style={{ padding: '9px 6px', borderRight: '1px solid #e2e8f0' }}>R1</th>
               {store.round2Started && (
-                <th className="desktop-only-col col-r2" style={{ padding: '10px 6px', borderRight: '1px solid #e2e8f0' }}>R2</th>
+                <th className="desktop-only-col col-r2" style={{ padding: '9px 6px', borderRight: '1px solid #e2e8f0' }}>R2</th>
               )}
-              <th className="desktop-only-col col-strokes" style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+              <th className="desktop-only-col col-strokes" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
               
-              <th className="desktop-only-col col-arrow" style={{ padding: '10px 2px' }}></th>
+              <th className="desktop-only-col col-arrow" style={{ padding: '9px 2px' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -455,12 +483,12 @@ export function Leaderboard({
                   onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                 >
                   {/* POZYCJA */}
-                  <td className="col-pos" style={{ padding: '8px 2px', fontWeight: 800, fontSize: '12px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="col-pos" style={{ padding: '7px 2px', fontWeight: 800, fontSize: '12px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     {display}
                   </td>
 
                   {/* +/- DESKTOP */}
-                  <td className="desktop-only-col col-delta" style={{ padding: '8px 4px', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col col-delta" style={{ padding: '7px 4px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {delta.type === 'up' ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#16a34a', fontWeight: 800, fontSize: '11px' }}>
@@ -479,7 +507,7 @@ export function Leaderboard({
                   </td>
 
                   {/* FLAGA / NAT */}
-                  <td className="col-nat" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="col-nat" style={{ padding: '7px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {player.flagImage ? (
                         <img src={player.flagImage} alt={player.flag} style={{ width: '18px', height: '12px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
@@ -490,8 +518,8 @@ export function Leaderboard({
                   </td>
 
                   {/* ZAWODNIK + POWIĘKSZONE ZDJĘCIE */}
-                  <td className="col-player" style={{ padding: '6px 8px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <td className="col-player" style={{ padding: '5px 6px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                       {player.avatar ? (
                         <img
                           src={player.avatar}
@@ -557,7 +585,7 @@ export function Leaderboard({
                   </td>
 
                   {/* SUMA / TOT */}
-                  <td className="col-sum" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="col-sum" style={{ padding: '7px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {total < 0 ? (
                         <span
@@ -568,17 +596,17 @@ export function Leaderboard({
                             background: '#fee2e2',
                             color: '#dc2626',
                             fontWeight: 900,
-                            fontSize: '12.5px',
+                            fontSize: '12px',
                             borderRadius: '5px',
-                            padding: '3px 6px',
-                            minWidth: '32px',
+                            padding: '3px 5px',
+                            minWidth: '30px',
                             lineHeight: 1.1,
                           }}
                         >
                           {relativeLabel(total)}
                         </span>
                       ) : (
-                        <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '13px' }}>
+                        <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '12.5px' }}>
                           {total === 0 ? 'E' : relativeLabel(total)}
                         </span>
                       )}
@@ -586,27 +614,27 @@ export function Leaderboard({
                   </td>
 
                   {/* DOŁKI (THRU) */}
-                  <td className="col-holes" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 600, fontSize: '12.5px' }}>
+                  <td className="col-holes" style={{ padding: '7px 2px', borderRight: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 600, fontSize: '12px' }}>
                       {thru}
                     </div>
                   </td>
 
                   {/* RUNDA MOBILE */}
-                  <td className="mobile-only-col col-r-mob" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="mobile-only-col col-r-mob" style={{ padding: '7px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {(() => {
                         const activeRRel = store.round2Started ? r2Rel : r1Rel;
                         const activeStrokes = store.round2Started ? totalStrokes(player.scores[2] || []) : totalStrokes(player.scores[1] || []);
-                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '12.5px', fontWeight: 500 }}>–</span>;
-                        if (activeRRel === 0) return <span style={{ color: '#475569', fontSize: '12.5px', fontWeight: 600 }}>E</span>;
-                        return <span style={{ color: '#475569', fontSize: '12.5px', fontWeight: 600 }}>{relativeLabel(activeRRel)}</span>;
+                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '12px', fontWeight: 500 }}>–</span>;
+                        if (activeRRel === 0) return <span style={{ color: '#475569', fontSize: '12px', fontWeight: 600 }}>E</span>;
+                        return <span style={{ color: '#475569', fontSize: '12px', fontWeight: 600 }}>{relativeLabel(activeRRel)}</span>;
                       })()}
                     </div>
                   </td>
 
                   {/* RUNDA 1 DESKTOP */}
-                  <td className="desktop-only-col col-r1" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col col-r1" style={{ padding: '7px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
                     </div>
@@ -614,7 +642,7 @@ export function Leaderboard({
 
                   {/* RUNDA 2 DESKTOP */}
                   {store.round2Started && (
-                    <td className="desktop-only-col col-r2" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
+                    <td className="desktop-only-col col-r2" style={{ padding: '7px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
                       </div>
@@ -622,14 +650,14 @@ export function Leaderboard({
                   )}
 
                   {/* UDERZENIA DESKTOP */}
-                  <td className="desktop-only-col col-strokes" style={{ padding: '8px 8px', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col col-strokes" style={{ padding: '7px 8px', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {strokes || '–'}
                     </div>
                   </td>
 
                   {/* STRZAŁKA */}
-                  <td className="desktop-only-col col-arrow" style={{ padding: '8px 2px', color: '#94a3b8' }}>
+                  <td className="desktop-only-col col-arrow" style={{ padding: '7px 2px', color: '#94a3b8' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <ChevronRight size={15} />
                     </div>
