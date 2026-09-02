@@ -9,9 +9,11 @@ import {
   TrendingDown,
   X,
   ZoomIn,
-  Menu,
+  Zap,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import type { Category, Player, Round, Store, Tournament } from '@/types';
+import type { Category, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
 import {
   combinedStat,
@@ -29,27 +31,47 @@ import {
 
 const TOTAL_CARDS: { key: StatCategory; label: string }[] = [
   { key: 'total', label: 'SUMA OGÓLNA' },
-  { key: 'out', label: 'PIERWSZA 9 (OUT)' },
-  { key: 'inn', label: 'DRUGA 9 (IN)' },
+  { key: 'out', label: 'FRONT 9 (OUT)' },
+  { key: 'inn', label: 'BACK 9 (IN)' },
 ];
 
 const PAR_CARDS: { key: StatCategory; label: string }[] = [
-  { key: 'par3', label: 'DOŁKI PAR 3' },
-  { key: 'par4', label: 'DOŁKI PAR 4' },
-  { key: 'par5', label: 'DOŁKI PAR 5' },
+  { key: 'par3', label: 'PAR 3 LEADERBOARD' },
+  { key: 'par4', label: 'PAR 4 LEADERBOARD' },
+  { key: 'par5', label: 'PAR 5 LEADERBOARD' },
 ];
 
 const PERF_CARDS: { key: StatCategory; label: string }[] = [
-  { key: 'birdies', label: 'BIRDIE I LEPIEJ' },
-  { key: 'pars', label: 'PARY I LEPIEJ' },
+  { key: 'eagles', label: 'MOST EAGLES' },
+  { key: 'birdies', label: 'MOST BIRDIES' },
+  { key: 'parBreakers', label: 'PAR BREAKERS (<= -1)' },
+  { key: 'pars', label: 'MOST PARS' },
+  { key: 'parsOrBetter', label: 'PARS OR BETTER' },
   { key: 'bogeys', label: 'BOGEY I WIĘCEJ' },
 ];
 
-const ALL_STATS: StatCategory[] = [...TOTAL_CARDS, ...PAR_CARDS, ...PERF_CARDS].map((c) => c.key);
+const STREAK_CARDS: { key: StatCategory; label: string }[] = [
+  { key: 'birdieStreak', label: 'BIRDIE OR BETTER STREAK' },
+  { key: 'bogeyFreeStreak', label: 'BOGEY FREE STREAK' },
+];
+
+const AVERAGE_CARDS: { key: StatCategory; label: string }[] = [
+  { key: 'scoringAvg', label: 'SCORING AVERAGE' },
+  { key: 'avgFront9', label: 'FRONT 9 AVERAGE' },
+  { key: 'avgBack9', label: 'BACK 9 AVERAGE' },
+];
+
+const ALL_STATS: StatCategory[] = [
+  ...TOTAL_CARDS,
+  ...PAR_CARDS,
+  ...PERF_CARDS,
+  ...STREAK_CARDS,
+  ...AVERAGE_CARDS,
+].map((c) => c.key);
 
 function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: number; size?: 'sm' | 'md' }) {
-  const dim = size === 'sm' ? '28px' : '40px';
-  const fontSize = size === 'sm' ? '12px' : '16px';
+  const dim = size === 'sm' ? '28px' : '36px';
+  const fontSize = size === 'sm' ? '12px' : '14px';
 
   if (!value || value === 0) {
     return (
@@ -64,7 +86,7 @@ function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: nu
   if (value === 1) {
     return (
       <div style={{ position: 'relative', width: dim, height: dim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg viewBox="0 0 26 26" style={{ position: 'absolute', width: size === 'sm' ? '30px' : '44px', height: size === 'sm' ? '30px' : '44px', left: '-1px', top: '-1px' }}>
+        <svg viewBox="0 0 26 26" style={{ position: 'absolute', width: size === 'sm' ? '30px' : '40px', height: size === 'sm' ? '30px' : '40px', left: '-1px', top: '-1px' }}>
           <g transform="translate(1,1)">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#000" strokeWidth="4" strokeLinejoin="round" />
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#fff" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
@@ -102,6 +124,137 @@ function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: nu
   return <div style={style}>{value}</div>;
 }
 
+// Komponent rozwijanego mini-scorecardu dla wybranej statystyki (styl BlueGolf w barwach PFFG)
+function StatMiniScorecard({
+  player,
+  statKey,
+  holesR1,
+  holesR2,
+}: {
+  player: Player;
+  statKey: StatCategory;
+  holesR1: Hole[];
+  holesR2: Hole[];
+}) {
+  const [round, setRound] = useState<Round>(1);
+  const holes = round === 1 ? holesR1 : holesR2;
+  const scores = player.scores[round] || [];
+
+  // Filtrujemy tylko te indeksy dołków, które kwalifikują się do tej statystyki
+  const targetHoleIndices = useMemo(() => {
+    const indices: number[] = [];
+    holes.forEach((h, idx) => {
+      const s = scores[idx] || 0;
+      if (statKey === 'par3' && h.par === 3) indices.push(idx);
+      else if (statKey === 'par4' && h.par === 4) indices.push(idx);
+      else if (statKey === 'par5' && h.par === 5) indices.push(idx);
+      else if (statKey === 'out' || statKey === 'avgFront9') {
+        if (idx < 9) indices.push(idx);
+      } else if (statKey === 'inn' || statKey === 'avgBack9') {
+        if (idx >= 9) indices.push(idx);
+      } else if ((statKey === 'birdies' || statKey === 'parBreakers' || statKey === 'birdieStreak') && s > 0 && s - h.par <= -1) {
+        indices.push(idx);
+      } else if (statKey === 'eagles' && s > 0 && s - h.par <= -2) {
+        indices.push(idx);
+      } else if (statKey === 'pars' && s > 0 && s - h.par === 0) {
+        indices.push(idx);
+      } else if (statKey === 'parsOrBetter' && s > 0 && s - h.par <= 0) {
+        indices.push(idx);
+      } else if (statKey === 'bogeys' && s > 0 && s - h.par >= 1) {
+        indices.push(idx);
+      } else if (statKey === 'total' || statKey === 'scoringAvg' || statKey === 'bogeyFreeStreak') {
+        indices.push(idx);
+      }
+    });
+    return indices;
+  }, [holes, scores, statKey]);
+
+  const subtotalScore = targetHoleIndices.reduce((acc, idx) => acc + (scores[idx] || 0), 0);
+  const subtotalPar = targetHoleIndices.reduce((acc, idx) => acc + holes[idx].par, 0);
+  const subtotalRel = subtotalScore > 0 ? subtotalScore - subtotalPar : 0;
+
+  return (
+    <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px', marginTop: '6px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>RUNDA:</span>
+          {ROUNDS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRound(r)}
+              style={{
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: '1px solid',
+                borderColor: round === r ? '#0284c7' : '#cbd5e1',
+                background: round === r ? '#0284c7' : '#ffffff',
+                color: round === r ? '#ffffff' : '#0f172a',
+                fontSize: '10px',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              R{r}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a' }}>
+          Do Par: <span style={{ color: subtotalRel < 0 ? '#ef4444' : '#0f172a' }}>{relativeLabel(subtotalRel)}</span> ({subtotalScore} ud.)
+        </div>
+      </div>
+
+      {targetHoleIndices.length === 0 ? (
+        <div style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
+          Brak dołków spełniających to kryterium w Rundzie {round}.
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '11px' }}>
+            <thead>
+              <tr style={{ background: '#e2e8f0', color: '#475569' }}>
+                <th style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800 }}>#</th>
+                {targetHoleIndices.map((idx) => (
+                  <th key={idx} style={{ padding: '4px', border: '1px solid #cbd5e1', minWidth: '32px' }}>
+                    {holes[idx].number}
+                  </th>
+                ))}
+                <th style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800 }}>SUM</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800, color: '#64748b' }}>Par</td>
+                {targetHoleIndices.map((idx) => (
+                  <td key={idx} style={{ padding: '4px', border: '1px solid #cbd5e1', color: '#64748b', fontWeight: 700 }}>
+                    {holes[idx].par}
+                  </td>
+                ))}
+                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 800, color: '#64748b' }}>
+                  {subtotalPar}
+                </td>
+              </tr>
+              <tr style={{ background: '#ffffff' }}>
+                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 900, color: '#0284c7' }}>R{round}</td>
+                {targetHoleIndices.map((idx) => (
+                  <td key={idx} style={{ padding: '2px', border: '1px solid #cbd5e1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <ScoreShape value={scores[idx] || 0} par={holes[idx].par} size="sm" />
+                    </div>
+                  </td>
+                ))}
+                <td style={{ padding: '4px', border: '1px solid #cbd5e1', fontWeight: 900, color: '#0284c7' }}>
+                  {subtotalScore || '–'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PlayerModal({
   player,
   store,
@@ -134,7 +287,6 @@ export function PlayerModal({
   );
   const [modalTab, setModalTab] = useState<'rozpiska' | 'statystyki'>('rozpiska');
 
-  // Automatyczny wybór Rundy 2 jeśli R2 wystartowała lub zawodnik ma w niej wyniki
   const [roundTab, setRoundTab] = useState<Round>(() => {
     if (store.round2Started) return 2;
     const hasR2Scores = player.scores[2] && player.scores[2].some((s) => s > 0);
@@ -145,10 +297,10 @@ export function PlayerModal({
   const [inspectedHole, setInspectedHole] = useState<number | null>(null);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [activeStatCategory, setActiveStatCategory] = useState<{ key: StatCategory; label: string } | null>(null);
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
 
   const holes = roundTab === 1 ? holesR1 : holesR2;
 
-  // Aktywni zawodnicy bieżącego turnieju przefiltrowani pod wybraną kategorię statystyk
   const activeTourneyPlayers = useMemo(() => {
     const active = store.players.filter((p) => p.isActive !== false);
     if (statCategoryFilter === 'Wszystkie') return active;
@@ -222,7 +374,6 @@ export function PlayerModal({
     };
   }, [player.id, leaguePoints, tournaments]);
 
-  // Tablica skumulowanych wyników (narastająco od dołka 1 do 18)
   const cumulativeRelativeScores = useMemo(() => {
     const currentRoundScores = player.scores[roundTab] || [];
     let runningRel = 0;
@@ -245,7 +396,10 @@ export function PlayerModal({
     return (
       <div
         key={card.key}
-        onClick={() => setActiveStatCategory(card)}
+        onClick={() => {
+          setActiveStatCategory(card);
+          setExpandedPlayerId(player.id); // domyślnie rozwijamy bieżącego zawodnika
+        }}
         style={{
           cursor: 'pointer',
           padding: '12px 14px',
@@ -284,7 +438,7 @@ export function PlayerModal({
             {display}
           </span>
         </div>
-        <strong style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', display: 'block', lineHeight: 1.1 }}>
+        <strong style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', display: 'block', lineHeight: 1.1 }}>
           {result.display}
         </strong>
       </div>
@@ -505,7 +659,7 @@ export function PlayerModal({
                 </div>
               </div>
 
-              {/* SEKCJA PRZYCISKÓW / ZAKŁADEK I DUŻY PRZYCISK ZAMKNIĘCIA */}
+              {/* SEKCJA PRZYCISKÓW / ZAKŁADEK I ZAMKNIĘCIE */}
               <div className="header-nav-row">
                 <div className="player-nav-tabs" style={{ display: 'flex', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '30px', padding: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                   <button
@@ -848,7 +1002,7 @@ export function PlayerModal({
                     onClick={() => setModalTab('statystyki')}
                     style={{ flex: 1, padding: '6px 8px', fontWeight: '800', fontSize: '11px', border: 'none', borderRadius: '6px', background: modalTab === 'statystyki' ? '#ffffff' : 'transparent', color: modalTab === 'statystyki' ? '#0f172a' : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: modalTab === 'statystyki' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none' }}
                   >
-                    <TrendingDown size={13} /> Statystyki
+                    <TrendingDown size={13} /> Tabele statystyk
                   </button>
                 </div>
 
@@ -995,7 +1149,7 @@ export function PlayerModal({
                 )}
 
                 {modalTab === 'statystyki' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {/* PRZEŁĄCZNIK KATEGORII W STATYSTYKI */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '4px', flexWrap: 'nowrap' }}>
                       {(['Wszystkie', ...CATEGORIES] as (Category | 'Wszystkie')[]).map((cat) => (
@@ -1035,20 +1189,40 @@ export function PlayerModal({
                     {/* WEDŁUG PAR */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <Target size={12} color="#1b88cc" /> WEDŁUG PAR ({statCategoryFilter})
+                        <Target size={12} color="#1b88cc" /> RANKINGI WEDŁUG PAR ({statCategoryFilter})
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {PAR_CARDS.map(renderStatCard)}
                       </div>
                     </div>
 
-                    {/* SKUTECZNOŚĆ */}
+                    {/* SKUTECZNOŚĆ (BIRDIE, PARS...) */}
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         <Award size={12} color="#1b88cc" /> SKUTECZNOŚĆ ({statCategoryFilter})
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {PERF_CARDS.map(renderStatCard)}
+                      </div>
+                    </div>
+
+                    {/* SERIE (STREAKS) */}
+                    <div>
+                      <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <Zap size={12} color="#f59e0b" /> SERIE (STREAKS) ({statCategoryFilter})
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                        {STREAK_CARDS.map(renderStatCard)}
+                      </div>
+                    </div>
+
+                    {/* ŚREDNIE (AVERAGES) */}
+                    <div>
+                      <p style={{ fontSize: '10px', fontWeight: 900, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <BarChart3 size={12} color="#0284c7" /> ŚREDNIE UDERZEŃ ({statCategoryFilter})
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                        {AVERAGE_CARDS.map(renderStatCard)}
                       </div>
                     </div>
                   </div>
@@ -1059,7 +1233,7 @@ export function PlayerModal({
         </div>
       </div>
 
-      {/* MODAL KLASYFIKACJI STATYSTYK */}
+      {/* MODAL KLASYFIKACJI STATYSTYK W STYLU BLUEGOLF Z ROZWIJANYM MINI-SCORECARDEM */}
       {activeStatCategory && (
         <div
           style={{
@@ -1081,55 +1255,98 @@ export function PlayerModal({
               background: '#ffffff',
               borderRadius: '14px',
               width: '100%',
-              maxWidth: '520px',
-              maxHeight: '80vh',
+              maxWidth: '620px',
+              maxHeight: '85vh',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
             }}
           >
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* NAGŁÓWEK KLASYFIKACJI */}
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0b1329', color: '#ffffff' }}>
               <div>
-                <small style={{ color: '#64748b', fontSize: '10px', fontWeight: '800' }}>KLASYFIKACJA KATEGORII ({statCategoryFilter})</small>
-                <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '900', color: '#0f172a' }}>{activeStatCategory.label}</h3>
+                <small style={{ color: '#38bdf8', fontSize: '10px', fontWeight: '800', letterSpacing: '0.04em' }}>
+                  TABLICA STATYSTYCZNA PFFG · {statCategoryFilter.toUpperCase()}
+                </small>
+                <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '900', color: '#ffffff' }}>
+                  {activeStatCategory.label}
+                </h3>
               </div>
               <button
                 onClick={() => setActiveStatCategory(null)}
-                style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                style={{ border: 'none', background: '#1e293b', color: '#fff', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <div style={{ overflowY: 'auto', padding: '10px 14px', flex: 1 }}>
+            {/* LISTA ZAWODNIKÓW W RANKINGU Z ROZWIJANIEM */}
+            <div style={{ overflowY: 'auto', padding: '10px 14px', flex: 1, background: '#f8fafc' }}>
               {categoryLeaderboard.map((item, idx) => {
                 const isCurrentPlayer = item.player.id === player.id;
+                const isExpanded = expandedPlayerId === item.player.id;
+
                 return (
                   <div
                     key={item.player.id}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      marginBottom: '4px',
+                      marginBottom: '6px',
                       borderRadius: '8px',
-                      background: isCurrentPlayer ? '#f0fdf4' : '#ffffff',
-                      border: isCurrentPlayer ? '1px solid #86efac' : '1px solid #f1f5f9',
+                      background: '#ffffff',
+                      border: isCurrentPlayer ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
+                      overflow: 'hidden',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontWeight: '800', width: '20px', fontSize: '13px', color: idx < 3 ? '#10b981' : '#64748b' }}>
-                        {idx + 1}.
-                      </span>
-                      <span style={{ fontWeight: isCurrentPlayer ? '800' : '600', fontSize: '14px', color: '#0f172a' }}>
-                        {item.player.name}
-                      </span>
+                    {/* WIERSZ ZAWODNIKA */}
+                    <div
+                      onClick={() => setExpandedPlayerId(isExpanded ? null : item.player.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        background: isExpanded ? '#f1f5f9' : isCurrentPlayer ? '#f0f9ff' : '#ffffff',
+                        transition: 'background 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <span style={{ fontWeight: '900', width: '24px', fontSize: '12px', color: idx < 3 ? '#0284c7' : '#64748b' }}>
+                          {idx + 1}.
+                        </span>
+                        {item.player.avatar ? (
+                          <img src={item.player.avatar} alt={item.player.name} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>
+                            {item.player.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                        <span style={{ fontWeight: isCurrentPlayer ? 900 : 700, fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.player.name}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontWeight: '900', fontSize: '14px', color: '#0284c7' }}>
+                          {item.display}
+                        </span>
+                        {isExpanded ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+                      </div>
                     </div>
-                    <span style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>
-                      {item.display}
-                    </span>
+
+                    {/* ROZWIJANY MINI-SCORECARD DLA DOŁKÓW TEJ STATYSTYKI */}
+                    {isExpanded && (
+                      <div style={{ padding: '8px 12px 12px 12px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
+                        <StatMiniScorecard
+                          player={item.player}
+                          statKey={activeStatCategory.key}
+                          holesR1={holesR1}
+                          holesR2={holesR2}
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}

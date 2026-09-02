@@ -1,3 +1,4 @@
+// src/scoring.ts
 import type { Hole, Player, Round, ScoreStyle } from './types';
 import { ROUNDS } from './types';
 
@@ -60,9 +61,71 @@ export function thruLabel(player: Player): string {
   return String(r1);
 }
 
-export type StatCategory = 'total' | 'out' | 'inn' | 'par3' | 'par4' | 'par5' | 'birdies' | 'pars' | 'bogeys';
+export type StatCategory =
+  | 'total'
+  | 'out'
+  | 'inn'
+  | 'par3'
+  | 'par4'
+  | 'par5'
+  | 'eagles'
+  | 'birdies'
+  | 'parBreakers'
+  | 'pars'
+  | 'parsOrBetter'
+  | 'bogeys'
+  | 'birdieStreak'
+  | 'bogeyFreeStreak'
+  | 'scoringAvg'
+  | 'avgFront9'
+  | 'avgBack9';
 
 export type StatResult = { value: number; display: string; lowerBetter: boolean };
+
+const parRel = (scores: number[], holes: Hole[], par: number) => {
+  let rel = 0;
+  scores.forEach((s, i) => {
+    if (s > 0 && holes[i] && holes[i].par === par) rel += s - holes[i].par;
+  });
+  return rel;
+};
+
+const countEagles = (scores: number[], holes: Hole[]) =>
+  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par <= -2 ? acc + 1 : acc), 0);
+
+const countBirdies = (scores: number[], holes: Hole[]) =>
+  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par === -1 ? acc + 1 : acc), 0);
+
+const countParBreakers = (scores: number[], holes: Hole[]) =>
+  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par <= -1 ? acc + 1 : acc), 0);
+
+const countPars = (scores: number[], holes: Hole[]) =>
+  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par === 0 ? acc + 1 : acc), 0);
+
+const countParsOrBetter = (scores: number[], holes: Hole[]) =>
+  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par <= 0 ? acc + 1 : acc), 0);
+
+const countBogeys = (scores: number[], holes: Hole[]) =>
+  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par >= 1 ? acc + 1 : acc), 0);
+
+function getStreak(scores: number[], holes: Hole[], condition: (delta: number) => boolean): number {
+  let maxStreak = 0;
+  let current = 0;
+  scores.forEach((s, i) => {
+    if (s <= 0 || !holes[i]) {
+      current = 0;
+      return;
+    }
+    const delta = s - holes[i].par;
+    if (condition(delta)) {
+      current++;
+      if (current > maxStreak) maxStreak = current;
+    } else {
+      current = 0;
+    }
+  });
+  return maxStreak;
+}
 
 export function computeStat(scores: number[], holes: Hole[], stat: StatCategory): StatResult {
   switch (stat) {
@@ -82,44 +145,78 @@ export function computeStat(scores: number[], holes: Hole[], stat: StatCategory)
       return { value: parRel(scores, holes, 4), display: relativeLabel(parRel(scores, holes, 4)), lowerBetter: true };
     case 'par5':
       return { value: parRel(scores, holes, 5), display: relativeLabel(parRel(scores, holes, 5)), lowerBetter: true };
+    case 'eagles':
+      return { value: -countEagles(scores, holes), display: String(countEagles(scores, holes)), lowerBetter: true };
     case 'birdies':
       return { value: -countBirdies(scores, holes), display: String(countBirdies(scores, holes)), lowerBetter: true };
+    case 'parBreakers':
+      return { value: -countParBreakers(scores, holes), display: String(countParBreakers(scores, holes)), lowerBetter: true };
     case 'pars':
       return { value: -countPars(scores, holes), display: String(countPars(scores, holes)), lowerBetter: true };
+    case 'parsOrBetter':
+      return { value: -countParsOrBetter(scores, holes), display: String(countParsOrBetter(scores, holes)), lowerBetter: true };
     case 'bogeys':
       return { value: countBogeys(scores, holes), display: String(countBogeys(scores, holes)), lowerBetter: true };
+    case 'birdieStreak': {
+      const str = getStreak(scores, holes, (d) => d <= -1);
+      return { value: -str, display: `${str} dołków`, lowerBetter: true };
+    }
+    case 'bogeyFreeStreak': {
+      const str = getStreak(scores, holes, (d) => d <= 0);
+      return { value: -str, display: `${str} dołków`, lowerBetter: true };
+    }
+    case 'scoringAvg': {
+      const played = holesPlayed(scores);
+      const strk = totalStrokes(scores);
+      const val = played > 0 ? strk / (played / 18) : 0;
+      return { value: val, display: val > 0 ? val.toFixed(1) : '–', lowerBetter: true };
+    }
+    case 'avgFront9': {
+      const sum = subtotal(scores, holes, 0, 9).sum;
+      return { value: sum, display: sum > 0 ? String(sum) : '–', lowerBetter: true };
+    }
+    case 'avgBack9': {
+      const sum = subtotal(scores, holes, 9, 18).sum;
+      return { value: sum, display: sum > 0 ? String(sum) : '–', lowerBetter: true };
+    }
     default:
       return { value: 0, display: '–', lowerBetter: true };
   }
 }
 
-const isNegatedCountStat = (stat: StatCategory) => stat === 'birdies' || stat === 'pars';
+const isNegatedCountStat = (stat: StatCategory) =>
+  ['eagles', 'birdies', 'parBreakers', 'pars', 'parsOrBetter', 'birdieStreak', 'bogeyFreeStreak'].includes(stat);
 
 export function combinedStat(player: Player, holesR1: Hole[], holesR2: Hole[], stat: StatCategory): StatResult {
   const a = computeStat(player.scores[1], holesR1, stat);
   const b = computeStat(player.scores[2], holesR2, stat);
+
+  if (stat === 'birdieStreak' || stat === 'bogeyFreeStreak') {
+    const bestStreak = Math.max(-a.value, -b.value);
+    return { value: -bestStreak, display: `${bestStreak} dołków`, lowerBetter: true };
+  }
+
+  if (stat === 'scoringAvg') {
+    const p1 = holesPlayed(player.scores[1]);
+    const p2 = holesPlayed(player.scores[2]);
+    const totalHoles = p1 + p2;
+    const strokes = totalStrokes(player.scores[1]) + totalStrokes(player.scores[2]);
+    const avgRound = totalHoles > 0 ? (strokes / totalHoles) * 18 : 0;
+    return { value: avgRound, display: avgRound > 0 ? avgRound.toFixed(1) : '–', lowerBetter: true };
+  }
+
+  if (stat === 'avgFront9' || stat === 'avgBack9') {
+    const playedRounds = (holesPlayed(player.scores[1]) > 0 ? 1 : 0) + (holesPlayed(player.scores[2]) > 0 ? 1 : 0);
+    const sum = a.value + b.value;
+    const avg = playedRounds > 0 ? sum / playedRounds : 0;
+    return { value: avg, display: avg > 0 ? avg.toFixed(1) : '–', lowerBetter: true };
+  }
+
   const value = a.value + b.value;
   if (isNegatedCountStat(stat)) return { value, display: String(-value), lowerBetter: true };
   if (stat === 'bogeys') return { value, display: String(value), lowerBetter: true };
   return { value, display: relativeLabel(value), lowerBetter: true };
 }
-
-const parRel = (scores: number[], holes: Hole[], par: number) => {
-  let rel = 0;
-  scores.forEach((s, i) => {
-    if (s > 0 && holes[i] && holes[i].par === par) rel += s - holes[i].par;
-  });
-  return rel;
-};
-
-const countBirdies = (scores: number[], holes: Hole[]) =>
-  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par <= -1 ? acc + 1 : acc), 0);
-
-const countPars = (scores: number[], holes: Hole[]) =>
-  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par === 0 ? acc + 1 : acc), 0);
-
-const countBogeys = (scores: number[], holes: Hole[]) =>
-  scores.reduce((acc, s, i) => (s > 0 && holes[i] && s - holes[i].par >= 1 ? acc + 1 : acc), 0);
 
 const ORDINAL_SUFFIX = (n: number) => {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -160,7 +257,9 @@ export function statRankMap(
   round: Round | 'combined'
 ): Map<string, number> {
   const values = players.map((p) =>
-    round === 'combined' ? combinedStat(p, holesR1, holesR2, stat).value : computeStat(p.scores[round], round === 1 ? holesR1 : holesR2, stat).value
+    round === 'combined'
+      ? combinedStat(p, holesR1, holesR2, stat).value
+      : computeStat(p.scores[round], round === 1 ? holesR1 : holesR2, stat).value
   );
   const ranks = computeRanks(values, true);
   const map = new Map<string, number>();
