@@ -139,9 +139,17 @@ export function Leaderboard({
         .leaderboard-container {
           background: #ffffff;
           border-radius: 12px;
-          padding: 24px;
+          padding: 16px 20px;
           border: 1px solid #cbd5e1;
-          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+        .leaderboard-top-controls {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 12px;
+          flex-wrap: nowrap;
         }
         .leaderboard-table-wrap {
           border: 1px solid #cbd5e1;
@@ -159,19 +167,21 @@ export function Leaderboard({
         .leaderboard-main-table thead tr th {
           color: #475569;
           font-size: 11px;
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.04em;
+          background: #f8fafc;
+          border-bottom: 2px solid #cbd5e1;
         }
         .col-pos { width: 44px; text-align: center; }
-        .col-delta { width: 44px; text-align: center; }
+        .col-delta { width: 40px; text-align: center; }
         .col-nat { width: 36px; text-align: center; }
         .col-player { width: auto; text-align: left; }
-        .col-sum { width: 75px; text-align: center; }
-        .col-holes { width: 75px; text-align: center; }
+        .col-sum { width: 70px; text-align: center; }
+        .col-holes { width: 65px; text-align: center; }
         .col-r1 { width: 60px; text-align: center; }
         .col-r2 { width: 60px; text-align: center; }
-        .col-strokes { width: 95px; text-align: center; }
+        .col-strokes { width: 90px; text-align: center; }
         .col-arrow { width: 30px; text-align: center; }
 
         .desktop-only-col { display: table-cell; }
@@ -187,9 +197,21 @@ export function Leaderboard({
 
         @media (max-width: 640px) {
           .leaderboard-container {
-            padding: 10px 4px;
-            border-radius: 8px;
-            margin: 0 -4px;
+            padding: 8px 4px !important;
+            border-radius: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+          }
+          .leaderboard-top-controls {
+            gap: 6px !important;
+            margin-bottom: 8px !important;
+          }
+          .btn-enter-text {
+            display: none !important;
+          }
+          .btn-enter-score {
+            padding: 8px 12px !important;
           }
           .leaderboard-table-wrap {
             border-radius: 6px;
@@ -204,12 +226,12 @@ export function Leaderboard({
           .desktop-only-col { display: none !important; }
           .mobile-only-col { display: table-cell !important; }
 
-          .col-pos { width: 36px !important; }
-          .col-nat { width: 34px !important; }
+          .col-pos { width: 34px !important; }
+          .col-nat { width: 30px !important; }
           .col-player { width: auto !important; }
-          .col-sum { width: 44px !important; }
-          .col-holes { width: 42px !important; }
-          .col-r-mob { width: 44px !important; text-align: center !important; }
+          .col-sum { width: 46px !important; }
+          .col-holes { width: 38px !important; }
+          .col-r-mob { width: 40px !important; text-align: center !important; }
 
           .header-country-desktop { display: none !important; }
           .header-country-mobile { display: inline !important; }
@@ -228,7 +250,7 @@ export function Leaderboard({
           }
           .player-subline-mobile {
             display: block !important;
-            font-size: 9px !important;
+            font-size: 10px !important;
             color: #64748b !important;
             white-space: nowrap !important;
             overflow: hidden !important;
@@ -240,85 +262,9 @@ export function Leaderboard({
         }
       `}</style>
 
-      {/* NAGŁÓWEK */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '18px' }}>
-        <div>
-          <p style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: '#1b88cc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {store.tournamentName}
-          </p>
-          <h1 style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: 900, color: '#0f172a' }}>
-            Tabela na żywo
-          </h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-            Oficjalna klasyfikacja turnieju aktualizowana w czasie rzeczywistym.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={async () => {
-                setIsRefreshing(true);
-                await onRefresh();
-                setTimeout(() => setIsRefreshing(false), 400);
-              }}
-              title="Odśwież wyniki"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                color: '#475569',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.05)',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#f1f5f9';
-                e.currentTarget.style.borderColor = '#94a3b8';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#f8fafc';
-                e.currentTarget.style.borderColor = '#cbd5e1';
-              }}
-            >
-              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
-          )}
-
-          <button
-            onClick={onEnter}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 18px',
-              fontSize: '13px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(11, 19, 41, 0.15)',
-            }}
-          >
-            <ClipboardList size={16} /> Wprowadź wynik <ChevronRight size={15} />
-          </button>
-        </div>
-      </div>
-
-      {/* WYBÓR KATEGORII */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Kategoria:
-          </span>
-
+      {/* PASEK KONTROLNY: KATEGORIA + ODŚWIEŻANIE + WPROWADŹ WYNIK */}
+      <div className="leaderboard-top-controls">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
           <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button
               type="button"
@@ -326,15 +272,16 @@ export function Leaderboard({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '6px',
                 background: '#ffffff',
-                border: '1px solid #94a3b8',
+                border: '1px solid #cbd5e1',
                 borderRadius: '8px',
-                padding: '7px 14px',
-                fontSize: '13px',
+                padding: '7px 12px',
+                fontSize: '12.5px',
                 fontWeight: 800,
                 color: '#0f172a',
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
               }}
             >
               <span>{CATEGORY_NAMES_PL[filter]}</span>
@@ -359,7 +306,7 @@ export function Leaderboard({
                   gap: '2px',
                 }}
               >
-                {(['Wszystkie', ...CATEGORIES] as (Category | 'Wszystkie')[]).map((cat) => (
+                {((['Wszystkie', ...CATEGORIES]) as (Category | 'Wszystkie')[]).map((cat) => (
                   <button
                     key={cat}
                     type="button"
@@ -373,7 +320,7 @@ export function Leaderboard({
                       border: 'none',
                       background: filter === cat ? '#eff6ff' : 'transparent',
                       color: filter === cat ? '#1b88cc' : '#334155',
-                      fontSize: '13px',
+                      fontSize: '12.5px',
                       fontWeight: filter === cat ? 800 : 600,
                       cursor: 'pointer',
                       textAlign: 'left',
@@ -388,43 +335,88 @@ export function Leaderboard({
           </div>
         </div>
 
-        <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
-          Zawodników: <b>{sorted.length}</b>
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={async () => {
+                setIsRefreshing(true);
+                await onRefresh();
+                setTimeout(() => setIsRefreshing(false), 400);
+              }}
+              title="Odśwież wyniki"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                color: '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          )}
+
+          <button
+            onClick={onEnter}
+            className="btn-enter-score"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              fontSize: '12.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 6px rgba(11, 19, 41, 0.12)',
+            }}
+          >
+            <ClipboardList size={15} />
+            <span className="btn-enter-text">Wprowadź wynik</span>
+            <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
 
       {/* TABELA LIVE */}
       <div className="leaderboard-table-wrap">
         <table className="leaderboard-main-table">
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-              <th className="col-pos" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>POS</th>
-              <th className="desktop-only-col col-delta" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>+/-</th>
-              <th className="col-nat" style={{ padding: '12px 2px', borderRight: '1px solid #e2e8f0' }}>
+            <tr>
+              <th className="col-pos" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>POS</th>
+              <th className="desktop-only-col col-delta" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>+/-</th>
+              <th className="col-nat" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>
                 <span className="header-country-desktop">KRAJ</span>
                 <span className="header-country-mobile">NAT</span>
               </th>
-              <th className="col-player" style={{ padding: '12px 10px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-              <th className="col-sum" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="col-player" style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+              <th className="col-sum" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>
                 <span className="header-tot-desktop">SUMA</span>
                 <span className="header-tot-mobile">TOT</span>
               </th>
-              <th className="col-holes" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+              <th className="col-holes" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
               
-              {/* NA TELEFONIE: R1 LUB R2 */}
-              <th className="mobile-only-col col-r-mob" style={{ padding: '12px 4px', borderRight: '1px solid #e2e8f0' }}>
+              <th className="mobile-only-col col-r-mob" style={{ padding: '10px 2px', borderRight: '1px solid #e2e8f0' }}>
                 {store.round2Started ? 'R2' : 'R1'}
               </th>
 
-              {/* NA LAPTOPIE: PEŁNY ZESTAW */}
-              <th className="desktop-only-col col-r1" style={{ padding: '12px 6px', borderRight: '1px solid #e2e8f0' }}>R1</th>
+              <th className="desktop-only-col col-r1" style={{ padding: '10px 6px', borderRight: '1px solid #e2e8f0' }}>R1</th>
               {store.round2Started && (
-                <th className="desktop-only-col col-r2" style={{ padding: '12px 6px', borderRight: '1px solid #e2e8f0' }}>R2</th>
+                <th className="desktop-only-col col-r2" style={{ padding: '10px 6px', borderRight: '1px solid #e2e8f0' }}>R2</th>
               )}
-              <th className="desktop-only-col col-strokes" style={{ padding: '12px 8px', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+              <th className="desktop-only-col col-strokes" style={{ padding: '10px 8px', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
               
-              {/* STRZAŁKA TYLKO DESKTOP */}
-              <th className="desktop-only-col col-arrow" style={{ padding: '12px 2px' }}></th>
+              <th className="desktop-only-col col-arrow" style={{ padding: '10px 2px' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -463,23 +455,23 @@ export function Leaderboard({
                   onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                 >
                   {/* POZYCJA */}
-                  <td className="col-pos" style={{ padding: '8px 2px', fontWeight: 800, fontSize: '13px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="col-pos" style={{ padding: '8px 2px', fontWeight: 800, fontSize: '12px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     {display}
                   </td>
 
                   {/* +/- DESKTOP */}
-                  <td className="desktop-only-col col-delta" style={{ padding: '10px 4px', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col col-delta" style={{ padding: '8px 4px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {delta.type === 'up' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#16a34a', fontWeight: 800, fontSize: '12px' }}>
-                          <span style={{ fontSize: '10px' }}>▲</span> {delta.diff}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#16a34a', fontWeight: 800, fontSize: '11px' }}>
+                          <span style={{ fontSize: '9px' }}>▲</span> {delta.diff}
                         </span>
                       ) : delta.type === 'down' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#dc2626', fontWeight: 800, fontSize: '12px' }}>
-                          <span style={{ fontSize: '10px' }}>▼</span> {delta.diff}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#dc2626', fontWeight: 800, fontSize: '11px' }}>
+                          <span style={{ fontSize: '9px' }}>▼</span> {delta.diff}
                         </span>
                       ) : (
-                        <span style={{ color: '#94a3b8', fontWeight: 700, fontSize: '14px', lineHeight: 1 }}>
+                        <span style={{ color: '#94a3b8', fontWeight: 700, fontSize: '13px', lineHeight: 1 }}>
                           -
                         </span>
                       )}
@@ -497,36 +489,37 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* ZAWODNIK */}
+                  {/* ZAWODNIK + POWIĘKSZONE ZDJĘCIE */}
                   <td className="col-player" style={{ padding: '6px 8px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {player.avatar ? (
                         <img
                           src={player.avatar}
                           alt={player.name}
                           style={{
-                            width: '24px',
-                            height: '24px',
+                            width: '30px',
+                            height: '30px',
                             borderRadius: '50%',
                             objectFit: 'cover',
-                            border: '1px solid #cbd5e1',
+                            border: '1.5px solid #cbd5e1',
                             flexShrink: 0,
                           }}
                         />
                       ) : (
                         <span
                           style={{
-                            width: '24px',
-                            height: '24px',
+                            width: '30px',
+                            height: '30px',
                             borderRadius: '50%',
                             background: '#e2e8f0',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '9px',
+                            fontSize: '10px',
                             fontWeight: 800,
                             color: '#475569',
                             flexShrink: 0,
+                            border: '1px solid #cbd5e1',
                           }}
                         >
                           {initialsLocal(player.name)}
@@ -534,7 +527,7 @@ export function Leaderboard({
                       )}
 
                       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexWrap: 'nowrap', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap', overflow: 'hidden' }}>
                           <span className="player-name-desktop">
                             {player.name}
                           </span>
@@ -556,7 +549,6 @@ export function Leaderboard({
                           )}
                         </div>
 
-                        {/* NAZWA KLUBU NA TELEFONIE (BEZ KATEGORII) */}
                         <span className="player-subline-mobile">
                           {player.club || 'Bez klubu'}
                         </span>
@@ -564,7 +556,7 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* SUMA (DESKTOP) / TOT (MOBILE) */}
+                  {/* SUMA / TOT */}
                   <td className="col-sum" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {total < 0 ? (
@@ -575,9 +567,9 @@ export function Leaderboard({
                             justifyContent: 'center',
                             background: '#fee2e2',
                             color: '#dc2626',
-                            fontWeight: 800,
-                            fontSize: '13px',
-                            borderRadius: '6px',
+                            fontWeight: 900,
+                            fontSize: '12.5px',
+                            borderRadius: '5px',
                             padding: '3px 6px',
                             minWidth: '32px',
                             lineHeight: 1.1,
@@ -593,28 +585,28 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* DOŁKI - 13PX, NIEPOGRUBIONE */}
+                  {/* DOŁKI (THRU) */}
                   <td className="col-holes" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 500, fontSize: '13px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 600, fontSize: '12.5px' }}>
                       {thru}
                     </div>
                   </td>
 
-                  {/* RUNDA MOBILE (R1 LUB R2) - 13PX, NIEPOGRUBIONE */}
+                  {/* RUNDA MOBILE */}
                   <td className="mobile-only-col col-r-mob" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {(() => {
                         const activeRRel = store.round2Started ? r2Rel : r1Rel;
                         const activeStrokes = store.round2Started ? totalStrokes(player.scores[2] || []) : totalStrokes(player.scores[1] || []);
-                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500 }}>–</span>;
-                        if (activeRRel === 0) return <span style={{ color: '#475569', fontSize: '13px', fontWeight: 500 }}>E</span>;
-                        return <span style={{ color: '#475569', fontSize: '13px', fontWeight: 500 }}>{relativeLabel(activeRRel)}</span>;
+                        if (activeStrokes === 0) return <span style={{ color: '#cbd5e1', fontSize: '12.5px', fontWeight: 500 }}>–</span>;
+                        if (activeRRel === 0) return <span style={{ color: '#475569', fontSize: '12.5px', fontWeight: 600 }}>E</span>;
+                        return <span style={{ color: '#475569', fontSize: '12.5px', fontWeight: 600 }}>{relativeLabel(activeRRel)}</span>;
                       })()}
                     </div>
                   </td>
 
                   {/* RUNDA 1 DESKTOP */}
-                  <td className="desktop-only-col col-r1" style={{ padding: '10px 6px', color: '#475569', fontWeight: 500, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col col-r1" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {totalStrokes(player.scores[1] || []) > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
                     </div>
@@ -622,7 +614,7 @@ export function Leaderboard({
 
                   {/* RUNDA 2 DESKTOP */}
                   {store.round2Started && (
-                    <td className="desktop-only-col col-r2" style={{ padding: '10px 6px', color: '#475569', fontWeight: 500, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
+                    <td className="desktop-only-col col-r2" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {totalStrokes(player.scores[2] || []) > 0 ? (r2Rel === 0 ? 'E' : relativeLabel(r2Rel)) : '–'}
                       </div>
@@ -630,14 +622,14 @@ export function Leaderboard({
                   )}
 
                   {/* UDERZENIA DESKTOP */}
-                  <td className="desktop-only-col col-strokes" style={{ padding: '10px 8px', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                  <td className="desktop-only-col col-strokes" style={{ padding: '8px 8px', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {strokes || '–'}
                     </div>
                   </td>
 
                   {/* STRZAŁKA */}
-                  <td className="desktop-only-col col-arrow" style={{ padding: '10px 2px', color: '#94a3b8' }}>
+                  <td className="desktop-only-col col-arrow" style={{ padding: '8px 2px', color: '#94a3b8' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <ChevronRight size={15} />
                     </div>
