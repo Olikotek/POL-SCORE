@@ -1,6 +1,6 @@
 // src/App.tsx
 import { useState } from 'react';
-import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, CreditCard as Edit, Clock } from 'lucide-react';
+import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, Clock } from 'lucide-react';
 import type { Flight, View, Tournament } from '@/types';
 import { useStore } from '@/useStore';
 import { combinedRelative } from '@/scoring';
@@ -17,7 +17,7 @@ import { RegisterModal } from '@/components/RegisterModal';
 import { AuthModal } from '@/components/AuthModal';
 
 function App() {
-  const { store, tournaments, activeTournament, setActiveTournamentId, leaguePoints, registrations, logoUrl, currentUser, userProfile, loading, error, refresh } = useStore();
+  const { store, tournaments, activeTournament, setActiveTournamentId, leaguePoints, registrations, currentUser, userProfile, loading, error, refresh } = useStore();
   const [view, setView] = useState<View | 'standings' | 'archive' | 'tournaments' | 'teetimes'>('wyniki');
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -92,24 +92,109 @@ function App() {
 
   return (
     <div className="app-shell">
+      <style>{`
+        .topbar {
+          background: #0b1329;
+          border-bottom: 1px solid #1e293b;
+          width: 100%;
+        }
+        .topbar-utility {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 16px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .topbar-nav-bar {
+          width: 100%;
+          padding: 6px 12px;
+          box-sizing: border-box;
+        }
+        .desktop-nav {
+          display: grid !important;
+          grid-template-columns: repeat(5, 1fr) !important;
+          gap: 6px !important;
+          width: 100% !important;
+          margin: 0 !important;
+        }
+        .nav-button {
+          width: 100% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 6px !important;
+          padding: 8px 4px !important;
+          border-radius: 8px !important;
+          border: 1px solid transparent !important;
+          background: #131d38 !important;
+          color: #94a3b8 !important;
+          font-size: 12px !important;
+          font-weight: 800 !important;
+          cursor: pointer !important;
+          white-space: nowrap !important;
+          transition: all 0.15s ease !important;
+        }
+        .nav-button:hover {
+          color: #ffffff !important;
+          background: #1e293b !important;
+        }
+        .nav-button.active {
+          background: #0284c7 !important;
+          color: #ffffff !important;
+          border-color: #38bdf8 !important;
+          box-shadow: 0 2px 6px rgba(2, 132, 199, 0.4) !important;
+        }
+
+        @media (max-width: 640px) {
+          .topbar-utility {
+            padding: 6px 10px !important;
+          }
+          .topbar-nav-bar {
+            padding: 4px 6px !important;
+          }
+          .desktop-nav {
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 3px !important;
+          }
+          .nav-button {
+            padding: 6px 2px !important;
+            font-size: 9.5px !important;
+            border-radius: 6px !important;
+            letter-spacing: -0.02em !important;
+          }
+          .nav-button svg {
+            display: none !important;
+          }
+        }
+      `}</style>
+
       <header className="topbar">
         {/* GÓRNY PASEK UTILITY */}
         <div className="topbar-utility">
-          <button className="brand" onClick={handleGoToLeaderboard}>
-            <span className="brand-mark">
-              {logoUrl ? (
-                <img src={logoUrl} alt="PFFG" />
-              ) : (
-                <Flag size={17} fill="currentColor" />
-              )}
-            </span>
-            <span style={{ textAlign: 'left' }}>
-              <b>PFFG</b>
-              <small>{store.tournamentName.toUpperCase()}</small>
+          <button className="brand" onClick={handleGoToLeaderboard} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+            <img
+              src="/pffg-logo.jpg"
+              alt="PFFG Logo"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                objectFit: 'contain',
+                background: '#ffffff',
+                border: '1px solid rgba(255,255,255,0.15)',
+                padding: '2px',
+                display: 'block',
+              }}
+            />
+            <span style={{ textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
+              <b style={{ color: '#ffffff', fontSize: '15px', fontWeight: 900, lineHeight: 1.1, letterSpacing: '0.04em' }}>PFFG</b>
+              <small style={{ color: '#38bdf8', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {store.tournamentName.toUpperCase()}
+              </small>
             </span>
           </button>
 
-          <div className="top-actions">
+          <div className="top-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {currentUser ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <button
@@ -186,13 +271,24 @@ function App() {
               className="icon-button"
               onClick={openAdmin}
               title="Panel administratora"
+              style={{
+                background: '#1e293b',
+                border: '1px solid #334155',
+                color: '#94a3b8',
+                borderRadius: '6px',
+                padding: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
               <LockKeyhole size={14} />
             </button>
           </div>
         </div>
 
-        {/* POZIOMO PRZEWIJANY PASEK ZAKŁADEK */}
+        {/* POZIOMY PASEK ZAKŁADEK - RÓWNO ROZŁOŻONY NA CAŁĄ SZEROKOŚĆ */}
         <div className="topbar-nav-bar">
           <nav className="desktop-nav">
             <Nav
@@ -354,7 +450,7 @@ function Nav({
   return (
     <button className={`nav-button ${active ? 'active' : ''}`} onClick={onClick}>
       {icon}
-      {label}
+      <span>{label}</span>
     </button>
   );
 }
