@@ -1,8 +1,8 @@
 // src/lib/imageCompressor.ts
 
 /**
- * Kompresuje zdjęcie zachowując wysoką ostrość na ekranach Retina (iPhone/Android).
- * Wynikowa waga: ok. 35 - 70 KB (zamiast 4 MB).
+ * Kompresuje zdjęcie z zachowaniem wysokiej ostrości dla ekranów Retina (iPhone/Android).
+ * Wynikowa waga: ok. 35 - 65 KB (zamiast 4 MB).
  */
 export function compressImage(
   file: File,
@@ -22,7 +22,6 @@ export function compressImage(
         const canvas = document.createElement('canvas');
         let { width, height } = img;
 
-        // Kadrowanie i skalowanie z zachowaniem proporcji
         if (width > height) {
           if (width > maxWidth) {
             height = Math.round((height * maxWidth) / width);
@@ -44,13 +43,13 @@ export function compressImage(
           return;
         }
 
-        // Wygładzanie dwuliniowe dla maksymalnej ostrości krawędzi
+        // Algorytm wyostrzania krawędzi przy skalowaniu
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // WebP jeśli przeglądarka wspiera, fallback na JPEG
+        // WebP dla zachowania ostrości przy niskiej wadze, fallback na JPEG
         let compressedBase64 = canvas.toDataURL('image/webp', quality);
         if (!compressedBase64.startsWith('data:image/webp')) {
           compressedBase64 = canvas.toDataURL('image/jpeg', quality);
