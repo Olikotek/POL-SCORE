@@ -98,13 +98,26 @@ export function Archive({
     if (!selectedTournament) return;
 
     let isMounted = true;
+    const tournId = selectedTournament.id;
+    const CACHE_KEY = `pffg_archive_t_${tournId}`;
+
+    // Sprawdzenie pamięci podręcznej (turniej zakończony = dane niezmienne)
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setArchivedPlayers(parsed);
+        setLoadingArchive(false);
+        return;
+      } catch (e) {
+        console.error('Błąd odczytu archiwum z cache:', e);
+      }
+    }
+
     setLoadingArchive(true);
 
     async function fetchArchivedData() {
       try {
-        const tournId = selectedTournament.id;
-
-        // 1. Pobieramy WSZYSTKIE dołki turnieju partiami po 1000 w pętli stronicowania
         let allScores: any[] = [];
         let from = 0;
         const step = 1000;
@@ -131,7 +144,6 @@ export function Archive({
           }
         }
 
-        // 2. Pobieramy zawodników i punkty
         const [playersRes, leaguePointsRes] = await Promise.all([
           supabase.from('players').select('*').order('name').limit(3000),
           supabase.from('league_points').select('*').eq('tournament_id', tournId),
@@ -143,7 +155,6 @@ export function Archive({
         const playersData = playersRes.data || [];
         const lpData = leaguePointsRes.data || [];
 
-        // 3. Mapowanie graczy
         const playersBase = playersData.map((p: any) => {
           const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
@@ -179,12 +190,12 @@ export function Archive({
           };
         });
 
-        // 4. Pokazujemy tylko zawodników mających wyniki w tym turnieju
         const participants = playersBase.filter((p) =>
           p.scores[1].some((s) => s > 0) || p.scores[2].some((s) => s > 0)
         );
 
         setArchivedPlayers(participants);
+        localStorage.setItem(CACHE_KEY, JSON.stringify(participants));
       } catch (err) {
         console.error('Błąd wczytywania archiwum:', err);
       } finally {
@@ -444,11 +455,18 @@ export function Archive({
                       {/* FLAGA */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {p.flagImage ? (
-                            <img src={p.flagImage} alt={p.flag} style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
-                          ) : (
-                            <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 3px', fontSize: '13px', lineHeight: 1, display: 'inline-block' }}>{flagEmoji(p.flag)}</span>
-                          )}
+                          <img
+                            src={p.flagImage || flagEmoji(p.flag || 'PL')}
+                            alt={p.flag || 'PL'}
+                            style={{
+                              width: '22px',
+                              height: '15px',
+                              objectFit: 'cover',
+                              borderRadius: '2px',
+                              border: '1px solid #cbd5e1',
+                              display: 'block',
+                            }}
+                          />
                         </div>
                       </td>
 

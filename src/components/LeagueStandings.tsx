@@ -64,7 +64,32 @@ export function LeagueStandings({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadFullData = async () => {
+  const loadFullData = async (forceRefresh = false) => {
+    const CACHE_KEY = 'pffg_league_cache_full';
+    const CACHE_TIME_KEY = 'pffg_league_cache_time';
+    const TTL = 1000 * 60 * 60 * 12; // 12 godzin pamięci podręcznej
+
+    if (!forceRefresh) {
+      const cached = localStorage.getItem(CACHE_KEY);
+      const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+      if (cached && cachedTime && Date.now() - Number(cachedTime) < TTL) {
+        try {
+          const parsed = JSON.parse(cached);
+          setDbScores(parsed.scores || []);
+          setDbPlayers(parsed.players || []);
+          setDbLeaguePoints(parsed.leaguePoints || []);
+          setClubLogos(parsed.clubs || {});
+          if (parsed.tournaments && parsed.tournaments.length > 0) {
+            setDbTournaments(parsed.tournaments);
+          }
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.error('Błąd odczytu pamięci cache:', e);
+        }
+      }
+    }
+
     setLoading(true);
     try {
       let allScores: any[] = [];
@@ -88,26 +113,37 @@ export function LeagueStandings({
         fetchClubs(),
       ]);
 
+      const formattedTournaments = tournamentsRes.data ? tournamentsRes.data.map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        courseName: t.course_name,
+        date: t.date,
+        isLeague: t.is_league,
+        isPolishOpen: t.is_polish_open,
+        status: t.status,
+        round1CourseId: t.round1_course_id,
+        round2CourseId: t.round2_course_id,
+        round1Approved: t.round1_approved,
+        round2Started: t.round2_started,
+      })) : [];
+
       setDbScores(allScores);
       setDbPlayers(playersRes.data || []);
       setDbLeaguePoints(leaguePointsRes.data || []);
       setClubLogos(clubsMap);
 
       if (tournamentsRes.data) {
-        setDbTournaments(tournamentsRes.data.map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          courseName: t.course_name,
-          date: t.date,
-          isLeague: t.is_league,
-          isPolishOpen: t.is_polish_open,
-          status: t.status,
-          round1CourseId: t.round1_course_id,
-          round2CourseId: t.round2_course_id,
-          round1Approved: t.round1_approved,
-          round2Started: t.round2_started,
-        })));
+        setDbTournaments(formattedTournaments);
       }
+
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        scores: allScores,
+        players: playersRes.data || [],
+        leaguePoints: leaguePointsRes.data || [],
+        clubs: clubsMap,
+        tournaments: formattedTournaments,
+      }));
+      localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
     } catch (err) {
       console.error('Błąd pobierania danych ligowych:', err);
     } finally {
@@ -116,7 +152,7 @@ export function LeagueStandings({
   };
 
   useEffect(() => {
-    loadFullData();
+    loadFullData(false);
   }, []);
 
   const leagueTournaments = useMemo(() => {
@@ -131,7 +167,7 @@ export function LeagueStandings({
 
   const isGeneralView = categoryFilter === 'Wszystkie';
 
-  // --- KLASYFIKACJA INDYWIDUALNA (DZIEDZICZY KOLEJNOŚĆ Z ABSOLUTE) ---
+  // --- KLASYFIKACJA INDYWIDUALNA ---
   const standings = useMemo(() => {
     if (dbPlayers.length === 0 || leagueTournaments.length === 0) return [];
 
@@ -227,7 +263,6 @@ export function LeagueStandings({
         }
       });
 
-      // 1. ZAWSZE NAJPIERW USTALAMY GŁÓWNĄ KOLEJNOŚĆ ABSOLUTE DLA TEGO TURNIEJU
       allTournamentParticipants.sort((a, b) => {
         if (a.savedRank !== undefined && b.savedRank !== undefined) {
           return a.savedRank - b.savedRank;
@@ -245,13 +280,12 @@ export function LeagueStandings({
         );
       });
 
-      // 2. FILTRUJEMY GRACZY DO DANEJ KATEGORII Z ZACHOWANIEM DOKŁADNIE TEJ SAMEJ KOLEJNOŚCI Z ABSOLUTA
       const categoryParticipants = isGeneralView
         ? allTournamentParticipants
         : allTournamentParticipants.filter((p) => p.category === categoryFilter);
 
       categoryParticipants.forEach((part, idx) => {
-        const categoryRank = idx + 1; // 1. w kategorii, 2. w kategorii itd.
+        const categoryRank = idx + 1;
         const pts = getBasePointsForPosition(categoryRank);
         const pData = playerMap[String(part.id)];
 
@@ -274,7 +308,6 @@ export function LeagueStandings({
       });
     });
 
-    // Dopasowanie 37 pkt (m.13) w Polish Open dla Wiktora Sokołowskiego w widoku Absolut
     const poTournament = leagueTournaments.find((t) => t.isPolishOpen);
     if (poTournament && isGeneralView) {
       const poIdStr = String(poTournament.id);
@@ -439,7 +472,6 @@ export function LeagueStandings({
           }
         });
 
-        // W drużynówce dziedziczymy oficjalną pozycję z Absoluta
         catParticipants.sort((a, b) => {
           if (a.savedRank !== undefined && b.savedRank !== undefined) {
             return a.savedRank - b.savedRank;
@@ -577,7 +609,7 @@ export function LeagueStandings({
           type="button"
           onClick={async () => {
             setIsRefreshing(true);
-            await loadFullData();
+            await loadFullData(true);
             setTimeout(() => setIsRefreshing(false), 400);
           }}
           title="Odśwież ranking z bazy"
@@ -832,24 +864,18 @@ export function LeagueStandings({
 
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                        {p.flag_image || p.flagImage ? (
-                          <img
-                            src={p.flag_image || p.flagImage}
-                            alt={p.flag}
-                            style={{
-                              width: '22px',
-                              height: '15px',
-                              objectFit: 'cover',
-                              borderRadius: '2px',
-                              border: '1px solid #cbd5e1',
-                              display: 'block',
-                            }}
-                          />
-                        ) : (
-                          <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 3px', fontSize: '14px', lineHeight: 1, display: 'inline-block' }}>
-                            {flagEmoji(p.flag || 'PL')}
-                          </span>
-                        )}
+                        <img
+                          src={p.flag_image || p.flagImage || flagEmoji(p.flag || 'PL')}
+                          alt={p.flag || 'PL'}
+                          style={{
+                            width: '22px',
+                            height: '15px',
+                            objectFit: 'cover',
+                            borderRadius: '2px',
+                            border: '1px solid #cbd5e1',
+                            display: 'block',
+                          }}
+                        />
                       </div>
                     </td>
 
@@ -1010,9 +1036,8 @@ export function LeagueStandings({
                 const isExpanded = !!expandedClubs[club.clubName];
 
                 return (
-                  <>
+                  <tr key={club.clubName} style={{ display: 'contents' }}>
                     <tr
-                      key={club.clubName}
                       onClick={() => toggleClubExpanded(club.clubName)}
                       style={{
                         background: isEven ? '#ffffff' : '#f8fafc',
@@ -1249,7 +1274,7 @@ export function LeagueStandings({
                         </td>
                       </tr>
                     )}
-                  </>
+                  </tr>
                 );
               })}
             </tbody>
