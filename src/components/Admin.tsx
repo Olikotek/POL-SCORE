@@ -23,7 +23,6 @@ import {
   Power,
   Trophy,
   Calendar,
-  Shield,
   Search,
   Award,
   GripVertical,
@@ -59,8 +58,6 @@ import {
   updateFlight,
   updatePlayer,
   updateTournament,
-  saveClubLogo,
-  fetchClubs,
 } from '@/actions';
 
 type FlashFn = (m: string) => void;
@@ -127,7 +124,7 @@ export function Admin({
   onSelectTournament: (id: string) => void;
   onLock: () => void;
 }) {
-  const [tab, setTab] = useState<'turnieje' | 'ustawienia' | 'pole' | 'zawodnicy' | 'kluby' | 'flighty' | 'rundy' | 'wyniki'>('turnieje');
+  const [tab, setTab] = useState<'turnieje' | 'ustawienia' | 'pole' | 'zawodnicy' | 'flighty' | 'rundy' | 'wyniki'>('turnieje');
   const [notice, setNotice] = useState('');
   const noticeTimer = useRef<number | null>(null);
 
@@ -164,7 +161,6 @@ export function Admin({
     ['ustawienia', 'Ustawienia', <ShieldCheck size={15} key="f" />],
     ['pole', 'Pole', <BarChart3 size={15} key="a" />],
     ['zawodnicy', 'Zawodnicy', <Users size={15} key="b" />],
-    ['kluby', 'Logotypy Klubów', <Shield size={15} key="club" />],
     ['flighty', 'Flighty & Tee Times', <Flag size={15} key="c" />],
     ['rundy', 'Rundy', <Layers size={15} key="e" />],
     ['wyniki', 'Korekta wyników', <Edit3 size={15} key="d" />],
@@ -179,7 +175,7 @@ export function Admin({
           </p>
           <h1>Panel administratora</h1>
           <p className="intro-copy">
-            Zarządzaj turniejami, polem, bazą uczestników, klubami, flightami i wynikami.
+            Zarządzaj turniejami, polem, bazą uczestników, flightami i wynikami.
           </p>
         </div>
         <button className="secondary-button" onClick={onLock}>
@@ -233,7 +229,6 @@ export function Admin({
           flash={flash}
         />
       )}
-      {tab === 'kluby' && <ClubManager store={localStore} flash={flash} />}
       {tab === 'flighty' && (
         <FlightManager
           store={localStore}
@@ -259,114 +254,6 @@ export function Admin({
         />
       )}
     </section>
-  );
-}
-
-function ClubManager({ store, flash }: { store: Store; flash: FlashFn }) {
-  const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
-  const [editingClub, setEditingClub] = useState<string | null>(null);
-  const [logoInput, setLogoInput] = useState('');
-  const clubFileInputRef = useRef<HTMLInputElement>(null);
-
-  const uniqueClubs = useMemo(() => {
-    const clubsSet = new Set<string>();
-    store.players.forEach((p) => {
-      if (p.club && p.club.trim()) clubsSet.add(p.club.trim());
-    });
-    return Array.from(clubsSet).sort();
-  }, [store.players]);
-
-  useEffect(() => {
-    fetchClubs().then(setClubLogos);
-  }, []);
-
-  const handleClubFile = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      const compressed = await compressImage(file, 240, 240, 0.85);
-      setLogoInput(compressed);
-    } catch {
-      flash('Błąd kompresji logo klubu.');
-    }
-  };
-
-  const handleSaveLogo = async (clubName: string) => {
-    if (!logoInput.trim()) return;
-    try {
-      await saveClubLogo(clubName, logoInput.trim());
-      setClubLogos((prev) => ({ ...prev, [clubName]: logoInput.trim() }));
-      setEditingClub(null);
-      setLogoInput('');
-      flash(`Zapisano logo dla klubu ${clubName}`);
-    } catch {
-      flash('Błąd zapisu logo klubu.');
-    }
-  };
-
-  return (
-    <div className="admin-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">
-            <span /> KLASYFIKACJA DRUŻYNOWA · BAZA KLUBÓW
-          </p>
-          <h2>Logotypy Klubów ({uniqueClubs.length})</h2>
-          <p>Wybierz logo klubu z galerii (SVG lub raster) albo wklej bezpośredni link URL.</p>
-        </div>
-        <Shield size={22} className="muted-icon" />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
-        {uniqueClubs.map((club) => {
-          const currentLogo = clubLogos[club];
-          const isEditing = editingClub === club;
-          const memberCount = store.players.filter((p) => p.club?.trim() === club).length;
-
-          return (
-            <div key={club} style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isEditing ? '12px' : '0' }}>
-                {currentLogo ? (
-                  <img src={currentLogo} alt={club} style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '2px' }} />
-                ) : (
-                  <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '14px', color: '#64748b', border: '1px solid #e2e8f0' }}>
-                    {club.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-
-                <div style={{ flex: 1 }}>
-                  <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>{club}</b>
-                  <small style={{ color: '#64748b', fontSize: '11px' }}>{memberCount} zarejestrowanych graczy</small>
-                </div>
-
-                {!isEditing && (
-                  <button className="secondary-button" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => { setEditingClub(club); setLogoInput(currentLogo || ''); }}>
-                    <Edit3 size={13} /> {currentLogo ? 'Zmień' : 'Dodaj logo'}
-                  </button>
-                )}
-              </div>
-
-              {isEditing && (
-                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <input value={logoInput} onChange={(e) => setLogoInput(e.target.value)} placeholder="Link URL do logo..." style={{ fontSize: '12px', padding: '6px 10px', flex: 1 }} />
-                    <input ref={clubFileInputRef} type="file" accept="image/*" onChange={(e) => handleClubFile(e.target.files?.[0])} style={{ display: 'none' }} />
-                    <button className="secondary-button" onClick={() => clubFileInputRef.current?.click()} title="Wybierz z galerii / dysku" style={{ padding: '6px 10px' }}>
-                      <ImageIcon size={14} />
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                    <button className="secondary-button" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => setEditingClub(null)}>Anuluj</button>
-                    <button className="primary-button" style={{ padding: '4px 12px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveLogo(club)}>
-                      <Save size={13} /> Zapisz logo
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -1436,7 +1323,11 @@ function PlayerManager({
           <div className="form-field">
             <label className="form-field-label">Kraj / Kod Flagi (np. PL, JP, US)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '20px' }}>{flagEmoji(flag)}</span>
+              <img
+                src={flagEmoji(flag)}
+                alt={flag}
+                style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'inline-block' }}
+              />
               <input
                 value={flag}
                 onChange={(e) => setFlag(e.target.value.toUpperCase())}
@@ -1563,7 +1454,12 @@ function PlayerManager({
                 )}
                 <div>
                   <b>
-                    <span className="flag-emoji">{flagEmoji(p.flag)}</span> {p.name}
+                    <img
+                      src={flagEmoji(p.flag)}
+                      alt={p.flag}
+                      style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }}
+                    />
+                    {p.name}
                     {(p.isAmateur || p.is_amateur) && <span className="am-badge">AM</span>}
                   </b>
                   <small>
@@ -2141,7 +2037,13 @@ function FlightManager({
                     </span>
                   )}
                   <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
+                    <span style={{ marginRight: '3px' }}>
+                      <img
+                        src={flagEmoji(p.flag)}
+                        alt={p.flag}
+                        style={{ width: '18px', height: '12px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'inline-block', verticalAlign: 'middle' }}
+                      />
+                    </span>
                     {p.name}
                   </b>
                 </div>
@@ -2291,7 +2193,13 @@ function FlightManager({
                             </span>
                           )}
                           <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
+                            <span style={{ marginRight: '3px' }}>
+                              <img
+                                src={flagEmoji(p.flag)}
+                                alt={p.flag}
+                                style={{ width: '16px', height: '11px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'inline-block', verticalAlign: 'middle' }}
+                              />
+                            </span>
                             {p.name}
                           </b>
                         </div>
