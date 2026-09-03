@@ -1,13 +1,12 @@
 // src/components/LeagueStandings.tsx
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { ChevronRight, RefreshCw, ChevronDown, Check, User, Shield, ChevronUp, X } from 'lucide-react';
+import { ChevronRight, RefreshCw, ChevronDown, Check, User, Shield, ChevronUp } from 'lucide-react';
 import type { Category, Store, Tournament, Player, Hole } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { initials, combinedRelative } from '@/scoring';
 import { compareCountback, getBasePointsForPosition } from '@/leagueScoring';
 import { supabase } from '@/lib/supabase';
 import { PlayerModal } from '@/components/PlayerModal';
-import { fetchClubs } from '@/actions';
 
 const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
   Wszystkie: 'Wszystkie (Absolut)',
@@ -40,13 +39,11 @@ export function LeagueStandings({
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
   const [dbTournaments, setDbTournaments] = useState<Tournament[]>(tournaments);
   const [dbLeaguePoints, setDbLeaguePoints] = useState<any[]>([]);
-  const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [expandedClubs, setExpandedClubs] = useState<Record<string, boolean>>({});
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPlayerModal, setSelectedPlayerModal] = useState<{ player: Player; rank: number } | null>(null);
-  const [lightboxClub, setLightboxClub] = useState<{ name: string; logoUrl: string } | null>(null);
 
   const handleSelectCategory = (cat: Category | 'Wszystkie') => {
     setCategoryFilter(cat);
@@ -65,9 +62,9 @@ export function LeagueStandings({
   }, []);
 
   const loadFullData = async (forceRefresh = false) => {
-    const CACHE_KEY = 'pffg_league_cache_slim_v1';
-    const CACHE_TIME_KEY = 'pffg_league_cache_time';
-    const TTL = 1000 * 60 * 60 * 12; // 12 godzin ważności cache
+    const CACHE_KEY = 'pffg_league_cache_nologo_v1';
+    const CACHE_TIME_KEY = 'pffg_league_cache_nologo_time';
+    const TTL = 1000 * 60 * 60 * 12; // 12 godzin pamięci podręcznej
 
     if (!forceRefresh) {
       const cached = localStorage.getItem(CACHE_KEY);
@@ -78,7 +75,6 @@ export function LeagueStandings({
           setDbScores(parsed.scores || []);
           setDbPlayers(parsed.players || []);
           setDbLeaguePoints(parsed.leaguePoints || []);
-          setClubLogos(parsed.clubs || {});
           if (parsed.tournaments && parsed.tournaments.length > 0) {
             setDbTournaments(parsed.tournaments);
           }
@@ -106,7 +102,7 @@ export function LeagueStandings({
         from += step;
       }
 
-      const [playersRes, tournamentsRes, leaguePointsRes, clubsMap] = await Promise.all([
+      const [playersRes, tournamentsRes, leaguePointsRes] = await Promise.all([
         supabase
           .from('players')
           .select('id, name, category, club, flag, flag_image, is_amateur, is_active, city, ball_model, birth_date')
@@ -114,7 +110,6 @@ export function LeagueStandings({
           .range(0, 5000),
         supabase.from('tournaments').select('*').order('date', { ascending: true }),
         supabase.from('league_points').select('player_id, tournament_id, rank, points, category').range(0, 10000),
-        fetchClubs(),
       ]);
 
       const formattedTournaments = tournamentsRes.data ? tournamentsRes.data.map((t: any) => ({
@@ -137,7 +132,6 @@ export function LeagueStandings({
       setDbScores(allScores);
       setDbPlayers(rawPlayers);
       setDbLeaguePoints(rawPoints);
-      setClubLogos(clubsMap);
 
       if (tournamentsRes.data) {
         setDbTournaments(formattedTournaments);
@@ -148,7 +142,6 @@ export function LeagueStandings({
           scores: allScores,
           players: rawPlayers,
           leaguePoints: rawPoints,
-          clubs: clubsMap,
           tournaments: formattedTournaments,
         }));
         localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
@@ -383,7 +376,6 @@ export function LeagueStandings({
 
     const clubScoresMap: Record<string, {
       clubName: string;
-      logoUrl?: string;
       tournamentPoints: Record<string, {
         totalPoints: number;
         groupedMembers: Record<string, {
@@ -398,7 +390,6 @@ export function LeagueStandings({
     clubsSet.forEach((clubName) => {
       clubScoresMap[clubName] = {
         clubName,
-        logoUrl: clubLogos[clubName] || localStorage.getItem(`pffg_club_logo_${clubName}`) || undefined,
         tournamentPoints: {},
         finalTotalPoints: 0,
       };
@@ -561,7 +552,7 @@ export function LeagueStandings({
       .filter((c) => c.finalTotalPoints > 0)
       .sort((a, b) => b.finalTotalPoints - a.finalTotalPoints)
       .map((c, idx) => ({ ...c, rank: idx + 1 }));
-  }, [dbPlayers, dbScores, dbLeaguePoints, teamEligibleTournaments, clubLogos, store]);
+  }, [dbPlayers, dbScores, dbLeaguePoints, teamEligibleTournaments, store]);
 
   const toggleClubExpanded = (clubName: string) => {
     setExpandedClubs((prev) => ({ ...prev, [clubName]: !prev[clubName] }));
@@ -1011,7 +1002,6 @@ export function LeagueStandings({
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 <th style={{ padding: '12px 10px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POZ</th>
-                <th style={{ padding: '12px 10px', width: '64px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>HERB</th>
                 <th style={{ padding: '12px 14px', minWidth: '220px', borderRight: '1px solid #e2e8f0' }}>KLUB FOOTGOLFA</th>
                 <th style={{ padding: '12px 14px', textAlign: 'center', background: '#0f172a', color: '#ffffff', borderRight: '1px solid #0f172a', minWidth: '120px' }}>
                   SUMA PUNKTÓW
@@ -1081,53 +1071,6 @@ export function LeagueStandings({
                         </div>
                       </td>
 
-                      <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {club.logoUrl ? (
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLightboxClub({ name: club.clubName, logoUrl: club.logoUrl! });
-                              }}
-                              title="Kliknij, aby powiększyć herb"
-                              style={{ position: 'relative', cursor: 'zoom-in' }}
-                            >
-                              <img
-                                src={club.logoUrl}
-                                alt={club.clubName}
-                                style={{
-                                  width: '36px',
-                                  height: '36px',
-                                  borderRadius: '6px',
-                                  objectFit: 'contain',
-                                  background: '#f8fafc',
-                                  border: '1px solid #e2e8f0',
-                                  padding: '2px',
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <span
-                              style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '6px',
-                                background: '#f1f5f9',
-                                border: '1px solid #cbd5e1',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '11px',
-                                fontWeight: 900,
-                                color: '#475569',
-                              }}
-                            >
-                              {club.clubName.slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
                       <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
@@ -1174,7 +1117,7 @@ export function LeagueStandings({
 
                     {isExpanded && (
                       <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                        <td colSpan={teamEligibleTournaments.length + 5} style={{ padding: '16px 20px' }}>
+                        <td colSpan={teamEligibleTournaments.length + 4} style={{ padding: '16px 20px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                               <p style={{ margin: 0, fontSize: '12px', fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1322,75 +1265,6 @@ export function LeagueStandings({
           initialTab="tournaments"
           onClose={() => setSelectedPlayerModal(null)}
         />
-      )}
-
-      {/* LIGHTBOX HERBU */}
-      {lightboxClub && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            backdropFilter: 'blur(5px)',
-          }}
-          onClick={() => setLightboxClub(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'relative',
-              background: '#ffffff',
-              borderRadius: '16px',
-              padding: '24px',
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            }}
-          >
-            <button
-              onClick={() => setLightboxClub(null)}
-              style={{
-                position: 'absolute',
-                top: '-14px',
-                right: '-14px',
-                background: '#ef4444',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '50%',
-                width: '36px',
-                height: '36px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-              }}
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={lightboxClub.logoUrl}
-              alt={lightboxClub.name}
-              style={{
-                maxWidth: '320px',
-                maxHeight: '320px',
-                objectFit: 'contain',
-                marginBottom: '14px',
-              }}
-            />
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#0f172a', textAlign: 'center' }}>
-              {lightboxClub.name}
-            </h3>
-          </div>
-        </div>
       )}
     </section>
   );
