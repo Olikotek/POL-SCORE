@@ -1,8 +1,8 @@
 // src/lib/imageCompressor.ts
 
 /**
- * Kompresuje zdjęcie z zachowaniem wysokiej ostrości dla ekranów Retina (iPhone/Android).
- * Wynikowa waga: ok. 35 - 65 KB (zamiast 4 MB).
+ * Kompresuje zdjęcia (JPG/PNG/HEIC) do WebP/JPEG 320px.
+ * Jeśli plik to SVG (wektor) - przepuszcza go bez kompresji, zachowując 100% ostrości.
  */
 export function compressImage(
   file: File,
@@ -15,8 +15,16 @@ export function compressImage(
     reader.readAsDataURL(file);
 
     reader.onload = (event) => {
+      const result = event.target?.result as string;
+
+      // Jeśli wgrano wektor SVG, zostawiamy go nienaruszonego
+      if (file.type === 'image/svg+xml' || result.startsWith('data:image/svg+xml')) {
+        resolve(result);
+        return;
+      }
+
       const img = new Image();
-      img.src = event.target?.result as string;
+      img.src = result;
 
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -43,13 +51,11 @@ export function compressImage(
           return;
         }
 
-        // Algorytm wyostrzania krawędzi przy skalowaniu
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // WebP dla zachowania ostrości przy niskiej wadze, fallback na JPEG
         let compressedBase64 = canvas.toDataURL('image/webp', quality);
         if (!compressedBase64.startsWith('data:image/webp')) {
           compressedBase64 = canvas.toDataURL('image/jpeg', quality);
