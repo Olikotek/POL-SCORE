@@ -552,11 +552,11 @@ export function Scorecard({
                     
                     {/* FLAGA */}
                     <span className="player-flag-badge" style={{ position: 'absolute', bottom: '-2px', right: '-2px', lineHeight: 1, zIndex: 2 }}>
-                      {player.flagImage ? (
-                        <img src={player.flagImage} alt="" style={{ width: '16px', height: '11px', borderRadius: '2px', objectFit: 'cover', border: '1.5px solid #ffffff', display: 'block' }} />
-                      ) : (
-                        <span style={{ fontSize: '12px', display: 'block' }}>{flagEmoji(player.flag)}</span>
-                      )}
+                      <img
+                        src={player.flagImage || flagEmoji(player.flag || 'PL')}
+                        alt={player.flag || 'PL'}
+                        style={{ width: '16px', height: '11px', borderRadius: '2px', objectFit: 'cover', border: '1.5px solid #ffffff', display: 'block' }}
+                      />
                     </span>
                   </div>
                   
