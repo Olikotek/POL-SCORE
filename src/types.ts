@@ -23,9 +23,8 @@ export const COUNTRIES: Country[] = [
 ];
 
 export function flagEmoji(code: string): string {
-  return code
-    .toUpperCase()
-    .replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
+  const cleanCode = (code || 'PL').toLowerCase().trim();
+  return `https://flagcdn.com/w40/${cleanCode}.png`;
 }
 
 export type Course = {
