@@ -153,7 +153,6 @@ export function Leaderboard({
     sessionStorage.setItem(storageKey, JSON.stringify(currentRanksObj));
   }, [sorted, ranks, filter, store.tournamentName]);
 
-  // Zoptymalizowane przeliczenie wierszy raz w pamięci podręcznej (likwidacja lagu)
   const preparedRows = useMemo(() => {
     const tiedCounts = new Map<number, number>();
     ranks.forEach((r) => tiedCounts.set(r, (tiedCounts.get(r) || 0) + 1));
@@ -260,7 +259,6 @@ export function Leaderboard({
         .player-subline-mobile { display: none; }
         .player-club-desktop { display: inline; font-size: 11px; font-weight: 500; color: #64748b; white-space: nowrap; margin-left: 6px; }
 
-        /* TELEFON: PEŁNE ROZCIĄGNIĘCIE DO KRAWĘDZI I ZERO ZWŁOKI PRZY KLIKANIU */
         @media (max-width: 640px) {
           .leaderboard-container {
             padding: 8px 0 !important;
@@ -554,11 +552,18 @@ export function Leaderboard({
                   {/* FLAGA / NAT */}
                   <td className="col-nat" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {player.flagImage ? (
-                        <img src={player.flagImage} alt={player.flag} style={{ width: '18px', height: '12px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }} />
-                      ) : (
-                        <span style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px', fontSize: '11px', lineHeight: 1, display: 'inline-block' }}>{flagEmoji(player.flag)}</span>
-                      )}
+                      <img
+                        src={player.flagImage || flagEmoji(player.flag || 'PL')}
+                        alt={player.flag || 'PL'}
+                        style={{
+                          width: '18px',
+                          height: '12px',
+                          objectFit: 'cover',
+                          borderRadius: '2px',
+                          border: '1px solid #cbd5e1',
+                          display: 'block',
+                        }}
+                      />
                     </div>
                   </td>
 
