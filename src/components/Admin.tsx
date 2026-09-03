@@ -28,11 +28,10 @@ import {
   Award,
   GripVertical,
   Dices,
-  Globe,
   Clock,
 } from 'lucide-react';
 import type { Category, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
-import { CATEGORIES, COUNTRIES, ROUNDS, flagEmoji } from '@/types';
+import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
 import { ADMIN_CODE } from '@/data';
 import { combinedRelative, initials, totalPar } from '@/scoring';
 import { calculateOfficialLeaguePoints, getBasePointsForPosition } from '@/leagueScoring';
@@ -56,7 +55,6 @@ import {
   setRound2Started,
   setRoundCourse,
   setTournamentName,
-  togglePlayerActive,
   updateCourseHole,
   updateFlight,
   updatePlayer,
@@ -166,7 +164,7 @@ export function Admin({
     ['ustawienia', 'Ustawienia', <ShieldCheck size={15} key="f" />],
     ['pole', 'Pole', <BarChart3 size={15} key="a" />],
     ['zawodnicy', 'Zawodnicy', <Users size={15} key="b" />],
-    ['kluby', 'Kluby & Flagi Krajów', <Shield size={15} key="club" />],
+    ['kluby', 'Logotypy Klubów', <Shield size={15} key="club" />],
     ['flighty', 'Flighty & Tee Times', <Flag size={15} key="c" />],
     ['rundy', 'Rundy', <Layers size={15} key="e" />],
     ['wyniki', 'Korekta wyników', <Edit3 size={15} key="d" />],
@@ -181,7 +179,7 @@ export function Admin({
           </p>
           <h1>Panel administratora</h1>
           <p className="intro-copy">
-            Zarządzaj turniejami, polem, bazą uczestników, klubami, flagami krajów, flightami i wynikami.
+            Zarządzaj turniejami, polem, bazą uczestników, klubami, flightami i wynikami.
           </p>
         </div>
         <button className="secondary-button" onClick={onLock}>
@@ -235,7 +233,7 @@ export function Admin({
           flash={flash}
         />
       )}
-      {tab === 'kluby' && <ClubManager store={localStore} onUpdateStore={setLocalStore} flash={flash} />}
+      {tab === 'kluby' && <ClubManager store={localStore} flash={flash} />}
       {tab === 'flighty' && (
         <FlightManager
           store={localStore}
@@ -264,16 +262,11 @@ export function Admin({
   );
 }
 
-function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateStore: React.Dispatch<React.SetStateAction<Store>>; flash: FlashFn }) {
+function ClubManager({ store, flash }: { store: Store; flash: FlashFn }) {
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [editingClub, setEditingClub] = useState<string | null>(null);
   const [logoInput, setLogoInput] = useState('');
   const clubFileInputRef = useRef<HTMLInputElement>(null);
-
-  const [countryFlags, setCountryFlags] = useState<Record<string, string>>({});
-  const [editingCountry, setEditingCountry] = useState<string | null>(null);
-  const [flagInput, setFlagInput] = useState('');
-  const countryFileInputRef = useRef<HTMLInputElement>(null);
 
   const uniqueClubs = useMemo(() => {
     const clubsSet = new Set<string>();
@@ -283,43 +276,17 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
     return Array.from(clubsSet).sort();
   }, [store.players]);
 
-  const uniqueCountries = useMemo(() => {
-    const countriesSet = new Set<string>();
-    store.players.forEach((p) => {
-      const c = p.flag ? p.flag.trim().toUpperCase() : 'PL';
-      countriesSet.add(c);
-    });
-    return Array.from(countriesSet).sort();
-  }, [store.players]);
-
   useEffect(() => {
     fetchClubs().then(setClubLogos);
-    supabase.from('country_flags').select('country_code, flag_url').then(({ data }) => {
-      if (data) {
-        const map: Record<string, string> = {};
-        data.forEach((r: any) => { map[r.country_code.toUpperCase()] = r.flag_url; });
-        setCountryFlags(map);
-      }
-    });
   }, []);
 
   const handleClubFile = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const compressed = await compressImage(file, 160, 160, 0.8);
+      const compressed = await compressImage(file, 240, 240, 0.85);
       setLogoInput(compressed);
     } catch {
-      flash('Błąd przetwarzania grafiki logo.');
-    }
-  };
-
-  const handleCountryFile = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      const compressed = await compressImage(file, 80, 50, 0.85);
-      setFlagInput(compressed);
-    } catch {
-      flash('Błąd przetwarzania grafiki flagi.');
+      flash('Błąd kompresji logo klubu.');
     }
   };
 
@@ -336,156 +303,68 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
     }
   };
 
-  const handleSaveCountryFlag = async (code: string) => {
-    if (!flagInput.trim()) return;
-    const upperCode = code.toUpperCase();
-    try {
-      await supabase.from('country_flags').upsert(
-        { country_code: upperCode, flag_url: flagInput.trim() },
-        { onConflict: 'country_code' }
-      );
-      
-      setCountryFlags((prev) => ({ ...prev, [upperCode]: flagInput.trim() }));
-      
-      onUpdateStore((prev) => ({
-        ...prev,
-        players: prev.players.map((p) =>
-          p.flag?.toUpperCase() === upperCode
-            ? { ...p, flagImage: flagInput.trim(), flag_image: flagInput.trim() as any }
-            : p
-        ),
-      }));
-
-      setEditingCountry(null);
-      setFlagInput('');
-      flash(`Zapisano flagę narodową dla kraju [${upperCode}]. Zaktualizowano wszystkich graczy.`);
-    } catch {
-      flash('Błąd zapisu flagi kraju.');
-    }
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div className="admin-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">
-              <span /> BAZA FLAG NARODOWYCH DLA KRAJÓW
-            </p>
-            <h2>Flagi Państw ({uniqueCountries.length})</h2>
-            <p>Wybierz grafikę flagi z galerii lub wklej link dla danego kraju (np. PL, CZ, DE, JP). Wszyscy zawodnicy z tym krajem otrzymają ją automatycznie.</p>
-          </div>
-          <Globe size={22} className="muted-icon" />
+    <div className="admin-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">
+            <span /> KLASYFIKACJA DRUŻYNOWA · BAZA KLUBÓW
+          </p>
+          <h2>Logotypy Klubów ({uniqueClubs.length})</h2>
+          <p>Wybierz logo klubu z galerii (SVG lub raster) albo wklej bezpośredni link URL.</p>
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '12px' }}>
-          {uniqueCountries.map((cCode) => {
-            const currentFlag = countryFlags[cCode];
-            const isEditing = editingCountry === cCode;
-            const count = store.players.filter((p) => p.flag?.toUpperCase() === cCode).length;
-
-            return (
-              <div key={cCode} style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '12px', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {currentFlag ? (
-                    <img src={currentFlag} alt={cCode} style={{ width: '36px', height: '24px', borderRadius: '3px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
-                  ) : (
-                    <span style={{ fontSize: '24px', lineHeight: 1 }}>{flagEmoji(cCode)}</span>
-                  )}
-                  <div style={{ flex: 1 }}>
-                    <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>Kraj: {cCode}</b>
-                    <small style={{ color: '#64748b', fontSize: '11px' }}>{count} zawodników w bazie</small>
-                  </div>
-                  {!isEditing && (
-                    <button className="secondary-button" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => { setEditingCountry(cCode); setFlagInput(currentFlag || ''); }}>
-                      <Edit3 size={12} /> {currentFlag ? 'Zmień' : 'Dodaj flagę'}
-                    </button>
-                  )}
-                </div>
-
-                {isEditing && (
-                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input value={flagInput} onChange={(e) => setFlagInput(e.target.value)} placeholder="Wklej link lub wybierz plik..." style={{ fontSize: '11px', padding: '4px 8px', flex: 1 }} />
-                      <input ref={countryFileInputRef} type="file" accept="image/*" onChange={(e) => handleCountryFile(e.target.files?.[0])} style={{ display: 'none' }} />
-                      <button className="secondary-button" onClick={() => countryFileInputRef.current?.click()} title="Wybierz z galerii / dysku" style={{ padding: '4px 8px' }}>
-                        <ImageIcon size={14} />
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                      <button className="secondary-button" style={{ padding: '2px 8px', fontSize: '11px' }} onClick={() => setEditingCountry(null)}>Anuluj</button>
-                      <button className="primary-button" style={{ padding: '2px 10px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveCountryFlag(cCode)}>Zapisz</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <Shield size={22} className="muted-icon" />
       </div>
 
-      <div className="admin-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">
-              <span /> KLASYFIKACJA DRUŻYNOWA · BAZA KLUBÓW
-            </p>
-            <h2>Logotypy Klubów ({uniqueClubs.length})</h2>
-            <p>Wybierz logo klubu z galerii lub wklej link URL. Logotypy klubów wyświetlają się w tabeli drużynowej.</p>
-          </div>
-          <Shield size={22} className="muted-icon" />
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+        {uniqueClubs.map((club) => {
+          const currentLogo = clubLogos[club];
+          const isEditing = editingClub === club;
+          const memberCount = store.players.filter((p) => p.club?.trim() === club).length;
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
-          {uniqueClubs.map((club) => {
-            const currentLogo = clubLogos[club];
-            const isEditing = editingClub === club;
-            const memberCount = store.players.filter((p) => p.club?.trim() === club).length;
-
-            return (
-              <div key={club} style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isEditing ? '12px' : '0' }}>
-                  {currentLogo ? (
-                    <img src={currentLogo} alt={club} style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '2px' }} />
-                  ) : (
-                    <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '14px', color: '#64748b', border: '1px solid #e2e8f0' }}>
-                      {club.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div style={{ flex: 1 }}>
-                    <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>{club}</b>
-                    <small style={{ color: '#64748b', fontSize: '11px' }}>{memberCount} zarejestrowanych graczy</small>
-                  </div>
-
-                  {!isEditing && (
-                    <button className="secondary-button" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => { setEditingClub(club); setLogoInput(currentLogo || ''); }}>
-                      <Edit3 size={13} /> {currentLogo ? 'Zmień' : 'Dodaj logo'}
-                    </button>
-                  )}
-                </div>
-
-                {isEditing && (
-                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input value={logoInput} onChange={(e) => setLogoInput(e.target.value)} placeholder="Link URL do logo..." style={{ fontSize: '12px', padding: '6px 10px', flex: 1 }} />
-                      <input ref={clubFileInputRef} type="file" accept="image/*" onChange={(e) => handleClubFile(e.target.files?.[0])} style={{ display: 'none' }} />
-                      <button className="secondary-button" onClick={() => clubFileInputRef.current?.click()} title="Wybierz z galerii / dysku" style={{ padding: '6px 10px' }}>
-                        <ImageIcon size={14} />
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                      <button className="secondary-button" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => setEditingClub(null)}>Anuluj</button>
-                      <button className="primary-button" style={{ padding: '4px 12px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveLogo(club)}>
-                        <Save size={13} /> Zapisz logo
-                      </button>
-                    </div>
+          return (
+            <div key={club} style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isEditing ? '12px' : '0' }}>
+                {currentLogo ? (
+                  <img src={currentLogo} alt={club} style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '2px' }} />
+                ) : (
+                  <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '14px', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                    {club.slice(0, 2).toUpperCase()}
                   </div>
                 )}
+
+                <div style={{ flex: 1 }}>
+                  <b style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>{club}</b>
+                  <small style={{ color: '#64748b', fontSize: '11px' }}>{memberCount} zarejestrowanych graczy</small>
+                </div>
+
+                {!isEditing && (
+                  <button className="secondary-button" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => { setEditingClub(club); setLogoInput(currentLogo || ''); }}>
+                    <Edit3 size={13} /> {currentLogo ? 'Zmień' : 'Dodaj logo'}
+                  </button>
+                )}
               </div>
-            );
-          })}
-        </div>
+
+              {isEditing && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input value={logoInput} onChange={(e) => setLogoInput(e.target.value)} placeholder="Link URL do logo..." style={{ fontSize: '12px', padding: '6px 10px', flex: 1 }} />
+                    <input ref={clubFileInputRef} type="file" accept="image/*" onChange={(e) => handleClubFile(e.target.files?.[0])} style={{ display: 'none' }} />
+                    <button className="secondary-button" onClick={() => clubFileInputRef.current?.click()} title="Wybierz z galerii / dysku" style={{ padding: '6px 10px' }}>
+                      <ImageIcon size={14} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                    <button className="secondary-button" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => setEditingClub(null)}>Anuluj</button>
+                    <button className="primary-button" style={{ padding: '4px 12px', fontSize: '11px', background: '#0284c7' }} onClick={() => handleSaveLogo(club)}>
+                      <Save size={13} /> Zapisz logo
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1279,13 +1158,11 @@ function PlayerManager({
   const [birthYear, setBirthYear] = useState('');
   const [email, setEmail] = useState('');
   const [flag, setFlag] = useState('PL');
-  const [flagImage, setFlagImage] = useState('');
   const [isAmateur, setIsAmateur] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const flagFileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setName('');
@@ -1299,7 +1176,6 @@ function PlayerManager({
     setBirthYear('');
     setEmail('');
     setFlag('PL');
-    setFlagImage('');
     setIsAmateur(false);
     setIsActive(true);
     setEditing(null);
@@ -1308,20 +1184,10 @@ function PlayerManager({
   const handleFileUpload = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const compressed = await compressImage(file, 120, 120, 0.75);
+      const compressed = await compressImage(file, 320, 320, 0.88);
       setAvatar(compressed);
     } catch {
       flash('Błąd kompresji zdjęcia gracza.');
-    }
-  };
-
-  const handleFlagFileUpload = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      const compressed = await compressImage(file, 80, 50, 0.85);
-      setFlagImage(compressed);
-    } catch {
-      flash('Błąd kompresji grafiki flagi.');
     }
   };
 
@@ -1344,8 +1210,6 @@ function PlayerManager({
       birthDate: formattedBirthDate,
       email: email.trim() || undefined,
       flag: flag.trim().toUpperCase(),
-      flag_image: flagImage.trim() || undefined,
-      flagImage: flagImage.trim() || undefined,
       is_amateur: isAmateur,
       isAmateur,
       is_active: isActive,
@@ -1429,14 +1293,13 @@ function PlayerManager({
     setCity(p.city ?? '');
     setGender(p.gender ?? 'Male');
     setPreferredFoot(p.preferred_foot ?? p.preferredFoot ?? 'Right');
-    
+
     const rawDate = p.birth_date ?? p.birthDate ?? '';
     const parsedYear = rawDate ? String(rawDate).slice(0, 4) : '';
     setBirthYear(parsedYear);
 
     setEmail(p.email ?? '');
     setFlag(p.flag || 'PL');
-    setFlagImage(p.flagImage ?? p.flag_image ?? '');
     setIsAmateur(!!p.isAmateur || !!p.is_amateur);
     setIsActive(p.isActive !== false && p.is_active !== false);
   };
@@ -1572,38 +1435,15 @@ function PlayerManager({
           </div>
           <div className="form-field">
             <label className="form-field-label">Kraj / Kod Flagi (np. PL, JP, US)</label>
-            <input
-              value={flag}
-              onChange={(e) => setFlag(e.target.value.toUpperCase())}
-              placeholder="PL, JP, CZ, DE..."
-              style={{ fontWeight: 700 }}
-            />
-          </div>
-        </div>
-
-        <div className="form-field">
-          <label className="form-field-label">Własna grafika flagi (opcjonalnie)</label>
-          <div className="avatar-upload-row">
-            {flagImage ? (
-              <img src={flagImage} alt="flag" style={{ width: '28px', height: '18px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1' }} />
-            ) : (
-              <span style={{ fontSize: '18px', lineHeight: 1 }}>{flagEmoji(flag)}</span>
-            )}
-            <input
-              ref={flagFileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleFlagFileUpload(e.target.files?.[0])}
-              className="file-input"
-            />
-            <button className="secondary-button" onClick={() => flagFileInputRef.current?.click()}>
-              <ImageIcon size={14} /> Wybierz z galerii
-            </button>
-            {flagImage && (
-              <button className="secondary-button" onClick={() => setFlagImage('')}>
-                X
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>{flagEmoji(flag)}</span>
+              <input
+                value={flag}
+                onChange={(e) => setFlag(e.target.value.toUpperCase())}
+                placeholder="PL, JP, CZ, DE..."
+                style={{ fontWeight: 700, flex: 1 }}
+              />
+            </div>
           </div>
         </div>
 
@@ -1723,12 +1563,7 @@ function PlayerManager({
                 )}
                 <div>
                   <b>
-                    {p.flagImage || p.flag_image ? (
-                      <img src={p.flagImage || p.flag_image} alt={p.flag} className="flag-img-inline" />
-                    ) : (
-                      <span className="flag-emoji">{flagEmoji(p.flag)}</span>
-                    )}
-                    {p.name}
+                    <span className="flag-emoji">{flagEmoji(p.flag)}</span> {p.name}
                     {(p.isAmateur || p.is_amateur) && <span className="am-badge">AM</span>}
                   </b>
                   <small>
@@ -1813,7 +1648,7 @@ function FlightManager({
 
   const roundFlights = store.flights.filter((f) => f.round === round);
   const allFlightIdsInRound = useMemo(() => roundFlights.map((f) => f.id), [roundFlights]);
-  
+
   const activePlayers = useMemo(
     () => store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false),
     [store.players]
@@ -1915,7 +1750,6 @@ function FlightManager({
         const groupPlayers = pool.slice(g * autoGroupSize, (g + 1) * autoGroupSize);
         const flightName = `Flight ${String.fromCharCode(65 + (g % 26))}${g >= 26 ? Math.floor(g / 26) : ''}`;
         const flightCode = String(Math.floor(1000 + Math.random() * 9000));
-        
         const assignedStartHole = autoStartType === 'hole1' ? 1 : (g % 18) + 1;
 
         const currentGroupMinutes = baseTotalMinutes + (g * autoIntervalMinutes);
@@ -2194,7 +2028,7 @@ function FlightManager({
             <span style={{ background: '#0284c7' }} /> SZYBKI GENERATOR TEE TIMES
           </p>
           <h2 style={{ fontSize: '15px' }}>Losuj lub ustaw grupy i godziny</h2>
-          
+
           <div className="form-field">
             <label className="form-field-label">Format startu</label>
             <select value={autoStartType} onChange={(e) => setAutoStartType(e.target.value as any)}>
@@ -2307,11 +2141,7 @@ function FlightManager({
                     </span>
                   )}
                   <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {p.flagImage || (p as any).flag_image ? (
-                      <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '12px', height: '8px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
-                    ) : (
-                      <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
-                    )}
+                    <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
                     {p.name}
                   </b>
                 </div>
@@ -2411,7 +2241,6 @@ function FlightManager({
                   </div>
                 </div>
 
-                {/* BEZPOŚREDNIA EDYCJA GODZINY STARTU NA KAFELKU */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', marginBottom: '8px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Clock size={12} color="#0284c7" /> Czas startu:
@@ -2462,11 +2291,7 @@ function FlightManager({
                             </span>
                           )}
                           <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {p.flagImage || (p as any).flag_image ? (
-                              <img src={p.flagImage || (p as any).flag_image} alt={p.flag} style={{ width: '11px', height: '7px', display: 'inline-block', marginRight: '3px', verticalAlign: 'middle' }} />
-                            ) : (
-                              <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
-                            )}
+                            <span style={{ marginRight: '3px' }}>{flagEmoji(p.flag)}</span>
                             {p.name}
                           </b>
                         </div>
