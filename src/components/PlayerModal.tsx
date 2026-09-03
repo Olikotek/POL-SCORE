@@ -8,7 +8,6 @@ import {
   Target,
   TrendingDown,
   X,
-  ZoomIn,
   Zap,
   ChevronDown,
   ChevronUp,
@@ -304,7 +303,6 @@ export function PlayerModal({
 
   const [statCategoryFilter, setStatCategoryFilter] = useState<Category | 'Wszystkie'>('Wszystkie');
   const [inspectedHole, setInspectedHole] = useState<number | null>(null);
-  const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [activeStatCategory, setActiveStatCategory] = useState<{ key: StatCategory; label: string } | null>(null);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
 
@@ -316,7 +314,6 @@ export function PlayerModal({
     return active.filter((p) => p.category === statCategoryFilter);
   }, [store.players, statCategoryFilter]);
 
-  // LAZY: obliczamy mapy rang TYLKO dla aktywnego widoku statystyk
   const statRankCache = useMemo(() => {
     if (activeView !== 'scorecard' || modalTab !== 'statystyki') {
       return new Map<StatCategory, Map<string, number>>();
@@ -670,12 +667,19 @@ export function PlayerModal({
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                 {player.avatar ? (
-                  <div style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} onClick={() => setShowPhotoLightbox(true)} title="Powiększ zdjęcie">
-                    <img src={player.avatar} alt={player.name} style={{ width: '46px', height: '46px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }} />
-                    <div style={{ position: 'absolute', bottom: '0', right: '0', background: '#0f172a', color: '#fff', borderRadius: '50%', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <ZoomIn size={9} />
-                    </div>
-                  </div>
+                  <img
+                    src={player.avatar}
+                    alt={player.name}
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid #e2e8f0',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                      flexShrink: 0,
+                    }}
+                  />
                 ) : (
                   <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#64748b', flexShrink: 0 }}>
                     {player.name.slice(0, 2).toUpperCase()}
@@ -684,11 +688,19 @@ export function PlayerModal({
 
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    {player.flagImage ? (
-                      <img src={player.flagImage} alt={player.flag} style={{ width: '18px', height: '12px', borderRadius: '2px', objectFit: 'cover', border: '1px solid #cbd5e1', flexShrink: 0 }} />
-                    ) : (
-                      <span className="flag-emoji" style={{ border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px 2px', lineHeight: 1, fontSize: '11px', flexShrink: 0 }}>{flagEmoji(player.flag)}</span>
-                    )}
+                    <img
+                      src={player.flagImage || flagEmoji(player.flag || 'PL')}
+                      alt={player.flag || 'PL'}
+                      style={{
+                        width: '20px',
+                        height: '14px',
+                        borderRadius: '2px',
+                        objectFit: 'cover',
+                        border: '1px solid #cbd5e1',
+                        display: 'block',
+                        flexShrink: 0,
+                      }}
+                    />
                     <h1 style={{ fontSize: '16px', fontWeight: 900, margin: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {player.name}
                     </h1>
@@ -1400,53 +1412,6 @@ export function PlayerModal({
                 );
               })}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* LIGHTBOX ZDJĘCIA */}
-      {showPhotoLightbox && player.avatar && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-            backdropFilter: 'blur(5px)',
-          }}
-          onClick={() => setShowPhotoLightbox(false)}
-        >
-          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
-            <img
-              src={player.avatar}
-              alt={player.name}
-              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '85vh', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', border: '2px solid #ffffff' }}
-            />
-            <button
-              onClick={() => setShowPhotoLightbox(false)}
-              style={{
-                position: 'absolute',
-                top: '-14px',
-                right: '-14px',
-                background: '#ef4444',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-              }}
-            >
-              <X size={22} />
-            </button>
           </div>
         </div>
       )}
