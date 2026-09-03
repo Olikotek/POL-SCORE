@@ -3,6 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 
+const LEAGUE_POINTS_CACHE_KEY = 'pffg_cached_league_points';
+const LEAGUE_POINTS_TIME_KEY = 'pffg_cached_league_points_time';
+const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minut
+
 async function fetchStore(activeTournamentId?: string | null): Promise<{
   store: Store;
   tournaments: Tournament[];
@@ -64,12 +68,30 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   }
 
   let flightsQuery = supabase.from('flights').select('*').order('name').range(0, 1999);
-  let lpQuery = supabase.from('league_points').select('*').range(0, 1999);
 
   if (activeTournId) {
     flightsQuery = flightsQuery.eq('tournament_id', activeTournId);
-    lpQuery = lpQuery.eq('tournament_id', activeTournId);
   }
+
+  // 3. Pamięć podręczna dla rankingu ligowego (League Points) - odświeżanie max co 60 minut
+  const cachedLpRaw = localStorage.getItem(LEAGUE_POINTS_CACHE_KEY);
+  const cachedLpTime = localStorage.getItem(LEAGUE_POINTS_TIME_KEY);
+  const isLpCacheValid =
+    cachedLpRaw && cachedLpTime && Date.now() - Number(cachedLpTime) < CACHE_TTL_MS;
+
+  const lpPromise = isLpCacheValid
+    ? Promise.resolve({ data: JSON.parse(cachedLpRaw) })
+    : supabase
+        .from('league_points')
+        .select('*')
+        .range(0, 4999)
+        .then((res) => {
+          if (res.data) {
+            localStorage.setItem(LEAGUE_POINTS_CACHE_KEY, JSON.stringify(res.data));
+            localStorage.setItem(LEAGUE_POINTS_TIME_KEY, String(Date.now()));
+          }
+          return res;
+        });
 
   const [coursesRes, courseHolesRes, playersRes, flightsRes, flightPlayersRes, leaguePointsRes] =
     await Promise.all([
@@ -78,7 +100,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       supabase.from('players').select('*').order('name').range(0, 4999),
       flightsQuery,
       supabase.from('flight_players').select('*').range(0, 4999),
-      lpQuery,
+      lpPromise,
     ]);
 
   const scoresRows = allScores;
@@ -116,7 +138,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const flightPlayers = flightPlayersRes.data ?? [];
   const rawPlayers = playersRes.data ?? [];
 
-  // Przetwarzanie pełnej bazy zawodników (z zachowaniem wszystkich pól profilowych)
+  // Przetwarzanie pełnej bazy zawodników
   const players: Player[] = rawPlayers.map((p) => {
     const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
@@ -243,6 +265,13 @@ export function useStore() {
       debounceRef.current = window.setTimeout(load, 250);
     };
 
+    const handleLeaguePointsChange = () => {
+      // Unieważnienie pamięci podręcznej punktów ligowych przy zapisie w panelu
+      localStorage.removeItem(LEAGUE_POINTS_CACHE_KEY);
+      localStorage.removeItem(LEAGUE_POINTS_TIME_KEY);
+      scheduleReload();
+    };
+
     const channel = supabase
       .channel('tournament-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, scheduleReload)
@@ -253,7 +282,7 @@ export function useStore() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_settings' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, scheduleReload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_points' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_points' }, handleLeaguePointsChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_registrations' }, scheduleReload)
       .subscribe();
 
@@ -264,17 +293,13 @@ export function useStore() {
     };
   }, [activeTournamentId]);
 
-  // Synchronizacja wybranego turnieju lokalnie ORAZ globalnie w bazie danych dla telefonów
   const selectTournament = async (id: string) => {
     setActiveTournamentId(id);
     localStorage.setItem('pffg_active_tournament', id);
-    
+
     try {
-      // 1. Ustawienie turnieju jako jedynego aktywnego w tabeli tournaments
       await supabase.from('tournaments').update({ status: 'completed' }).neq('id', id);
       await supabase.from('tournaments').update({ status: 'active' }).eq('id', id);
-
-      // 2. Zapis w ustawieniach globalnych aplikacji
       await supabase.from('tournament_settings').update({ active_tournament_id: id }).eq('id', 1);
     } catch (e) {
       console.warn('Global tournament sync error:', e);
