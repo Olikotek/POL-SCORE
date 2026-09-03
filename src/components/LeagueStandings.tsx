@@ -65,9 +65,9 @@ export function LeagueStandings({
   }, []);
 
   const loadFullData = async (forceRefresh = false) => {
-    const CACHE_KEY = 'pffg_league_cache_full';
+    const CACHE_KEY = 'pffg_league_cache_slim_v1';
     const CACHE_TIME_KEY = 'pffg_league_cache_time';
-    const TTL = 1000 * 60 * 60 * 12; // 12 godzin pamięci podręcznej
+    const TTL = 1000 * 60 * 60 * 12; // 12 godzin ważności cache
 
     if (!forceRefresh) {
       const cached = localStorage.getItem(CACHE_KEY);
@@ -98,7 +98,7 @@ export function LeagueStandings({
       while (true) {
         const { data, error } = await supabase
           .from('scores')
-          .select('*')
+          .select('tournament_id, player_id, round, round_number, hole_number, hole, strokes, score')
           .range(from, from + step - 1);
         if (error || !data || data.length === 0) break;
         allScores = allScores.concat(data);
@@ -107,9 +107,13 @@ export function LeagueStandings({
       }
 
       const [playersRes, tournamentsRes, leaguePointsRes, clubsMap] = await Promise.all([
-        supabase.from('players').select('*').order('name').range(0, 5000),
+        supabase
+          .from('players')
+          .select('id, name, category, club, flag, flag_image, is_amateur, is_active, city, ball_model, birth_date')
+          .order('name')
+          .range(0, 5000),
         supabase.from('tournaments').select('*').order('date', { ascending: true }),
-        supabase.from('league_points').select('*').range(0, 10000),
+        supabase.from('league_points').select('player_id, tournament_id, rank, points, category').range(0, 10000),
         fetchClubs(),
       ]);
 
@@ -127,23 +131,30 @@ export function LeagueStandings({
         round2Started: t.round2_started,
       })) : [];
 
+      const rawPlayers = playersRes.data || [];
+      const rawPoints = leaguePointsRes.data || [];
+
       setDbScores(allScores);
-      setDbPlayers(playersRes.data || []);
-      setDbLeaguePoints(leaguePointsRes.data || []);
+      setDbPlayers(rawPlayers);
+      setDbLeaguePoints(rawPoints);
       setClubLogos(clubsMap);
 
       if (tournamentsRes.data) {
         setDbTournaments(formattedTournaments);
       }
 
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        scores: allScores,
-        players: playersRes.data || [],
-        leaguePoints: leaguePointsRes.data || [],
-        clubs: clubsMap,
-        tournaments: formattedTournaments,
-      }));
-      localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          scores: allScores,
+          players: rawPlayers,
+          leaguePoints: rawPoints,
+          clubs: clubsMap,
+          tournaments: formattedTournaments,
+        }));
+        localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
+      } catch (storageErr) {
+        console.warn('Nie udało się zapisać do localStorage:', storageErr);
+      }
     } catch (err) {
       console.error('Błąd pobierania danych ligowych:', err);
     } finally {
