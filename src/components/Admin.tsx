@@ -37,6 +37,7 @@ import { ADMIN_CODE } from '@/data';
 import { combinedRelative, initials, totalPar } from '@/scoring';
 import { calculateOfficialLeaguePoints, getBasePointsForPosition } from '@/leagueScoring';
 import { supabase } from '@/lib/supabase';
+import { compressImage } from '@/lib/imageCompressor';
 import {
   addPlayer,
   assignPlayerToFlight,
@@ -293,7 +294,7 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
 
   useEffect(() => {
     fetchClubs().then(setClubLogos);
-    supabase.from('country_flags').select('*').then(({ data }) => {
+    supabase.from('country_flags').select('country_code, flag_url').then(({ data }) => {
       if (data) {
         const map: Record<string, string> = {};
         data.forEach((r: any) => { map[r.country_code.toUpperCase()] = r.flag_url; });
@@ -302,18 +303,24 @@ function ClubManager({ store, onUpdateStore, flash }: { store: Store; onUpdateSt
     });
   }, []);
 
-  const handleClubFile = (file: File | undefined) => {
+  const handleClubFile = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setLogoInput(reader.result as string);
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 160, 160, 0.8);
+      setLogoInput(compressed);
+    } catch {
+      flash('Błąd przetwarzania grafiki logo.');
+    }
   };
 
-  const handleCountryFile = (file: File | undefined) => {
+  const handleCountryFile = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setFlagInput(reader.result as string);
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 80, 50, 0.85);
+      setFlagInput(compressed);
+    } catch {
+      flash('Błąd przetwarzania grafiki flagi.');
+    }
   };
 
   const handleSaveLogo = async (clubName: string) => {
@@ -586,9 +593,9 @@ function TournamentManager({
   const handleOpenPlayoffs = async (t: Tournament) => {
     try {
       const [scoresRes, playersRes, existingPointsRes] = await Promise.all([
-        supabase.from('scores').select('*').eq('tournament_id', t.id).range(0, 49999),
-        supabase.from('players').select('*'),
-        supabase.from('league_points').select('*').eq('tournament_id', t.id),
+        supabase.from('scores').select('player_id, strokes, score, round, round_number, hole_number, hole').eq('tournament_id', t.id),
+        supabase.from('players').select('id, name, category, club'),
+        supabase.from('league_points').select('player_id, rank').eq('tournament_id', t.id),
       ]);
 
       const scoresData = scoresRes.data || [];
@@ -1298,18 +1305,24 @@ function PlayerManager({
     setEditing(null);
   };
 
-  const handleFileUpload = (file: File | undefined) => {
+  const handleFileUpload = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setAvatar(reader.result as string);
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 120, 120, 0.75);
+      setAvatar(compressed);
+    } catch {
+      flash('Błąd kompresji zdjęcia gracza.');
+    }
   };
 
-  const handleFlagFileUpload = (file: File | undefined) => {
+  const handleFlagFileUpload = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setFlagImage(reader.result as string);
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 80, 50, 0.85);
+      setFlagImage(compressed);
+    } catch {
+      flash('Błąd kompresji grafiki flagi.');
+    }
   };
 
   const submit = async () => {
@@ -1903,10 +1916,8 @@ function FlightManager({
         const flightName = `Flight ${String.fromCharCode(65 + (g % 26))}${g >= 26 ? Math.floor(g / 26) : ''}`;
         const flightCode = String(Math.floor(1000 + Math.random() * 9000));
         
-        // Wybór dołka: w formacie 'hole1' wszyscy ruszają z dołka 1, w 'shotgun' kolejno z dołków 1..18
         const assignedStartHole = autoStartType === 'hole1' ? 1 : (g % 18) + 1;
 
-        // Wyliczenie Tee Time dla grupy
         const currentGroupMinutes = baseTotalMinutes + (g * autoIntervalMinutes);
         const groupH = Math.floor(currentGroupMinutes / 60) % 24;
         const groupM = currentGroupMinutes % 60;
@@ -2570,7 +2581,6 @@ function RoundManager({
     }
   };
 
-  // ZABEZPIECZONA FUNKCJA: wymaga wpisania słowa "RESET" i podania activeTournament.id
   const handleResetRound = async (r: Round) => {
     if (!activeTournament?.id) {
       alert('BŁĄD: Musisz najpierw wybrać aktywny turniej, aby zresetować jego rundę!');
