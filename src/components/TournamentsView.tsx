@@ -249,6 +249,8 @@ export function TournamentsView({
           flex-direction: column;
           gap: 12px;
           width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
           box-sizing: border-box;
         }
 
@@ -308,7 +310,7 @@ export function TournamentsView({
         }
 
         @media (max-width: 640px) {
-          /* ROZCIĄGNIĘCIE NA CAŁĄ SZEROKOŚĆ TELEFONU (JAK W TABELI NA ŻYWO) */
+          /* ROZCIĄGNIĘCIE NA CAŁĄ SZEROKOŚĆ TELEFONU */
           .tournaments-table-container {
             padding: 8px 0 !important;
             border-radius: 0 !important;
@@ -372,7 +374,7 @@ export function TournamentsView({
 
           /* Tabela główna turniejów - telefon */
           .col-mob-date {
-            width: 72px !important;
+            width: 74px !important;
             padding: 8px 2px !important;
             font-size: 10.5px !important;
             text-align: center !important;
@@ -386,7 +388,7 @@ export function TournamentsView({
           }
 
           .col-mob-registered {
-            width: 38px !important;
+            width: 42px !important;
             text-align: center !important;
             padding: 8px 2px !important;
             font-size: 11px !important;
@@ -394,7 +396,7 @@ export function TournamentsView({
           }
 
           .col-mob-action {
-            width: 90px !important;
+            width: 58px !important;
             text-align: center !important;
             padding: 8px 2px !important;
           }
@@ -435,9 +437,9 @@ export function TournamentsView({
           }
 
           .btn-mob-action {
-            padding: 4px 6px !important;
-            font-size: 9.5px !important;
-            border-radius: 4px !important;
+            padding: 5px 8px !important;
+            font-size: 10px !important;
+            border-radius: 5px !important;
           }
         }
       `}</style>
@@ -655,25 +657,25 @@ export function TournamentsView({
           <div
             style={{
               background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
-              borderRadius: '12px',
-              padding: '16px 18px',
+              borderRadius: '10px',
+              padding: '12px 14px',
               color: '#ffffff',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               flexWrap: 'wrap',
-              gap: '10px',
+              gap: '8px',
               boxShadow: '0 4px 12px rgba(11, 19, 41, 0.15)',
             }}
           >
             <div>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <span style={{ fontSize: '9px', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 SEZON PFFG 2026
               </span>
-              <h1 style={{ margin: '2px 0 0 0', fontSize: '19px', fontWeight: 900 }}>
+              <h1 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: 900 }}>
                 Oficjalny Kalendarz & Zapisy
               </h1>
-              <p style={{ margin: '3px 0 0 0', fontSize: '11.5px', color: '#94a3b8', maxWidth: '580px', lineHeight: 1.35 }}>
+              <p style={{ margin: '2px 0 0 0', fontSize: '10.5px', color: '#94a3b8', maxWidth: '580px', lineHeight: 1.3 }}>
                 Opłata startowa w recepcji: <strong>80 zł</strong> (dorośli), <strong>40 zł</strong> (studenci / juniorzy).
               </p>
             </div>
@@ -685,39 +687,39 @@ export function TournamentsView({
                 background: '#0284c7',
                 color: '#ffffff',
                 border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                fontSize: '12px',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '11px',
                 fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+                gap: '4px',
+                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.35)',
               }}
             >
-              <UserPlus size={14} />
+              <UserPlus size={12} />
               {showDirectForm ? 'Schowaj' : 'Zapisz się'}
             </button>
           </div>
 
           {showDirectForm && (
-            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '16px 18px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 900, color: '#0f172a', margin: '0 0 2px 0' }}>
+            <div style={{ background: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
+              <h2 style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a', margin: '0 0 2px 0' }}>
                 Formularz Rejestracji na Turniej
               </h2>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 12px 0' }}>
+              <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 10px 0' }}>
                 Po wysłaniu zgłoszenia zostaniesz dopisany do tabeli i listy startowej.
               </p>
 
-              <form onSubmit={handleDirectFormSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+              <form onSubmit={handleDirectFormSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Turniej *</label>
                   <select
                     value={formTournamentId}
                     onChange={(e) => setFormTournamentId(e.target.value)}
                     required
-                    style={{ padding: '6px 8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   >
                     {activeTournaments.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -735,7 +737,7 @@ export function TournamentsView({
                     onChange={(e) => setFullName(e.target.value)}
                     required
                     placeholder="Jan Kowalski"
-                    style={{ padding: '6px 8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
@@ -744,7 +746,7 @@ export function TournamentsView({
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value as any)}
-                    style={{ padding: '6px 8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   >
                     <option value="Male">Mężczyzna</option>
                     <option value="Female">Kobieta</option>
@@ -761,7 +763,7 @@ export function TournamentsView({
                     onChange={(e) => setBirthYear(e.target.value)}
                     placeholder="2000"
                     required
-                    style={{ padding: '6px 8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
@@ -773,7 +775,7 @@ export function TournamentsView({
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Gdańsk"
                     required
-                    style={{ padding: '6px 8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
@@ -785,7 +787,7 @@ export function TournamentsView({
                     value={countryFlag}
                     onChange={(e) => setCountryFlag(e.target.value.toUpperCase())}
                     placeholder="PL"
-                    style={{ padding: '6px 8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
@@ -796,7 +798,7 @@ export function TournamentsView({
                     value={clubName}
                     onChange={(e) => setClubName(e.target.value)}
                     placeholder="Nazwa klubu"
-                    style={{ padding: '6px 8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
@@ -813,30 +815,30 @@ export function TournamentsView({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '6px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '5px 8px', fontSize: '10px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
                     >
-                      <ImageIcon size={12} /> Wybierz
+                      <ImageIcon size={11} /> Wybierz
                     </button>
-                    <span style={{ fontSize: '10px', color: selectedFile ? '#16a34a' : '#94a3b8', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>
+                    <span style={{ fontSize: '9px', color: selectedFile ? '#16a34a' : '#94a3b8', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90px' }}>
                       {selectedFile ? selectedFile.name : 'Brak'}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '6px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
                   <button
                     type="button"
                     onClick={() => setShowDirectForm(false)}
-                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '6px 12px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', color: '#475569' }}
+                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '5px 10px', fontSize: '10.5px', fontWeight: 800, cursor: 'pointer', color: '#475569' }}
                   >
                     Anuluj
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '5px', padding: '6px 16px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '5px', padding: '5px 14px', fontSize: '10.5px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    <UserPlus size={12} /> {isSubmitting ? 'Zapisywanie...' : 'Zatwierdź'}
+                    <UserPlus size={11} /> {isSubmitting ? 'Zapisywanie...' : 'Zatwierdź'}
                   </button>
                 </div>
               </form>
@@ -845,7 +847,7 @@ export function TournamentsView({
 
           <div className="tournaments-table-container">
             <div className="tourn-top-bar-mobile" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: '180px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: '170px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <Search size={12} style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input
@@ -868,7 +870,7 @@ export function TournamentsView({
                 </select>
               </div>
 
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
                 Turnieje: <b>{filteredTournaments.length}</b>
               </span>
             </div>
@@ -905,7 +907,7 @@ export function TournamentsView({
                             >
                               {t.name}
                               {t.isPolishOpen && (
-                                <span style={{ marginLeft: '3px', fontSize: '7.5px', fontWeight: 800, color: '#dc2626', background: '#fee2e2', padding: '1px 3px', borderRadius: '3px' }}>
+                                <span style={{ marginLeft: '3px', fontSize: '7.5px', fontWeight: 800, color: '#dc2626', background: '#fee2e2', padding: '1px 2px', borderRadius: '2px' }}>
                                   MP
                                 </span>
                               )}
@@ -933,31 +935,28 @@ export function TournamentsView({
                           {displayCount}
                         </td>
                         <td className="col-mob-action" style={{ textAlign: 'center', padding: '8px 2px' }}>
-                          <div style={{ display: 'flex', gap: '3px', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <button
                               type="button"
                               className="btn-mob-action"
                               onClick={() => setSelectedTournament(t)}
-                              title="Zobacz listę"
-                              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 6px', fontSize: '10px', fontWeight: 800, cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center', gap: '2px' }}
+                              title="Zobacz listę zawodników"
+                              style={{
+                                background: '#f1f5f9',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '5px',
+                                padding: '5px 10px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                color: '#0f172a',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
                             >
-                              <Eye size={11} /> Lista
+                              <Eye size={12} /> Lista
                             </button>
-                            {!isCompleted && (
-                              <button
-                                type="button"
-                                className="btn-mob-action"
-                                onClick={() => {
-                                  setFormTournamentId(t.id);
-                                  setShowDirectForm(true);
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                title="Zapisz się"
-                                style={{ background: '#0284c7', border: 'none', color: '#fff', borderRadius: '4px', padding: '4px 6px', fontSize: '10px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                              >
-                                <UserPlus size={11} /> Zapisz
-                              </button>
-                            )}
                           </div>
                         </td>
                       </tr>
