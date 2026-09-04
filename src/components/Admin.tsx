@@ -64,6 +64,20 @@ import {
 
 type FlashFn = (m: string) => void;
 
+function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
+  if (existingAvatar && existingAvatar.startsWith('http')) {
+    return existingAvatar;
+  }
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-');
+  return `/players/${normalized}.jpg`;
+}
+
 export function AdminLock({
   onUnlock,
   onBack,
@@ -267,7 +281,6 @@ export function Admin({
   );
 }
 
-// NOWY MODUŁ: ZARZĄDZANIE ZAPISAMI
 function RegistrationManager({
   tournaments,
   store,
@@ -1260,12 +1273,16 @@ function PlayerManager({
 
   const submit = async () => {
     if (!name.trim()) return;
+    const trimmedName = name.trim();
     const formattedBirthDate = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
 
+    // Automatyczne przypisanie ścieżki z folderu public jeśli brak załadowanego base64
+    const resolvedAvatar = avatar.trim() || getPublicAvatarPath(trimmedName);
+
     const playerData: any = {
-      name: name.trim(),
+      name: trimmedName,
       category,
-      avatar: avatar.trim() || undefined,
+      avatar: resolvedAvatar,
       club: club.trim() || undefined,
       ball_model: ballModel.trim() || undefined,
       ballModel: ballModel.trim() || undefined,
@@ -1314,7 +1331,7 @@ function PlayerManager({
   };
 
   const handleToggleActive = async (p: any) => {
-    const nextState = p.isActive === false || p.is_active === false ? true : false;
+    const nextState = p.isActive !== false && p.is_active !== false ? false : true;
 
     onUpdateStore((prev) => ({
       ...prev,
@@ -1617,6 +1634,8 @@ function PlayerManager({
         >
           {filteredAndSortedPlayers.map((p: any) => {
             const active = p.isActive !== false && p.is_active !== false;
+            const displayAvatar = p.avatar || getPublicAvatarPath(p.name);
+
             return (
               <div
                 className="management-row"
@@ -1627,11 +1646,15 @@ function PlayerManager({
                   borderLeft: editing === p.id ? '4px solid #0284c7' : undefined,
                 }}
               >
-                {p.avatar ? (
-                  <img src={p.avatar} alt={p.name} className="avatar avatar-img" />
-                ) : (
-                  <span className="avatar">{initials(p.name)}</span>
-                )}
+                <img
+                  src={displayAvatar}
+                  alt={p.name}
+                  className="avatar avatar-img"
+                  onError={(e) => {
+                    // Fallback na inicjały jeśli plik w public nie istnieje
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
                 <div>
                   <b>
                     <img
@@ -2187,6 +2210,8 @@ function FlightManager({
         <div className="unassigned-scroll-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
           {unassignedPlayers.map((p, idx) => {
             const rel = combinedRelative(p, holesR1, holesR2);
+            const displayAvatar = p.avatar || getPublicAvatarPath(p.name);
+
             return (
               <div
                 key={p.id}
@@ -2209,13 +2234,12 @@ function FlightManager({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
                   <GripVertical size={13} style={{ color: '#94a3b8', flexShrink: 0 }} />
                   <span style={{ fontWeight: 800, color: '#64748b', fontSize: '10px', width: '14px', flexShrink: 0 }}>{idx + 1}.</span>
-                  {p.avatar ? (
-                    <img src={p.avatar} alt={p.name} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                  ) : (
-                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>
-                      {initials(p.name)}
-                    </span>
-                  )}
+                  <img
+                    src={displayAvatar}
+                    alt={p.name}
+                    style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                  />
                   <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <span style={{ marginRight: '3px' }}>
                       <img
@@ -2346,6 +2370,8 @@ function FlightManager({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px', minHeight: '35px' }}>
                   {flightMembers.map((p) => {
                     const rel = combinedRelative(p, holesR1, holesR2);
+                    const displayAvatar = p.avatar || getPublicAvatarPath(p.name);
+
                     return (
                       <div
                         key={p.id}
@@ -2365,13 +2391,12 @@ function FlightManager({
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1 }}>
                           <GripVertical size={11} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                          {p.avatar ? (
-                            <img src={p.avatar} alt={p.name} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                          ) : (
-                            <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 800, flexShrink: 0 }}>
-                              {initials(p.name)}
-                            </span>
-                          )}
+                          <img
+                            src={displayAvatar}
+                            alt={p.name}
+                            style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                          />
                           <b style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             <span style={{ marginRight: '3px' }}>
                               <img
