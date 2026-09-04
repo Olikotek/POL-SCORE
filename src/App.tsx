@@ -288,7 +288,7 @@ function App() {
           </div>
         </div>
 
-        {/* POZIOMY PASEK ZAKŁADEK - RÓWNO ROZŁOŻONY NA CAŁĄ SZEROKOŚĆ */}
+        {/* POZIOMY PASEK ZAKŁADEK */}
         <div className="topbar-nav-bar">
           <nav className="desktop-nav">
             <Nav
@@ -342,19 +342,43 @@ function App() {
           />
         )}
         {view === 'standings' && (
-          <LeagueStandings
-            store={store}
-            tournaments={tournaments}
-            leaguePoints={leaguePoints}
-            onOpenPlayer={(id) => setModalPlayerId(id)}
-          />
+          adminUnlocked ? (
+            <LeagueStandings
+              store={store}
+              tournaments={tournaments}
+              leaguePoints={leaguePoints}
+              onOpenPlayer={(id) => setModalPlayerId(id)}
+            />
+          ) : (
+            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '48px 24px', textAlign: 'center', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', color: '#64748b' }}>
+                <Award size={24} />
+              </div>
+              <h2 style={{ color: '#0f172a', fontWeight: 900, margin: '0 0 6px 0', fontSize: '20px' }}>Przerwa techniczna</h2>
+              <p style={{ color: '#64748b', fontSize: '13px', margin: 0, maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
+                Oficjalna klasyfikacja ligowa jest tymczasowo wstrzymana ze względu na prace konserwacyjne. Zapraszamy wkrótce!
+              </p>
+            </div>
+          )
         )}
         {view === 'archive' && (
-          <Archive
-            tournaments={tournaments}
-            store={store}
-            onOpenPlayer={(id) => setModalPlayerId(id)}
-          />
+          adminUnlocked ? (
+            <Archive
+              tournaments={tournaments}
+              store={store}
+              onOpenPlayer={(id) => setModalPlayerId(id)}
+            />
+          ) : (
+            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '48px 24px', textAlign: 'center', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', color: '#64748b' }}>
+                <ArchiveIcon size={24} />
+              </div>
+              <h2 style={{ color: '#0f172a', fontWeight: 900, margin: '0 0 6px 0', fontSize: '20px' }}>Przerwa techniczna</h2>
+              <p style={{ color: '#64748b', fontSize: '13px', margin: 0, maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
+                Archiwum wyników jest tymczasowo niedostępne dla użytkowników. Zapraszamy wkrótce!
+              </p>
+            </div>
+          )
         )}
         {view === 'tournaments' && (
           <TournamentsView
