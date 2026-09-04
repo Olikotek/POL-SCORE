@@ -3,7 +3,6 @@ import { useState, useMemo, useRef } from 'react';
 import {
   Calendar,
   MapPin,
-  CheckCircle2,
   Clock,
   UserPlus,
   ArrowLeft,
@@ -82,6 +81,7 @@ export function TournamentsView({
     });
   }, [tournaments, searchQuery, statusFilter]);
 
+  // Lista zawodników: powiązani przez registrations lub wszyscy aktywni gracze w systemie
   const registeredPlayers = useMemo(() => {
     if (!selectedTournament) return [];
     const regIds = new Set(
@@ -89,7 +89,13 @@ export function TournamentsView({
         .filter((r) => r.tournament_id === selectedTournament.id)
         .map((r) => r.player_id)
     );
-    return (store.players || []).filter((p) => regIds.has(p.id));
+
+    const fromRegs = (store.players || []).filter((p) => regIds.has(p.id));
+    if (fromRegs.length > 0) return fromRegs;
+
+    return (store.players || []).filter(
+      (p) => p.isActive !== false && (p as any).is_active !== false
+    );
   }, [store.players, registrations, selectedTournament]);
 
   const filteredRegisteredPlayers = useMemo(() => {
@@ -301,16 +307,11 @@ export function TournamentsView({
                 <th style={{ padding: '10px 12px' }}>Kategoria</th>
                 <th style={{ padding: '10px 12px' }}>Klub</th>
                 <th style={{ padding: '10px 12px' }}>Miasto</th>
-                <th style={{ padding: '10px 12px', textAlign: 'center', width: '110px' }}>Status opłaty</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', width: '160px' }}>Status opłaty</th>
               </tr>
             </thead>
             <tbody>
               {filteredRegisteredPlayers.map((p, index) => {
-                const regItem = (registrations || []).find(
-                  (r) => r.tournament_id === selectedTournament.id && r.player_id === p.id
-                );
-                const isPaid = regItem?.status === 'confirmed' || regItem?.status === 'paid';
-
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
                     <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 800, color: '#64748b' }}>
@@ -347,15 +348,23 @@ export function TournamentsView({
                       {p.city || '–'}
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                      {isPaid ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: '#15803d', background: '#dcfce7', padding: '3px 8px', borderRadius: '4px', border: '1px solid #86efac' }}>
-                          <CheckCircle2 size={13} /> Opłacone
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: '#b45309', background: '#fef3c7', padding: '3px 8px', borderRadius: '4px', border: '1px solid #fde68a' }}>
-                          <Clock size={13} /> Oczekuje
-                        </span>
-                      )}
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: '#dc2626',
+                          background: '#fee2e2',
+                          border: '1px solid #fca5a5',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Clock size={12} /> Opłata na polu (80 zł / 40 zł)
+                      </span>
                     </td>
                   </tr>
                 );
