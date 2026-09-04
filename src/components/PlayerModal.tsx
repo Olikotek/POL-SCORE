@@ -1294,7 +1294,7 @@ export function PlayerModal({
         </div>
       </div>
 
-      {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) */}
+      {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) - CZYSTE ZDJĘCIE BEZ PODPISÓW */}
       {showPhotoModal && player.avatar && (
         <div
           style={{
@@ -1338,6 +1338,7 @@ export function PlayerModal({
                 cursor: 'pointer',
                 color: '#0f172a',
                 boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                zIndex: 10,
               }}
             >
               <X size={20} />
@@ -1346,17 +1347,15 @@ export function PlayerModal({
               src={player.avatar}
               alt={player.name}
               style={{
-                maxWidth: '100%',
-                maxHeight: '80vh',
+                maxWidth: '90vw',
+                maxHeight: '85vh',
                 borderRadius: '12px',
                 objectFit: 'contain',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                 border: '2px solid rgba(255,255,255,0.2)',
+                display: 'block',
               }}
             />
-            <div style={{ marginTop: '12px', color: '#ffffff', fontSize: '15px', fontWeight: 800, textAlign: 'center' }}>
-              {player.name} {player.club ? `(${player.club})` : ''}
-            </div>
           </div>
         </div>
       )}
