@@ -63,6 +63,23 @@ const AVERAGE_CARDS: { key: StatCategory; label: string }[] = [
 
 const ALL_CARDS = [...TOTAL_CARDS, ...PAR_CARDS, ...PERF_CARDS, ...STREAK_CARDS, ...AVERAGE_CARDS];
 
+function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
+  if (existingAvatar && existingAvatar.startsWith('http')) {
+    return existingAvatar;
+  }
+  if (existingAvatar && existingAvatar.startsWith('/')) {
+    return existingAvatar;
+  }
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-');
+  return `/players/${normalized}.jpg`;
+}
+
 function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: number; size?: 'sm' | 'md' }) {
   const dim = size === 'sm' ? '26px' : '36px';
   const fontSize = size === 'sm' ? '11px' : '14px';
@@ -307,6 +324,8 @@ export function PlayerModal({
   const [activeStatCategory, setActiveStatCategory] = useState<{ key: StatCategory; label: string } | null>(null);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+
+  const resolvedAvatar = getPublicAvatarPath(player.name, player.avatar);
 
   const holes = roundTab === 1 ? holesR1 : holesR2;
 
@@ -668,31 +687,27 @@ export function PlayerModal({
             <div className="header-main-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                <div style={{ position: 'relative', cursor: player.avatar ? 'pointer' : 'default' }} onClick={() => player.avatar && setShowPhotoModal(true)}>
-                  {player.avatar ? (
-                    <>
-                      <img
-                        src={player.avatar}
-                        alt={player.name}
-                        style={{
-                          width: '46px',
-                          height: '46px',
-                          borderRadius: '50%',
-                          objectFit: 'cover',
-                          border: '2px solid #e2e8f0',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                          display: 'block',
-                        }}
-                      />
-                      <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#0284c7', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>
-                        <ZoomIn size={10} />
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#64748b' }}>
-                      {player.name.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
+                <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setShowPhotoModal(true)}>
+                  <img
+                    src={resolvedAvatar}
+                    alt={player.name}
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid #e2e8f0',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                      display: 'block',
+                      backgroundColor: '#e2e8f0',
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#0284c7', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>
+                    <ZoomIn size={10} />
+                  </div>
                 </div>
 
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -1295,7 +1310,7 @@ export function PlayerModal({
       </div>
 
       {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) - CZYSTE ZDJĘCIE BEZ PODPISÓW */}
-      {showPhotoModal && player.avatar && (
+      {showPhotoModal && (
         <div
           style={{
             position: 'fixed',
@@ -1344,7 +1359,7 @@ export function PlayerModal({
               <X size={20} />
             </button>
             <img
-              src={player.avatar}
+              src={resolvedAvatar}
               alt={player.name}
               style={{
                 maxWidth: '90vw',
