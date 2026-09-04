@@ -112,7 +112,7 @@ export function TournamentsView({
       const formattedBirth = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
       const cleanFlag = countryFlag.trim().toUpperCase() || 'PL';
 
-      // 1. Zapisujemy zawodnika w Supabase, żeby od razu trafił do tabeli na żywo
+      // 1. Zapisujemy zawodnika w Supabase – wyłącznie dane tekstowe (zero obciążenia zdjęciami)
       let playerId = userProfile?.id;
 
       if (!playerId) {
@@ -140,7 +140,7 @@ export function TournamentsView({
           .eq('id', playerId);
       }
 
-      // 2. Dodajemy rejestrację do turnieju (bez kolumny ze zdjęciem w bazie)
+      // 2. Dodajemy rejestrację do turnieju (bez kolumny ze zdjęciem)
       const { error: regErr } = await supabase.from('tournament_registrations').insert({
         tournament_id: formTournamentId,
         player_id: playerId,
@@ -151,25 +151,29 @@ export function TournamentsView({
         throw regErr;
       }
 
-      // 3. Wysyłka zdjęcia w pełnej jakości na Twój e-mail przez Formspree (zastąp ID własnym linkiem)
-      if (selectedFile) {
-        const emailFormData = new FormData();
-        emailFormData.append('name', fullName.trim());
-        emailFormData.append('gender', gender === 'Female' ? 'Kobieta' : 'Mężczyzna');
-        emailFormData.append('birthYear', birthYear || 'Brak');
-        emailFormData.append('city', city || 'Brak');
-        emailFormData.append('club', clubName || 'Brak');
-        emailFormData.append('tournament', activeTournaments.find(t => t.id === formTournamentId)?.name || formTournamentId);
-        emailFormData.append('photo', selectedFile);
+      // 3. WYSYŁKA ZDJĘCIA I DANYCH ZAWODNIKA BEZPOŚREDNIO NA TWÓJ E-MAIL (WEB3FORMS)
+      const emailFormData = new FormData();
+      emailFormData.append('access_key', 'a7cb07ef-102a-465d-82b6-2544fc442b8f');
+      emailFormData.append('subject', `Nowe zgłoszenie turniejowe: ${fullName.trim()}`);
+      emailFormData.append('from_name', 'PFFG Rejestracja');
+      emailFormData.append('Zawodnik', fullName.trim());
+      emailFormData.append('Płeć', gender === 'Female' ? 'Kobieta' : 'Mężczyzna');
+      emailFormData.append('Rok urodzenia', birthYear || 'Brak');
+      emailFormData.append('Miasto', city || 'Brak');
+      emailFormData.append('Kraj', cleanFlag);
+      emailFormData.append('Klub', clubName || 'Brak');
+      emailFormData.append('Turniej', activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId);
 
-        await fetch('https://formspree.io/f/xnpqzpdb', {
-          method: 'POST',
-          body: emailFormData,
-          headers: { Accept: 'application/json' },
-        }).catch((err) => console.warn('Błąd wysyłki pliku na e-mail:', err));
+      if (selectedFile) {
+        emailFormData.append('attachment', selectedFile);
       }
 
-      setFormNotice('Zapisano pomyślnie! Zawodnik jest już widoczny w tabeli.');
+      await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        body: emailFormData,
+      }).catch((err) => console.warn('Błąd wysyłki e-mail:', err));
+
+      setFormNotice('Zapisano pomyślnie! Zawodnik trafił do turnieju.');
       setTimeout(() => {
         setShowDirectForm(false);
         setFormNotice(null);
@@ -498,7 +502,7 @@ export function TournamentsView({
                 type="text"
                 value={clubName}
                 onChange={(e) => setClubName(e.target.value)}
-                placeholder="Nazwa Twojego klubu"
+                placeholder="Nazwa klubu"
                 style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
               />
             </div>
