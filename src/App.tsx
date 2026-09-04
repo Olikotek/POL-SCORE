@@ -262,7 +262,7 @@ function App() {
                   gap: '4px',
                 }}
               >
-                <LogIn size={12} /> ZALOGUJ / ZAPISZ SIĘ
+                <LogIn size={12} /> ZAPISZ SIĘ NA TURNIEJ
               </button>
             )}
 
