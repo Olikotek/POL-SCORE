@@ -11,6 +11,7 @@ import {
   Zap,
   ChevronDown,
   ChevronUp,
+  ZoomIn,
 } from 'lucide-react';
 import type { Category, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
@@ -305,6 +306,7 @@ export function PlayerModal({
   const [inspectedHole, setInspectedHole] = useState<number | null>(null);
   const [activeStatCategory, setActiveStatCategory] = useState<{ key: StatCategory; label: string } | null>(null);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   const holes = roundTab === 1 ? holesR1 : holesR2;
 
@@ -666,25 +668,32 @@ export function PlayerModal({
             <div className="header-main-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                {player.avatar ? (
-                  <img
-                    src={player.avatar}
-                    alt={player.name}
-                    style={{
-                      width: '46px',
-                      height: '46px',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid #e2e8f0',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : (
-                  <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#64748b', flexShrink: 0 }}>
-                    {player.name.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
+                <div style={{ position: 'relative', cursor: player.avatar ? 'pointer' : 'default' }} onClick={() => player.avatar && setShowPhotoModal(true)}>
+                  {player.avatar ? (
+                    <>
+                      <img
+                        src={player.avatar}
+                        alt={player.name}
+                        style={{
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          border: '2px solid #e2e8f0',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                          display: 'block',
+                        }}
+                      />
+                      <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#0284c7', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>
+                        <ZoomIn size={10} />
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#64748b' }}>
+                      {player.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -1284,6 +1293,73 @@ export function PlayerModal({
           </div>
         </div>
       </div>
+
+      {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) */}
+      {showPhotoModal && player.avatar && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backdropFilter: 'blur(6px)',
+          }}
+          onClick={() => setShowPhotoModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <button
+              onClick={() => setShowPhotoModal(false)}
+              style={{
+                position: 'absolute',
+                top: '-45px',
+                right: '0',
+                background: '#ffffff',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#0f172a',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+              }}
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={player.avatar}
+              alt={player.name}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                borderRadius: '12px',
+                objectFit: 'contain',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                border: '2px solid rgba(255,255,255,0.2)',
+              }}
+            />
+            <div style={{ marginTop: '12px', color: '#ffffff', fontSize: '15px', fontWeight: 800, textAlign: 'center' }}>
+              {player.name} {player.club ? `(${player.club})` : ''}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL KLASYFIKACJI STATYSTYK */}
       {activeStatCategory && (
