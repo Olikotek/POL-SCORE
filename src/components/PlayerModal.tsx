@@ -704,7 +704,7 @@ export function PlayerModal({
                       </div>
                     </>
                   ) : (
-                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#64748b' }}>
+                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#e2e8f0', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#475569' }}>
                       {getInitials(player.name)}
                     </div>
                   )}
