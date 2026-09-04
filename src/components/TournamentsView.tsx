@@ -24,6 +24,42 @@ function formatShortPlayerName(fullName: string) {
   return fullName;
 }
 
+// Bezpieczna kompresja do optymalnego Base64 mieszczącego się w limicie mailowym Web3Forms
+function compressPhotoForEmail(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_DIM = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height && width > MAX_DIM) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else if (height > MAX_DIM) {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function TournamentsView({
   tournaments,
   store,
@@ -123,19 +159,21 @@ export function TournamentsView({
     });
   }, [registeredPlayers, playerCategoryFilter, playerNameFilter, playerClubFilter]);
 
-  const handleFileChange = (file?: File | null) => {
+  const handleFileChange = async (file?: File | null) => {
     if (!file) {
       setSelectedFile(null);
       setPhotoBase64('');
       return;
     }
     setSelectedFile(file);
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotoBase64(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const b64 = await compressPhotoForEmail(file);
+      setPhotoBase64(b64);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => setPhotoBase64(reader.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDirectFormSubmit = async (e: React.FormEvent) => {
@@ -250,17 +288,17 @@ export function TournamentsView({
           gap: 12px;
           width: 100%;
           max-width: 100%;
-          overflow-x: hidden;
           box-sizing: border-box;
         }
 
         .tournaments-table-container {
           background: #ffffff;
           border-radius: 12px;
-          padding: 16px 20px;
+          padding: 16px;
           border: 1px solid #cbd5e1;
           box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
           width: 100%;
+          max-width: 100%;
           box-sizing: border-box;
         }
 
@@ -268,16 +306,16 @@ export function TournamentsView({
           border: 1px solid #cbd5e1;
           border-radius: 8px;
           width: 100%;
-          overflow-x: auto;
+          max-width: 100%;
           box-sizing: border-box;
+          overflow: hidden;
         }
 
         .tourn-table-main {
           width: 100%;
           border-collapse: collapse;
-          font-size: 13px;
           text-align: left;
-          table-layout: auto;
+          table-layout: fixed;
         }
 
         .tourn-table-main thead tr th {
@@ -285,10 +323,10 @@ export function TournamentsView({
           border-bottom: 2px solid #cbd5e1;
           color: #475569;
           font-size: 11px;
-          font-weight: 800;
+          font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.04em;
-          padding: 9px 8px;
+          padding: 8px 6px;
         }
 
         .mobile-hide {
@@ -299,6 +337,7 @@ export function TournamentsView({
           display: inline;
           font-weight: 800;
           color: #0f172a;
+          font-size: 12.5px;
         }
 
         .mobile-player-name {
@@ -310,37 +349,26 @@ export function TournamentsView({
         }
 
         @media (max-width: 640px) {
-          /* ROZCIĄGNIĘCIE NA CAŁĄ SZEROKOŚĆ TELEFONU */
-          .tournaments-table-container {
-            padding: 8px 0 !important;
-            border-radius: 0 !important;
-            border-left: none !important;
-            border-right: none !important;
-            box-shadow: none !important;
-            width: 100vw !important;
-            position: relative !important;
-            left: 50% !important;
-            right: 50% !important;
-            margin-left: -50vw !important;
-            margin-right: -50vw !important;
+          .tournaments-view-wrapper {
+            gap: 8px !important;
+            padding: 0 !important;
+            width: 100% !important;
           }
 
-          .tourn-top-bar-mobile {
-            padding: 0 10px 8px 10px !important;
+          .tournaments-table-container {
+            padding: 8px 6px !important;
+            border-radius: 8px !important;
+            width: 100% !important;
           }
 
           .tournaments-table-box {
-            border-radius: 0 !important;
-            border-left: none !important;
-            border-right: none !important;
-            overflow-x: hidden !important;
+            border-radius: 6px !important;
             width: 100% !important;
           }
 
           .tourn-table-main {
             table-layout: fixed !important;
             width: 100% !important;
-            font-size: 11px !important;
           }
 
           .mobile-hide {
@@ -353,7 +381,7 @@ export function TournamentsView({
 
           .mobile-player-name {
             display: inline !important;
-            font-size: 12px !important;
+            font-size: 11px !important;
             font-weight: 800 !important;
             color: #0f172a !important;
             white-space: nowrap !important;
@@ -363,83 +391,84 @@ export function TournamentsView({
 
           .mobile-show-subline {
             display: block !important;
-            font-size: 9px !important;
+            font-size: 8.5px !important;
             color: #64748b !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            line-height: 1.2 !important;
+            line-height: 1.15 !important;
             margin-top: 1px !important;
           }
 
           /* Tabela główna turniejów - telefon */
           .col-mob-date {
-            width: 74px !important;
-            padding: 8px 2px !important;
-            font-size: 10.5px !important;
+            width: 66px !important;
+            padding: 6px 2px !important;
+            font-size: 9.5px !important;
             text-align: center !important;
             border-right: 1px solid #e2e8f0 !important;
           }
 
           .col-mob-tourn {
             width: auto !important;
-            padding: 8px 6px !important;
+            padding: 6px 4px !important;
             border-right: 1px solid #e2e8f0 !important;
           }
 
           .col-mob-registered {
-            width: 42px !important;
+            width: 32px !important;
             text-align: center !important;
-            padding: 8px 2px !important;
-            font-size: 11px !important;
+            padding: 6px 1px !important;
+            font-size: 10px !important;
             border-right: 1px solid #e2e8f0 !important;
           }
 
           .col-mob-action {
-            width: 58px !important;
+            width: 52px !important;
             text-align: center !important;
-            padding: 8px 2px !important;
+            padding: 6px 2px !important;
           }
 
           /* Tabela listy startowej - telefon */
           .col-start-nr {
-            width: 28px !important;
+            width: 22px !important;
             text-align: center !important;
-            padding: 8px 2px !important;
+            padding: 6px 1px !important;
+            font-size: 9.5px !important;
             border-right: 1px solid #e2e8f0 !important;
           }
 
           .col-start-player {
             width: auto !important;
-            padding: 8px 6px !important;
+            padding: 6px 4px !important;
             border-right: 1px solid #e2e8f0 !important;
           }
 
           .col-start-flag {
-            width: 32px !important;
+            width: 24px !important;
             text-align: center !important;
-            padding: 8px 2px !important;
+            padding: 6px 1px !important;
             border-right: 1px solid #e2e8f0 !important;
           }
 
           .col-start-cat {
-            width: 44px !important;
-            padding: 8px 2px !important;
-            font-size: 10px !important;
+            width: 36px !important;
+            padding: 6px 1px !important;
+            font-size: 9px !important;
             text-align: center !important;
             border-right: 1px solid #e2e8f0 !important;
           }
 
           .col-start-status {
-            width: 78px !important;
+            width: 64px !important;
             text-align: center !important;
-            padding: 8px 2px !important;
+            padding: 6px 1px !important;
           }
 
           .btn-mob-action {
-            padding: 5px 8px !important;
-            font-size: 10px !important;
-            border-radius: 5px !important;
+            padding: 4px 6px !important;
+            font-size: 9.5px !important;
+            border-radius: 4px !important;
           }
         }
       `}</style>
@@ -469,18 +498,18 @@ export function TournamentsView({
       {selectedTournament ? (
         /* WIDOK LISTY STARTOWEJ TURNIEJU */
         <div className="tournaments-table-container">
-          <div className="tourn-top-bar-mobile" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 LISTA STARTOWA TURNIEJU
               </span>
-              <h2 style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a', margin: '2px 0 0 0' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', margin: '2px 0 0 0' }}>
                 {selectedTournament.name}
               </h2>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span><Calendar size={12} style={{ display: 'inline', marginRight: '3px' }} />{selectedTournament.date}</span>
+              <p style={{ fontSize: '10.5px', color: '#64748b', margin: '2px 0 0 0', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span><Calendar size={11} style={{ display: 'inline', marginRight: '3px' }} />{selectedTournament.date}</span>
                 {selectedTournament.courseName && (
-                  <span><MapPin size={12} style={{ display: 'inline', marginRight: '3px' }} />{selectedTournament.courseName}</span>
+                  <span><MapPin size={11} style={{ display: 'inline', marginRight: '3px' }} />{selectedTournament.courseName}</span>
                 )}
               </p>
             </div>
@@ -493,8 +522,8 @@ export function TournamentsView({
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '11px',
+                padding: '6px 10px',
+                fontSize: '10.5px',
                 fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
@@ -502,18 +531,18 @@ export function TournamentsView({
                 gap: '4px',
               }}
             >
-              <ArrowLeft size={13} /> Powrót
+              <ArrowLeft size={12} /> Powrót
             </button>
           </div>
 
           {/* FILTRY ZAWODNIKÓW */}
-          <div className="tourn-top-bar-mobile" style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Kat.</label>
+          <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Kat.</label>
               <select
                 value={playerCategoryFilter}
                 onChange={(e) => setPlayerCategoryFilter(e.target.value as any)}
-                style={{ padding: '4px 6px', fontSize: '11px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#fff' }}
+                style={{ padding: '3px 5px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
               >
                 <option value="all">Wszystkie</option>
                 {CATEGORIES.map((c) => (
@@ -522,24 +551,24 @@ export function TournamentsView({
               </select>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: '100px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flex: 1, minWidth: '90px' }}>
               <input
                 type="text"
                 value={playerNameFilter}
                 onChange={(e) => setPlayerNameFilter(e.target.value)}
-                placeholder="Szukaj gracza..."
-                style={{ padding: '4px 6px', fontSize: '11px', borderRadius: '5px', border: '1px solid #cbd5e1', width: '100%' }}
+                placeholder="Szukaj..."
+                style={{ padding: '3px 5px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%' }}
               />
             </div>
 
-            <div className="mobile-hide" style={{ alignItems: 'center', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Klub</label>
+            <div className="mobile-hide" style={{ alignItems: 'center', gap: '3px' }}>
+              <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Klub</label>
               <input
                 type="text"
                 value={playerClubFilter}
                 onChange={(e) => setPlayerClubFilter(e.target.value)}
                 placeholder="Klub..."
-                style={{ padding: '4px 6px', fontSize: '11px', borderRadius: '5px', border: '1px solid #cbd5e1', width: '100px' }}
+                style={{ padding: '3px 5px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }}
               />
             </div>
 
@@ -550,44 +579,44 @@ export function TournamentsView({
                 setPlayerNameFilter('');
                 setPlayerClubFilter('');
               }}
-              style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: '5px', padding: '4px 8px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
+              style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 6px', fontSize: '10px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
             >
-              <RotateCcw size={11} /> Reset
+              <RotateCcw size={10} /> Reset
             </button>
           </div>
 
-          {/* TABELA ZAWODNIKÓW NA 100% SZEROKOŚCI */}
+          {/* TABELA ZAWODNIKÓW */}
           <div className="tournaments-table-box">
             <table className="tourn-table-main">
               <thead>
                 <tr>
-                  <th className="col-start-nr" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0', textAlign: 'center' }}>NR</th>
-                  <th className="col-start-player" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-                  <th className="col-start-flag" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0', textAlign: 'center' }}>KRAJ</th>
-                  <th className="col-start-cat" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0', textAlign: 'center' }}>KAT</th>
-                  <th className="mobile-hide" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>KLUB</th>
-                  <th className="mobile-hide" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>MIASTO</th>
-                  <th className="col-start-status" style={{ padding: '9px 4px', textAlign: 'center' }}>OPŁATA</th>
+                  <th className="col-start-nr">NR</th>
+                  <th className="col-start-player">ZAWODNIK</th>
+                  <th className="col-start-flag">KRAJ</th>
+                  <th className="col-start-cat">KAT</th>
+                  <th className="mobile-hide" style={{ width: '120px' }}>KLUB</th>
+                  <th className="mobile-hide" style={{ width: '90px' }}>MIASTO</th>
+                  <th className="col-start-status">OPŁATA</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRegisteredPlayers.map((p, index) => {
                   return (
                     <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0', background: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                      <td className="col-start-nr" style={{ padding: '8px 2px', textAlign: 'center', fontWeight: 800, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                      <td className="col-start-nr" style={{ fontWeight: 800, color: '#0f172a' }}>
                         {index + 1}
                       </td>
-                      <td className="col-start-player" style={{ padding: '6px 8px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <td className="col-start-player" style={{ overflow: 'hidden' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                           <button
                             type="button"
                             onClick={() => onOpenPlayer(p.id)}
-                            style={{ background: 'none', border: 'none', padding: 0, color: '#0284c7', fontWeight: 800, fontSize: '12px', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            style={{ background: 'none', border: 'none', padding: 0, color: '#0284c7', fontWeight: 800, cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                           >
                             <span className="desktop-player-name">{p.name}</span>
                             <span className="mobile-player-name">{formatShortPlayerName(p.name)}</span>
                             {p.isAmateur && (
-                              <span style={{ marginLeft: '3px', background: '#7ea128', color: '#fff', fontSize: '8px', fontWeight: 800, padding: '1px 3px', borderRadius: '3px' }}>
+                              <span style={{ marginLeft: '3px', background: '#7ea128', color: '#fff', fontSize: '7.5px', fontWeight: 800, padding: '1px 2px', borderRadius: '2px' }}>
                                 AM
                               </span>
                             )}
@@ -597,44 +626,44 @@ export function TournamentsView({
                           </span>
                         </div>
                       </td>
-                      <td className="col-start-flag" style={{ padding: '8px 2px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                      <td className="col-start-flag">
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <img
                             src={p.flagImage || flagEmoji(p.flag || 'PL')}
                             alt={p.flag || 'PL'}
-                            style={{ width: '18px', height: '12px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }}
+                            style={{ width: '16px', height: '11px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'block' }}
                           />
                         </div>
                       </td>
-                      <td className="col-start-cat" style={{ padding: '8px 4px', fontWeight: 700, color: '#334155', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                      <td className="col-start-cat" style={{ fontWeight: 700, color: '#334155' }}>
                         {p.category}
                       </td>
-                      <td className="mobile-hide" style={{ padding: '8px 8px', color: '#64748b', borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td className="mobile-hide" style={{ padding: '6px 6px', color: '#64748b', borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {p.club || '–'}
                       </td>
-                      <td className="mobile-hide" style={{ padding: '8px 8px', color: '#64748b', borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td className="mobile-hide" style={{ padding: '6px 6px', color: '#64748b', borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {p.city || '–'}
                       </td>
-                      <td className="col-start-status" style={{ padding: '8px 2px', textAlign: 'center' }}>
+                      <td className="col-start-status">
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <span
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: '3px',
-                              fontSize: '9.5px',
+                              gap: '2px',
+                              fontSize: '8.5px',
                               fontWeight: 800,
                               color: '#dc2626',
                               background: '#fee2e2',
                               border: '1px solid #fca5a5',
-                              padding: '3px 5px',
-                              borderRadius: '4px',
+                              padding: '2px 4px',
+                              borderRadius: '3px',
                               whiteSpace: 'nowrap',
                               lineHeight: 1.1,
                             }}
                           >
-                            <Clock size={11} /> Na polu
+                            <Clock size={9} /> Na polu
                           </span>
                         </div>
                       </td>
@@ -645,7 +674,7 @@ export function TournamentsView({
             </table>
 
             {filteredRegisteredPlayers.length === 0 && (
-              <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontWeight: 700, fontSize: '11px' }}>
+              <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontWeight: 700, fontSize: '10.5px' }}>
                 Brak zawodników na liście startowej.
               </div>
             )}
@@ -714,12 +743,12 @@ export function TournamentsView({
 
               <form onSubmit={handleDirectFormSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Turniej *</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Turniej *</label>
                   <select
                     value={formTournamentId}
                     onChange={(e) => setFormTournamentId(e.target.value)}
                     required
-                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   >
                     {activeTournaments.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -730,23 +759,23 @@ export function TournamentsView({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Imię i Nazwisko *</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Imię i Nazwisko *</label>
                   <input
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
                     placeholder="Jan Kowalski"
-                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Płeć *</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Płeć *</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value as any)}
-                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   >
                     <option value="Male">Mężczyzna</option>
                     <option value="Female">Kobieta</option>
@@ -754,7 +783,7 @@ export function TournamentsView({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Rok urodzenia *</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Rok urodzenia *</label>
                   <input
                     type="number"
                     min={1940}
@@ -763,47 +792,47 @@ export function TournamentsView({
                     onChange={(e) => setBirthYear(e.target.value)}
                     placeholder="2000"
                     required
-                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Miejscowość *</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Miejscowość *</label>
                   <input
                     type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Gdańsk"
                     required
-                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Kraj (Kod ISO)</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Kraj (Kod ISO)</label>
                   <input
                     type="text"
                     maxLength={3}
                     value={countryFlag}
                     onChange={(e) => setCountryFlag(e.target.value.toUpperCase())}
                     placeholder="PL"
-                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Klub (opcjonalnie)</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Klub (opcjonalnie)</label>
                   <input
                     type="text"
                     value={clubName}
                     onChange={(e) => setClubName(e.target.value)}
                     placeholder="Nazwa klubu"
-                    style={{ padding: '5px 6px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #cbd5e1' }}
+                    style={{ padding: '5px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10.5px', fontWeight: 800, color: '#475569' }}>Zdjęcie profilowe</label>
+                  <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Zdjęcie profilowe</label>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <input
                       ref={fileInputRef}
@@ -829,14 +858,14 @@ export function TournamentsView({
                   <button
                     type="button"
                     onClick={() => setShowDirectForm(false)}
-                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '5px 10px', fontSize: '10.5px', fontWeight: 800, cursor: 'pointer', color: '#475569' }}
+                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '5px 10px', fontSize: '10.5px', fontWeight: 800, cursor: 'pointer', color: '#475569' }}
                   >
                     Anuluj
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '5px', padding: '5px 14px', fontSize: '10.5px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', padding: '5px 14px', fontSize: '10.5px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
                     <UserPlus size={11} /> {isSubmitting ? 'Zapisywanie...' : 'Zatwierdź'}
                   </button>
@@ -846,23 +875,23 @@ export function TournamentsView({
           )}
 
           <div className="tournaments-table-container">
-            <div className="tourn-top-bar-mobile" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: '170px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: '170px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
-                  <Search size={12} style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  <Search size={11} style={{ position: 'absolute', left: '6px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Szukaj..."
-                    style={{ padding: '5px 6px 5px 22px', fontSize: '11px', borderRadius: '5px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}
+                    style={{ padding: '4px 6px 4px 20px', fontSize: '10.5px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as any)}
-                  style={{ padding: '5px 6px', fontSize: '10.5px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#fff' }}
+                  style={{ padding: '4px 6px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
                 >
                   <option value="active">Otwarte</option>
                   <option value="completed">Zakończone</option>
@@ -870,7 +899,7 @@ export function TournamentsView({
                 </select>
               </div>
 
-              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
                 Turnieje: <b>{filteredTournaments.length}</b>
               </span>
             </div>
@@ -879,12 +908,12 @@ export function TournamentsView({
               <table className="tourn-table-main">
                 <thead>
                   <tr>
-                    <th className="col-mob-date" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0', textAlign: 'center' }}>DATA</th>
-                    <th className="col-mob-tourn" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>TURNIEJ</th>
-                    <th className="mobile-hide" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>POLE</th>
-                    <th className="mobile-hide" style={{ padding: '9px 6px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>STATUS</th>
-                    <th className="col-mob-registered" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0', textAlign: 'center' }}>ZAP.</th>
-                    <th className="col-mob-action" style={{ padding: '9px 4px', textAlign: 'center' }}>AKCJA</th>
+                    <th className="col-mob-date">DATA</th>
+                    <th className="col-mob-tourn">TURNIEJ</th>
+                    <th className="mobile-hide" style={{ width: '130px' }}>POLE</th>
+                    <th className="mobile-hide" style={{ width: '85px', textAlign: 'center' }}>STATUS</th>
+                    <th className="col-mob-registered">ZAP.</th>
+                    <th className="col-mob-action">AKCJA</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -895,15 +924,15 @@ export function TournamentsView({
 
                     return (
                       <tr key={t.id} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                        <td className="col-mob-date" style={{ padding: '8px 2px', color: '#64748b', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                        <td className="col-mob-date" style={{ color: '#64748b', fontWeight: 700 }}>
                           {t.date}
                         </td>
-                        <td className="col-mob-tourn" style={{ padding: '6px 8px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <td className="col-mob-tourn" style={{ overflow: 'hidden' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                             <button
                               type="button"
                               onClick={() => setSelectedTournament(t)}
-                              style={{ background: 'none', border: 'none', padding: 0, color: '#0284c7', fontWeight: 900, fontSize: '12px', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                              style={{ background: 'none', border: 'none', padding: 0, color: '#0284c7', fontWeight: 900, fontSize: '11px', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                             >
                               {t.name}
                               {t.isPolishOpen && (
@@ -917,24 +946,24 @@ export function TournamentsView({
                             </span>
                           </div>
                         </td>
-                        <td className="mobile-hide" style={{ padding: '8px 8px', color: '#475569', borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td className="mobile-hide" style={{ padding: '6px 6px', color: '#475569', borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.courseName || 'Pole Turniejowe PFFG'}
                         </td>
-                        <td className="mobile-hide" style={{ padding: '8px 6px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                        <td className="mobile-hide" style={{ padding: '6px 4px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                           {isCompleted ? (
-                            <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#64748b', background: '#f1f5f9', padding: '2px 5px', borderRadius: '4px' }}>
+                            <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', background: '#f1f5f9', padding: '2px 4px', borderRadius: '3px' }}>
                               Zakończony
                             </span>
                           ) : (
-                            <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#16a34a', background: '#dcfce7', padding: '2px 5px', borderRadius: '4px', border: '1px solid #86efac' }}>
+                            <span style={{ fontSize: '9px', fontWeight: 800, color: '#16a34a', background: '#dcfce7', padding: '2px 4px', borderRadius: '3px', border: '1px solid #86efac' }}>
                               Zapisy otwarte
                             </span>
                           )}
                         </td>
-                        <td className="col-mob-registered" style={{ textAlign: 'center', fontWeight: 900, color: '#0f172a', padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                        <td className="col-mob-registered" style={{ fontWeight: 900, color: '#0f172a' }}>
                           {displayCount}
                         </td>
-                        <td className="col-mob-action" style={{ textAlign: 'center', padding: '8px 2px' }}>
+                        <td className="col-mob-action">
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <button
                               type="button"
@@ -944,18 +973,18 @@ export function TournamentsView({
                               style={{
                                 background: '#f1f5f9',
                                 border: '1px solid #cbd5e1',
-                                borderRadius: '5px',
-                                padding: '5px 10px',
-                                fontSize: '11px',
+                                borderRadius: '4px',
+                                padding: '4px 6px',
+                                fontSize: '10px',
                                 fontWeight: 800,
                                 cursor: 'pointer',
                                 color: '#0f172a',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px',
+                                gap: '3px',
                               }}
                             >
-                              <Eye size={12} /> Lista
+                              <Eye size={11} /> Lista
                             </button>
                           </div>
                         </td>
@@ -966,7 +995,7 @@ export function TournamentsView({
               </table>
 
               {filteredTournaments.length === 0 && (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontWeight: 700, fontSize: '11px' }}>
+                <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontWeight: 700, fontSize: '10.5px' }}>
                   Brak turniejów w wybranym filtrze.
                 </div>
               )}
