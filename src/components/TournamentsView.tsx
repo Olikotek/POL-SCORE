@@ -15,7 +15,6 @@ import {
 import type { Tournament, Store, Player, Category } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { compressImage } from '@/lib/imageCompressor';
 
 export function TournamentsView({
   tournaments,
@@ -58,7 +57,7 @@ export function TournamentsView({
   const [city, setCity] = useState(userProfile?.city || '');
   const [countryFlag, setCountryFlag] = useState(userProfile?.flag || 'PL');
   const [clubName, setClubName] = useState(userProfile?.club || '');
-  const [rawPhotoData, setRawPhotoData] = useState<string>('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,16 +101,6 @@ export function TournamentsView({
     });
   }, [registeredPlayers, playerCategoryFilter, playerNameFilter, playerClubFilter]);
 
-  const handlePhotoUpload = async (file?: File) => {
-    if (!file) return;
-    try {
-      const compressed = await compressImage(file, 400, 400, 0.9);
-      setRawPhotoData(compressed);
-    } catch {
-      alert('Błąd przetwarzania zdjęcia.');
-    }
-  };
-
   const handleDirectFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !formTournamentId) return;
@@ -123,7 +112,7 @@ export function TournamentsView({
       const formattedBirth = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
       const cleanFlag = countryFlag.trim().toUpperCase() || 'PL';
 
-      // 1. Zapisujemy/aktualizujemy gracza w tabeli players (isActive: true natychmiast wrzuca go do tabeli na żywo)
+      // 1. Zapisujemy zawodnika w Supabase, żeby od razu trafił do tabeli na żywo
       let playerId = userProfile?.id;
 
       if (!playerId) {
@@ -151,19 +140,36 @@ export function TournamentsView({
           .eq('id', playerId);
       }
 
-      // 2. Dodajemy zgłoszenie turniejowe wraz ze zdjęciem dla admina
+      // 2. Dodajemy rejestrację do turnieju (bez kolumny ze zdjęciem w bazie)
       const { error: regErr } = await supabase.from('tournament_registrations').insert({
         tournament_id: formTournamentId,
         player_id: playerId,
         status: 'pending',
-        photo_data: rawPhotoData || undefined,
       });
 
       if (regErr && !regErr.message.includes('unique')) {
         throw regErr;
       }
 
-      setFormNotice('Zapisano pomyślnie! Zawodnik został dodany do turnieju.');
+      // 3. Wysyłka zdjęcia w pełnej jakości na Twój e-mail przez Formspree (zastąp ID własnym linkiem)
+      if (selectedFile) {
+        const emailFormData = new FormData();
+        emailFormData.append('name', fullName.trim());
+        emailFormData.append('gender', gender === 'Female' ? 'Kobieta' : 'Mężczyzna');
+        emailFormData.append('birthYear', birthYear || 'Brak');
+        emailFormData.append('city', city || 'Brak');
+        emailFormData.append('club', clubName || 'Brak');
+        emailFormData.append('tournament', activeTournaments.find(t => t.id === formTournamentId)?.name || formTournamentId);
+        emailFormData.append('photo', selectedFile);
+
+        await fetch('https://formspree.io/f/TWOJ_ID_FORMULARZA', {
+          method: 'POST',
+          body: emailFormData,
+          headers: { Accept: 'application/json' },
+        }).catch((err) => console.warn('Błąd wysyłki pliku na e-mail:', err));
+      }
+
+      setFormNotice('Zapisano pomyślnie! Zawodnik jest już widoczny w tabeli.');
       setTimeout(() => {
         setShowDirectForm(false);
         setFormNotice(null);
@@ -406,7 +412,7 @@ export function TournamentsView({
             Formularz Rejestracji na Turniej
           </h2>
           <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 16px 0' }}>
-            Po wysłaniu zgłoszenia zostaniesz automatycznie przypisany do wybranego turnieju.
+            Po wysłaniu zgłoszenia zostaniesz automatycznie dopisany do tabeli turniejowej.
           </p>
 
           <form onSubmit={handleDirectFormSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
@@ -498,13 +504,13 @@ export function TournamentsView({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Zdjęcie profilowe (do weryfikacji)</label>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Zdjęcie profilowe (wysyłane na maila)</label>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handlePhotoUpload(e.target.files?.[0])}
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                   style={{ display: 'none' }}
                 />
                 <button
@@ -514,8 +520,8 @@ export function TournamentsView({
                 >
                   <ImageIcon size={14} /> Wybierz plik
                 </button>
-                <span style={{ fontSize: '11px', color: rawPhotoData ? '#16a34a' : '#94a3b8', fontWeight: 700 }}>
-                  {rawPhotoData ? 'Zdjęcie dołączone' : 'Brak pliku'}
+                <span style={{ fontSize: '11px', color: selectedFile ? '#16a34a' : '#94a3b8', fontWeight: 700 }}>
+                  {selectedFile ? selectedFile.name : 'Brak pliku'}
                 </span>
               </div>
             </div>
