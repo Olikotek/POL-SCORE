@@ -162,7 +162,7 @@ export function TournamentsView({
         emailFormData.append('tournament', activeTournaments.find(t => t.id === formTournamentId)?.name || formTournamentId);
         emailFormData.append('photo', selectedFile);
 
-        await fetch('https://formspree.io/f/TWOJ_ID_FORMULARZA', {
+        await fetch('https://formspree.io/f/xnpqzpdb', {
           method: 'POST',
           body: emailFormData,
           headers: { Accept: 'application/json' },
