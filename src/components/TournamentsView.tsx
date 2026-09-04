@@ -38,9 +38,9 @@ export function TournamentsView({
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [showDirectForm, setShowDirectForm] = useState(false);
 
-  // Filtry listy turniejów
+  // Filtry listy turniejów - domyślnie tylko aktywne z otwartą rejestracją
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('active');
 
   // Filtry listy zawodników
   const [playerCategoryFilter, setPlayerCategoryFilter] = useState<Category | 'all'>('all');
@@ -103,16 +103,16 @@ export function TournamentsView({
 
   const handleDirectFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !formTournamentId) return;
+    if (!fullName.trim() || !formTournamentId || !birthYear.trim() || !city.trim()) return;
 
     setIsSubmitting(true);
     setFormNotice(null);
 
     try {
-      const formattedBirth = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
+      const formattedBirth = `${birthYear.trim()}-01-01`;
       const cleanFlag = countryFlag.trim().toUpperCase() || 'PL';
 
-      // 1. Zapisujemy zawodnika w Supabase – wyłącznie dane tekstowe (zero obciążenia zdjęciami)
+      // 1. Zapisujemy zawodnika w Supabase – wyłącznie dane tekstowe
       let playerId = userProfile?.id;
 
       if (!playerId) {
@@ -122,7 +122,7 @@ export function TournamentsView({
             name: fullName.trim(),
             gender,
             birth_date: formattedBirth,
-            city: city.trim() || undefined,
+            city: city.trim(),
             flag: cleanFlag,
             club: clubName.trim() || undefined,
             category: gender === 'Female' ? 'Women' : 'Men',
@@ -136,11 +136,15 @@ export function TournamentsView({
       } else {
         await supabase
           .from('players')
-          .update({ is_active: true })
+          .update({
+            is_active: true,
+            birth_date: formattedBirth,
+            city: city.trim(),
+          })
           .eq('id', playerId);
       }
 
-      // 2. Dodajemy rejestrację do turnieju – bez kolumny status, która nie istnieje w Twoim schemacie
+      // 2. Dodajemy rejestrację do turnieju (bez kolumny status)
       try {
         const { error: regErr } = await supabase.from('tournament_registrations').insert({
           tournament_id: formTournamentId,
@@ -162,11 +166,14 @@ export function TournamentsView({
         emailFormData.append('from_name', 'PFFG Rejestracja');
         emailFormData.append('Zawodnik', fullName.trim());
         emailFormData.append('Płeć', gender === 'Female' ? 'Kobieta' : 'Mężczyzna');
-        emailFormData.append('Rok urodzenia', birthYear || 'Brak');
-        emailFormData.append('Miasto', city || 'Brak');
+        emailFormData.append('Rok urodzenia', birthYear.trim());
+        emailFormData.append('Miasto', city.trim());
         emailFormData.append('Kraj', cleanFlag);
         emailFormData.append('Klub', clubName || 'Brak');
-        emailFormData.append('Turniej', activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId);
+        emailFormData.append(
+          'Turniej',
+          activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId
+        );
 
         if (selectedFile) {
           emailFormData.append('attachment', selectedFile);
@@ -468,7 +475,7 @@ export function TournamentsView({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Rok urodzenia</label>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Rok urodzenia *</label>
               <input
                 type="number"
                 min={1940}
@@ -476,17 +483,19 @@ export function TournamentsView({
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value)}
                 placeholder="2000"
+                required
                 style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
               />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Miejscowość</label>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Miejscowość *</label>
               <input
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="Gdańsk"
+                required
                 style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
               />
             </div>
@@ -582,9 +591,9 @@ export function TournamentsView({
               onChange={(e) => setStatusFilter(e.target.value as any)}
               style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }}
             >
-              <option value="all">Wszystkie statusy</option>
               <option value="active">Otwarte (rejestracja)</option>
               <option value="completed">Zakończone</option>
+              <option value="all">Wszystkie statusy</option>
             </select>
           </div>
 
