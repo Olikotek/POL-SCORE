@@ -14,6 +14,7 @@ import {
 import type { Tournament, Store, Player, Category } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { compressImage } from '@/lib/imageCompressor';
 
 export function TournamentsView({
   tournaments,
@@ -57,6 +58,7 @@ export function TournamentsView({
   const [countryFlag, setCountryFlag] = useState(userProfile?.flag || 'PL');
   const [clubName, setClubName] = useState(userProfile?.club || '');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [photoBase64, setPhotoBase64] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +66,12 @@ export function TournamentsView({
   const activeTournaments = useMemo(() => {
     return (tournaments || []).filter((t) => t.status !== 'completed');
   }, [tournaments]);
+
+  const activeSystemPlayersCount = useMemo(() => {
+    return (store.players || []).filter(
+      (p) => p.isActive !== false && (p as any).is_active !== false
+    ).length;
+  }, [store.players]);
 
   const filteredTournaments = useMemo(() => {
     return (tournaments || []).filter((t) => {
@@ -106,6 +114,24 @@ export function TournamentsView({
       return matchCat && matchName && matchClub;
     });
   }, [registeredPlayers, playerCategoryFilter, playerNameFilter, playerClubFilter]);
+
+  const handleFileChange = async (file?: File | null) => {
+    if (!file) {
+      setSelectedFile(null);
+      setPhotoBase64('');
+      return;
+    }
+    setSelectedFile(file);
+    try {
+      const compressed = await compressImage(file, 600, 600, 0.85);
+      setPhotoBase64(compressed);
+    } catch {
+      // Fallback jeśli kompresja nie zadziała
+      const reader = new FileReader();
+      reader.onload = () => setPhotoBase64(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleDirectFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,30 +190,33 @@ export function TournamentsView({
         console.warn('Pomijam błąd relacji tournament_registrations:', err);
       }
 
-      // 3. WYSYŁKA ZDJĘCIA I DANYCH ZAWODNIKA BEZPOŚREDNIO NA TWÓJ E-MAIL (WEB3FORMS)
+      // 3. WYSYŁKA DANYCH I ZDJĘCIA NA TWÓJ E-MAIL (WEB3FORMS)
       try {
-        const emailFormData = new FormData();
-        emailFormData.append('access_key', 'a7cb07ef-102a-465d-82b6-2544fc442b8f');
-        emailFormData.append('subject', `Nowe zgłoszenie turniejowe: ${fullName.trim()}`);
-        emailFormData.append('from_name', 'PFFG Rejestracja');
-        emailFormData.append('Zawodnik', fullName.trim());
-        emailFormData.append('Płeć', gender === 'Female' ? 'Kobieta' : 'Mężczyzna');
-        emailFormData.append('Rok urodzenia', birthYear.trim());
-        emailFormData.append('Miasto', city.trim());
-        emailFormData.append('Kraj', cleanFlag);
-        emailFormData.append('Klub', clubName || 'Brak');
-        emailFormData.append(
-          'Turniej',
-          activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId
-        );
+        const tournamentName = activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId;
+        const payload: Record<string, any> = {
+          access_key: 'a7cb07ef-102a-465d-82b6-2544fc442b8f',
+          subject: `Nowe zgłoszenie: ${fullName.trim()} (${tournamentName})`,
+          from_name: 'PFFG Rejestracja',
+          'Imię i Nazwisko': fullName.trim(),
+          Płeć: gender === 'Female' ? 'Kobieta' : 'Mężczyzna',
+          'Rok urodzenia': birthYear.trim(),
+          Miasto: city.trim(),
+          Kraj: cleanFlag,
+          Klub: clubName.trim() || 'Brak',
+          Turniej: tournamentName,
+        };
 
-        if (selectedFile) {
-          emailFormData.append('attachment', selectedFile);
+        if (photoBase64) {
+          payload['Zdjecie_Base64'] = photoBase64;
         }
 
         await fetch('https://api.web3forms.com/submit', {
           method: 'POST',
-          body: emailFormData,
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify(payload),
         });
       } catch (emailErr) {
         console.warn('Błąd wysyłki e-mail:', emailErr);
@@ -307,7 +336,7 @@ export function TournamentsView({
                 <th style={{ padding: '10px 12px' }}>Kategoria</th>
                 <th style={{ padding: '10px 12px' }}>Klub</th>
                 <th style={{ padding: '10px 12px' }}>Miasto</th>
-                <th style={{ padding: '10px 12px', textAlign: 'center', width: '160px' }}>Status opłaty</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', width: '140px' }}>Status opłaty</th>
               </tr>
             </thead>
             <tbody>
@@ -363,7 +392,7 @@ export function TournamentsView({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        <Clock size={12} /> Opłata na polu (80 zł / 40 zł)
+                        <Clock size={12} /> Opłata na polu
                       </span>
                     </td>
                   </tr>
@@ -539,7 +568,7 @@ export function TournamentsView({
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  onChange={(e) => handleFileChange(e.target.files?.[0])}
                   style={{ display: 'none' }}
                 />
                 <button
@@ -626,7 +655,9 @@ export function TournamentsView({
             <tbody>
               {filteredTournaments.map((t, idx) => {
                 const isCompleted = t.status === 'completed';
-                const count = (registrations || []).filter((r) => r.tournament_id === t.id).length;
+                const fromRegs = (registrations || []).filter((r) => r.tournament_id === t.id).length;
+                // Jeśli brak wpisów w registrations, dynamicznie wyświetla aktywnych zawodników w systemie
+                const displayCount = fromRegs > 0 ? fromRegs : activeSystemPlayersCount;
 
                 return (
                   <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
@@ -662,7 +693,7 @@ export function TournamentsView({
                       )}
                     </td>
                     <td style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 900, color: '#0f172a' }}>
-                      {count}
+                      {displayCount}
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
