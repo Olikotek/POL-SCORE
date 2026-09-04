@@ -8,7 +8,7 @@ import {
   Check,
   MapPin,
 } from 'lucide-react';
-import type { Category, Store, Player } from '@/types';
+import type { Category, Store, Player, Tournament } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import {
   combinedRelative,
@@ -49,11 +49,13 @@ function initialsLocal(name: string) {
 
 export function Leaderboard({
   store,
+  activeTournament,
   onEnter,
   onOpenPlayer,
   onRefresh,
 }: {
   store: Store;
+  activeTournament?: Tournament | null;
   onEnter: () => void;
   onOpenPlayer: (playerId: string) => void;
   onRefresh?: () => void;
@@ -95,7 +97,7 @@ export function Leaderboard({
   }, []);
 
   const activePlayers = useMemo(
-    () => store.players.filter((p) => p.isActive !== false),
+    () => store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false),
     [store.players]
   );
 
@@ -188,6 +190,15 @@ export function Leaderboard({
       };
     });
   }, [sorted, ranks, holesR1, holesR2, store.round2Started, positionDeltas]);
+
+  // Pobieranie aktualnej nazwy pola z konfiguracji turnieju z panelu admina
+  const currentCourseName = useMemo(() => {
+    if (activeTournament?.courseName && activeTournament.courseName.trim()) {
+      return activeTournament.courseName.trim();
+    }
+    const r1Course = store.round1CourseId ? store.courses.find((c) => c.id === store.round1CourseId) : null;
+    return r1Course?.name || store.courses[0]?.name || 'Pole Turniejowe PFFG';
+  }, [activeTournament, store.round1CourseId, store.courses]);
 
   return (
     <section className="leaderboard-container">
@@ -340,15 +351,15 @@ export function Leaderboard({
         }
       `}</style>
 
-      {/* TYTUŁ TURNIEJU I POLE */}
+      {/* TYTUŁ TURNIEJU I POLE Z KONFIGURACJI TURNIEJU */}
       <div className="leaderboard-top-info">
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
           {store.tournamentName}
         </h2>
-        {store.courses[0]?.name && (
+        {currentCourseName && (
           <p style={{ margin: '2px 0 0 0', fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <MapPin size={12} color="#0284c7" />
-            <span>{store.courses[0].name}</span>
+            <span>{currentCourseName}</span>
           </p>
         )}
       </div>
