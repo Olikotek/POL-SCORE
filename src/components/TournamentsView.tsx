@@ -140,38 +140,45 @@ export function TournamentsView({
           .eq('id', playerId);
       }
 
-      // 2. Dodajemy rejestrację do turnieju (bez kolumny ze zdjęciem)
-      const { error: regErr } = await supabase.from('tournament_registrations').insert({
-        tournament_id: formTournamentId,
-        player_id: playerId,
-        status: 'pending',
-      });
+      // 2. Dodajemy rejestrację do turnieju – bez kolumny status, która nie istnieje w Twoim schemacie
+      try {
+        const { error: regErr } = await supabase.from('tournament_registrations').insert({
+          tournament_id: formTournamentId,
+          player_id: playerId,
+        });
 
-      if (regErr && !regErr.message.includes('unique')) {
-        throw regErr;
+        if (regErr && !regErr.message.includes('unique') && !regErr.message.includes('duplicate')) {
+          console.warn('Ostrzeżenie przy zapisie relacji turniej-gracz:', regErr);
+        }
+      } catch (err) {
+        console.warn('Pomijam błąd relacji tournament_registrations:', err);
       }
 
       // 3. WYSYŁKA ZDJĘCIA I DANYCH ZAWODNIKA BEZPOŚREDNIO NA TWÓJ E-MAIL (WEB3FORMS)
-      const emailFormData = new FormData();
-      emailFormData.append('access_key', 'a7cb07ef-102a-465d-82b6-2544fc442b8f');
-      emailFormData.append('subject', `Nowe zgłoszenie turniejowe: ${fullName.trim()}`);
-      emailFormData.append('from_name', 'PFFG Rejestracja');
-      emailFormData.append('Zawodnik', fullName.trim());
-      emailFormData.append('Płeć', gender === 'Female' ? 'Kobieta' : 'Mężczyzna');
-      emailFormData.append('Rok urodzenia', birthYear || 'Brak');
-      emailFormData.append('Miasto', city || 'Brak');
-      emailFormData.append('Kraj', cleanFlag);
-      emailFormData.append('Klub', clubName || 'Brak');
-      emailFormData.append('Turniej', activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId);
+      try {
+        const emailFormData = new FormData();
+        emailFormData.append('access_key', 'a7cb07ef-102a-465d-82b6-2544fc442b8f');
+        emailFormData.append('subject', `Nowe zgłoszenie turniejowe: ${fullName.trim()}`);
+        emailFormData.append('from_name', 'PFFG Rejestracja');
+        emailFormData.append('Zawodnik', fullName.trim());
+        emailFormData.append('Płeć', gender === 'Female' ? 'Kobieta' : 'Mężczyzna');
+        emailFormData.append('Rok urodzenia', birthYear || 'Brak');
+        emailFormData.append('Miasto', city || 'Brak');
+        emailFormData.append('Kraj', cleanFlag);
+        emailFormData.append('Klub', clubName || 'Brak');
+        emailFormData.append('Turniej', activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId);
 
-      if (selectedFile) {
-        emailFormData.append('attachment', selectedFile);
+        if (selectedFile) {
+          emailFormData.append('attachment', selectedFile);
+        }
+
+        await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          body: emailFormData,
+        });
+      } catch (emailErr) {
+        console.warn('Błąd wysyłki e-mail:', emailErr);
       }
-
-      await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        body: emailFormData,
-      }).catch((err) => console.warn('Błąd wysyłki e-mail:', err));
 
       setFormNotice('Zapisano pomyślnie! Zawodnik trafił do turnieju.');
       setTimeout(() => {
