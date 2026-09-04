@@ -84,6 +84,7 @@ export function Leaderboard({
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [avatarErrors, setAvatarErrors] = useState<Record<string, boolean>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { holesByRound } = store;
@@ -189,7 +190,7 @@ export function Leaderboard({
       const strokes = s1 + (store.round2Started ? s2 : 0);
       const thru = thruLabel(player);
       const delta = positionDeltas.get(player.id) ?? { type: 'same', diff: 0 };
-      const avatarSrc = getPublicAvatarPath(player.name, player.avatar);
+      const avatarSrc = player.avatar ? getPublicAvatarPath(player.name, player.avatar) : '';
 
       return {
         player,
@@ -544,6 +545,7 @@ export function Leaderboard({
             {preparedRows.map((row, index) => {
               const { player, display, total, r1Rel, r2Rel, s1, s2, strokes, thru, delta, avatarSrc, shortName, initials } = row;
               const isEven = index % 2 === 0;
+              const hasError = avatarErrors[player.id];
 
               return (
                 <tr
@@ -597,25 +599,46 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* ZAWODNIK + POWIĘKSZONE ZDJĘCIE */}
+                  {/* ZAWODNIK + AVATAR LUB INICJAŁY */}
                   <td className="col-player" style={{ padding: '6px 6px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                      <img
-                        src={avatarSrc}
-                        alt={player.name}
-                        style={{
-                          width: '30px',
-                          height: '30px',
-                          borderRadius: '50%',
-                          objectFit: 'cover',
-                          border: '1.5px solid #cbd5e1',
-                          flexShrink: '0',
-                          backgroundColor: '#e2e8f0',
-                        }}
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
+                      {player.avatar && !hasError ? (
+                        <img
+                          src={avatarSrc}
+                          alt={player.name}
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '1.5px solid #cbd5e1',
+                            flexShrink: '0',
+                            backgroundColor: '#e2e8f0',
+                          }}
+                          onError={() => {
+                            setAvatarErrors((prev) => ({ ...prev, [player.id]: true }));
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '50%',
+                            background: '#e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '10px',
+                            fontWeight: 800,
+                            color: '#475569',
+                            flexShrink: 0,
+                            border: '1px solid #cbd5e1',
+                          }}
+                        >
+                          {initials}
+                        </span>
+                      )}
 
                       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap', overflow: 'hidden' }}>
