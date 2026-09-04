@@ -1,7 +1,21 @@
+// src/components/TournamentsView.tsx
 import { useState, useMemo } from 'react';
-import { Search, Calendar, MapPin, Users, Eye, CircleCheck as CheckCircle2, Circle as XCircle, UserPlus, ArrowLeft, RotateCcw } from 'lucide-react';
+import {
+  Calendar,
+  MapPin,
+  Users,
+  CheckCircle2,
+  XCircle,
+  UserPlus,
+  ArrowLeft,
+  RotateCcw,
+  CreditCard,
+  Search,
+  Eye,
+} from 'lucide-react';
 import type { Tournament, Store, Player, Category } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 export function TournamentsView({
   tournaments,
@@ -23,13 +37,34 @@ export function TournamentsView({
   onOpenPlayer: (playerId: string) => void;
 }) {
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [showDirectForm, setShowDirectForm] = useState(false);
 
+  // Filtry listy turniejów
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
 
+  // Filtry listy zawodników
   const [playerCategoryFilter, setPlayerCategoryFilter] = useState<Category | 'all'>('all');
   const [playerNameFilter, setPlayerNameFilter] = useState('');
   const [playerClubFilter, setPlayerClubFilter] = useState('');
+
+  // Pola uproszczonego formularza zapisu
+  const [formTournamentId, setFormTournamentId] = useState<string>(
+    tournaments.find((t) => t.status !== 'completed')?.id || tournaments[0]?.id || ''
+  );
+  const [fullName, setFullName] = useState(userProfile?.name || '');
+  const [gender, setGender] = useState<'Male' | 'Female'>('Male');
+  const [birthYear, setBirthYear] = useState('');
+  const [city, setCity] = useState(userProfile?.city || '');
+  const [countryFlag, setCountryFlag] = useState(userProfile?.flag || 'PL');
+  const [clubName, setClubName] = useState(userProfile?.club || '');
+  const [photoPath, setPhotoPath] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+
+  const activeTournaments = useMemo(() => {
+    return (tournaments || []).filter((t) => t.status !== 'completed');
+  }, [tournaments]);
 
   const filteredTournaments = useMemo(() => {
     return (tournaments || []).filter((t) => {
@@ -66,34 +101,115 @@ export function TournamentsView({
     });
   }, [registeredPlayers, playerCategoryFilter, playerNameFilter, playerClubFilter]);
 
-  const getYearOfBirth = (birthDateString?: string) => {
-    if (!birthDateString) return '–';
-    const year = new Date(birthDateString).getFullYear();
-    return isNaN(year) ? '–' : year;
+  const handleDirectFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim() || !formTournamentId) return;
+
+    setIsSubmitting(true);
+    setFormNotice(null);
+
+    try {
+      const formattedBirth = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
+      const cleanFlag = countryFlag.trim().toUpperCase() || 'PL';
+      const cleanAvatar = photoPath.trim() ? (photoPath.startsWith('/') ? photoPath : `/${photoPath}`) : undefined;
+
+      let playerId = userProfile?.id;
+
+      if (!playerId) {
+        const { data: newPlayer, error: playerErr } = await supabase
+          .from('players')
+          .insert({
+            name: fullName.trim(),
+            gender,
+            birth_date: formattedBirth,
+            city: city.trim() || undefined,
+            flag: cleanFlag,
+            club: clubName.trim() || undefined,
+            avatar: cleanAvatar,
+            category: gender === 'Female' ? 'Women' : 'Men',
+            is_active: true,
+          })
+          .select('id')
+          .single();
+
+        if (playerErr) throw playerErr;
+        playerId = newPlayer.id;
+      }
+
+      const { error: regErr } = await supabase.from('tournament_registrations').insert({
+        tournament_id: formTournamentId,
+        player_id: playerId,
+        status: 'pending',
+      });
+
+      if (regErr && !regErr.message.includes('unique')) {
+        throw regErr;
+      }
+
+      setFormNotice('Zgłoszenie zostało pomyślnie zarejestrowane!');
+      setTimeout(() => {
+        setShowDirectForm(false);
+        setFormNotice(null);
+      }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      alert('Błąd podczas zapisu: ' + (err?.message || 'Spróbuj ponownie później.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // WIDOK 2: LISTA ZAPISANYCH NA TURNIEJ
+  // WIDOK: LISTA ZAPISANYCH NA KONKRETNY TURNIEJ
   if (selectedTournament) {
     return (
-      <section className="leaderboard-section-wrap" style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0' }}>
-        <div style={{ borderBottom: '2px solid #ef4444', paddingBottom: '8px', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#ef4444', margin: 0 }}>
-            Lista zawodników zapisanych na turniej
-          </h2>
-          <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: 700 }}>
-            {selectedTournament.name} · {selectedTournament.date} {selectedTournament.courseName ? `· ${selectedTournament.courseName}` : ''}
-          </p>
+      <section style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              LISTA STARTOWA TURNIEJU
+            </span>
+            <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: '2px 0 0 0' }}>
+              {selectedTournament.name}
+            </h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span><Calendar size={13} style={{ display: 'inline', marginRight: '4px' }} />{selectedTournament.date}</span>
+              {selectedTournament.courseName && (
+                <span><MapPin size={13} style={{ display: 'inline', marginRight: '4px' }} />{selectedTournament.courseName}</span>
+              )}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSelectedTournament(null)}
+            style={{
+              background: '#0f172a',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <ArrowLeft size={15} /> Wróć do listy turniejów
+          </button>
         </div>
 
+        {/* FILTRY ZAWODNIKÓW */}
         <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>Kategoria</label>
             <select
               value={playerCategoryFilter}
               onChange={(e) => setPlayerCategoryFilter(e.target.value as any)}
-              style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+              style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }}
             >
-              <option value="all">-- wszystkie --</option>
+              <option value="all">Wszystkie</option>
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -101,13 +217,13 @@ export function TournamentsView({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>Imię i nazwisko</label>
+            <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>Zawodnik</label>
             <input
               type="text"
               value={playerNameFilter}
               onChange={(e) => setPlayerNameFilter(e.target.value)}
-              placeholder="Szukaj gracza..."
-              style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '160px' }}
+              placeholder="Imię lub nazwisko..."
+              style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '160px' }}
             />
           </div>
 
@@ -118,7 +234,7 @@ export function TournamentsView({
               value={playerClubFilter}
               onChange={(e) => setPlayerClubFilter(e.target.value)}
               placeholder="Nazwa klubu..."
-              style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '140px' }}
+              style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '140px' }}
             />
           </div>
 
@@ -129,89 +245,78 @@ export function TournamentsView({
               setPlayerNameFilter('');
               setPlayerClubFilter('');
             }}
-            style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: '4px', padding: '5px 10px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+            style={{ background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
           >
             <RotateCcw size={12} /> Resetuj
           </button>
         </div>
 
-        <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+        {/* TABELA ZAWODNIKÓW */}
+        <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', fontWeight: 800 }}>
-                <th style={{ padding: '10px 12px' }}>Zapisany</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center' }}>Nr</th>
-                <th style={{ padding: '10px 12px' }}>Imię i nazwisko</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center' }}>Płeć</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center' }}>Rok urodzenia</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center' }}>Kraj</th>
-                <th style={{ padding: '10px 12px' }}>Miasto</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 8px', width: '45px', textAlign: 'center' }}>Nr</th>
+                <th style={{ padding: '10px 14px' }}>Zawodnik</th>
+                <th style={{ padding: '10px 8px', textAlign: 'center', width: '50px' }}>Kraj</th>
+                <th style={{ padding: '10px 12px' }}>Kategoria</th>
                 <th style={{ padding: '10px 12px' }}>Klub</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center' }}>Opłacone / Potwierdzone</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center' }}>Akcja</th>
+                <th style={{ padding: '10px 12px' }}>Miasto</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', width: '110px' }}>Status opłaty</th>
               </tr>
             </thead>
             <tbody>
               {filteredRegisteredPlayers.map((p, index) => {
-                const year = getYearOfBirth(p.birthDate);
-                const gender = p.gender === 'Female' ? 'K' : 'M';
+                const regItem = (registrations || []).find(
+                  (r) => r.tournament_id === selectedTournament.id && r.player_id === p.id
+                );
+                const isPaid = regItem?.status === 'confirmed' || regItem?.status === 'paid';
 
                 return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '10px 12px', color: '#64748b', fontSize: '12px' }}>
-                      {selectedTournament.date}
-                    </td>
+                  <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
                     <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 800, color: '#64748b' }}>
                       {index + 1}
                     </td>
-                    <td style={{ padding: '10px 12px' }}>
+                    <td style={{ padding: '10px 14px' }}>
                       <button
                         type="button"
                         onClick={() => onOpenPlayer(p.id)}
-                        style={{ background: 'none', border: 'none', padding: 0, color: '#ef4444', fontWeight: 800, fontSize: '13px', cursor: 'pointer', textAlign: 'left' }}
+                        style={{ background: 'none', border: 'none', padding: 0, color: '#0284c7', fontWeight: 800, fontSize: '13px', cursor: 'pointer', textAlign: 'left' }}
                       >
                         {p.name}
                       </button>
                       {p.isAmateur && (
-                        <span style={{ marginLeft: '6px', background: '#10b981', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '1px 4px', borderRadius: '3px' }}>
+                        <span style={{ marginLeft: '6px', background: '#7ea128', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '1px 4px', borderRadius: '3px' }}>
                           AM
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700 }}>
-                      {gender}
-                    </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center', color: '#475569' }}>
-                      {year}
-                    </td>
                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                      {p.flagImage ? (
-                        <img src={p.flagImage} alt={p.flag} style={{ width: '16px', height: '11px', display: 'inline-block' }} />
-                      ) : (
-                        <span>{flagEmoji(p.flag)}</span>
-                      )}
+                      <img
+                        src={p.flagImage || flagEmoji(p.flag || 'PL')}
+                        alt={p.flag || 'PL'}
+                        style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'inline-block' }}
+                      />
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#475569' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 700, color: '#334155' }}>
+                      {p.category}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                      {p.club || '–'}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#64748b' }}>
                       {p.city || '–'}
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#475569' }}>
-                      {p.club ?? '–'}
-                    </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <span title="Status opłaty"><XCircle size={15} color="#dc2626" /></span>
-                        <span title="Potwierdzony"><CheckCircle2 size={15} color="#16a34a" /></span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => onOpenPlayer(p.id)}
-                        title="Zobacz profil"
-                        style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '50%', width: '26px', height: '26px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}
-                      >
-                        <Eye size={13} />
-                      </button>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      {isPaid ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: '#15803d', background: '#dcfce7', padding: '3px 8px', borderRadius: '4px', border: '1px solid #86efac' }}>
+                          <CheckCircle2 size={13} /> Opłacone
+                        </span>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: '#b45309', background: '#fef3c7', padding: '3px 8px', borderRadius: '4px', border: '1px solid #fde68a' }}>
+                          <Clock size={13} /> Oczekuje
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -220,214 +325,325 @@ export function TournamentsView({
           </table>
 
           {filteredRegisteredPlayers.length === 0 && (
-            <div className="empty-state" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+            <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>
               Brak zawodników na liście startowej.
             </div>
           )}
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '10px' }}>
-          <button
-            type="button"
-            onClick={() => setSelectedTournament(null)}
-            style={{
-              background: '#ef4444',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '10px 24px',
-              fontSize: '14px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <ArrowLeft size={16} /> Powrót
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-            <span>Łączna liczba zarejestrowanych: {filteredRegisteredPlayers.length}</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-              🇵🇱 {filteredRegisteredPlayers.length}
-            </span>
-          </div>
         </div>
       </section>
     );
   }
 
-  // WIDOK 1: LISTA TURNIEJÓW
+  // WIDOK: LISTA TURNIEJÓW ORAZ ZAPISY
   return (
-    <section className="leaderboard-section-wrap" style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #ef4444', paddingBottom: '10px', marginBottom: '14px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '-0.02em' }}>
-          Lista Turniejów
-        </h1>
-        <div style={{ display: 'flex', background: '#ef4444', color: '#fff', padding: '4px 12px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', alignItems: 'center', gap: '6px' }}>
-          <span>WIDOK LISTY</span>
-        </div>
-      </div>
-
-      <div style={{ background: '#ef4444', color: '#ffffff', padding: '10px 14px', borderRadius: '6px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '14px', fontSize: '12px', fontWeight: 700 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>Szukaj:</span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Nazwa turnieju..."
-            style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', color: '#0f172a', fontSize: '12px', width: '180px' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>Status:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', color: '#0f172a', fontSize: '12px' }}
-          >
-            <option value="all">-- wszystkie --</option>
-            <option value="active">Otwarty / Rejestracja</option>
-            <option value="completed">Zakończone</option>
-          </select>
+    <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* BANER INFORMACYJNY Z PRZYCISKIEM ZAPISU */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
+          borderRadius: '12px',
+          padding: '20px 24px',
+          color: '#ffffff',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          boxShadow: '0 4px 12px rgba(11, 19, 41, 0.15)',
+        }}
+      >
+        <div>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            SEZON PFFG 2026
+          </span>
+          <h1 style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: 900 }}>
+            Oficjalny Kalendarz & Zapisy
+          </h1>
+          <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#94a3b8', maxWidth: '580px', lineHeight: 1.4 }}>
+            Wybierz turniej, zgłoś swój udział lub sprawdź listę potwierdzonych graczy. 
+            Opłata wpisowa: <strong>80 zł</strong> (dorośli) / <strong>40 zł</strong> (studenci i juniorzy) uiszczana w recepcji domu klubowego w dniu turnieju.
+          </p>
         </div>
 
         <button
           type="button"
-          onClick={() => {
-            setSearchQuery('');
-            setStatusFilter('all');
+          onClick={() => setShowDirectForm((prev) => !prev)}
+          style={{
+            background: '#0284c7',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '10px 20px',
+            fontSize: '13px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)',
           }}
-          style={{ background: '#b91c1c', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', marginLeft: 'auto' }}
         >
-          Resetuj filtr
+          <UserPlus size={16} />
+          {showDirectForm ? 'Schowaj formularz' : 'Zapisz się na turniej'}
         </button>
       </div>
 
-      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', fontWeight: 800 }}>
-              <th style={{ padding: '10px 12px' }}>Start</th>
-              <th style={{ padding: '10px 14px' }}>Turniej</th>
-              <th style={{ padding: '10px 12px' }}>Organizator</th>
-              <th style={{ padding: '10px 10px' }}>Status</th>
-              <th style={{ padding: '10px 12px' }}>Pole</th>
-              <th style={{ padding: '10px 8px', textAlign: 'center' }}>Kraj</th>
-              <th style={{ padding: '10px 10px', textAlign: 'center' }}>Statystyki</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Akcja</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTournaments.map((t) => {
-              const isCompleted = t.status === 'completed';
-              const tRegCount = (registrations || []).filter((r) => r.tournament_id === t.id).length;
-              const count = tRegCount;
+      {/* ROZWIJANY FORMULARZ ZAPISU BEZPOŚREDNIEGO */}
+      {showDirectForm && (
+        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', margin: '0 0 4px 0' }}>
+            Formularz Zgłoszeniowy Zawodnika
+          </h2>
+          <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 16px 0' }}>
+            Wpisowe płatne na miejscu w recepcji: 80 zł (dorośli), 40 zł (studenci / niepełnoletni).
+          </p>
 
-              return (
-                <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '10px 12px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
-                    {t.date} 09:00
-                  </td>
+          <form onSubmit={handleDirectFormSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Wybierz turniej *</label>
+              <select
+                value={formTournamentId}
+                onChange={(e) => setFormTournamentId(e.target.value)}
+                required
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              >
+                {activeTournaments.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.date})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                  <td style={{ padding: '10px 14px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTournament(t)}
-                      style={{ background: 'none', border: 'none', padding: 0, color: '#ef4444', fontWeight: 800, fontSize: '13px', cursor: 'pointer', textAlign: 'left' }}
-                    >
-                      {t.name}
-                    </button>
-                    {t.isPolishOpen && (
-                      <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: 800, color: '#dc2626', background: '#fee2e2', padding: '1px 5px', borderRadius: '3px' }}>
-                        POLISH OPEN
-                      </span>
-                    )}
-                  </td>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Imię i Nazwisko *</label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                placeholder="np. Jan Kowalski"
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
 
-                  <td style={{ padding: '10px 12px', color: '#475569', fontSize: '12px', fontWeight: 600 }}>
-                    Polska Federacja Footgolfa
-                  </td>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Płeć *</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value as any)}
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              >
+                <option value="Male">Mężczyzna</option>
+                <option value="Female">Kobieta</option>
+              </select>
+            </div>
 
-                  <td style={{ padding: '10px 10px' }}>
-                    {isCompleted ? (
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
-                        Zakończone, wyniki
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>
-                        Rejestracja / Gra
-                      </span>
-                    )}
-                  </td>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Rok urodzenia</label>
+              <input
+                type="number"
+                min={1940}
+                max={2030}
+                value={birthYear}
+                onChange={(e) => setBirthYear(e.target.value)}
+                placeholder="np. 2004"
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
 
-                  <td style={{ padding: '10px 12px', color: '#475569', fontSize: '12px' }}>
-                    {t.courseName ?? 'Pole Turniejowe PFFG'}
-                  </td>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Miejscowość</label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="np. Gdańsk"
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
 
-                  <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                    🇵🇱
-                  </td>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Kraj (Kod ISO)</label>
+              <input
+                type="text"
+                maxLength={3}
+                value={countryFlag}
+                onChange={(e) => setCountryFlag(e.target.value.toUpperCase())}
+                placeholder="PL"
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
 
-                  <td style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, fontSize: '12px', color: '#475569' }}>
-                    {isCompleted ? '72 / 72 / 72' : `72 / ${count} / ${count}`}
-                  </td>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Klub footgolfa</label>
+              <input
+                type="text"
+                value={clubName}
+                onChange={(e) => setClubName(e.target.value)}
+                placeholder="np. Gdański Klub Footgolfa"
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
 
-                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Ścieżka zdjęcia w /public (opcjonalnie)</label>
+              <input
+                type="text"
+                value={photoPath}
+                onChange={(e) => setPhotoPath(e.target.value)}
+                placeholder="np. players/jan-kowalski.jpg"
+                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
+
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+              <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 800 }}>
+                {formNotice}
+              </span>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDirectForm(false)}
+                  style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 16px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', color: '#475569' }}
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <UserPlus size={14} /> {isSubmitting ? 'Zapisywanie...' : 'Zatwierdź zgłoszenie'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* LISTA TURNIEJÓW W BAZIE */}
+      <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Szukaj po nazwie lub polu..."
+                style={{ padding: '6px 10px 6px 30px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '220px' }}
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }}
+            >
+              <option value="all">Wszystkie statusy</option>
+              <option value="active">Otwarte (rejestracja)</option>
+              <option value="completed">Zakończone</option>
+            </select>
+          </div>
+
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
+            Turniejów w terminarzu: <b>{filteredTournaments.length}</b>
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px', width: '100px' }}>Data</th>
+                <th style={{ padding: '10px 14px' }}>Turniej</th>
+                <th style={{ padding: '10px 12px' }}>Pole</th>
+                <th style={{ padding: '10px 10px', textAlign: 'center', width: '110px' }}>Status</th>
+                <th style={{ padding: '10px 10px', textAlign: 'center', width: '80px' }}>Zapisanych</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', width: '140px' }}>Akcja</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTournaments.map((t, idx) => {
+                const isCompleted = t.status === 'completed';
+                const count = (registrations || []).filter((r) => r.tournament_id === t.id).length;
+
+                return (
+                  <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                    <td style={{ padding: '10px 12px', color: '#64748b', fontWeight: 700, fontSize: '12px' }}>
+                      {t.date}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
                       <button
                         type="button"
                         onClick={() => setSelectedTournament(t)}
-                        title="Zobacz listę zapisanych zawodników"
-                        style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '50%', width: '28px', height: '28px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}
+                        style={{ background: 'none', border: 'none', padding: 0, color: '#0284c7', fontWeight: 900, fontSize: '13px', cursor: 'pointer', textAlign: 'left' }}
                       >
-                        <Eye size={14} />
+                        {t.name}
                       </button>
-
-                      {!isCompleted && (
+                      {t.isPolishOpen && (
+                        <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 800, color: '#dc2626', background: '#fee2e2', padding: '1px 5px', borderRadius: '3px' }}>
+                          MP
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#475569' }}>
+                      {t.courseName || 'Pole Turniejowe PFFG'}
+                    </td>
+                    <td style={{ padding: '10px 10px', textAlign: 'center' }}>
+                      {isCompleted ? (
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                          Zakończony
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', border: '1px solid #86efac' }}>
+                          Zapisy otwarte
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 900, color: '#0f172a' }}>
+                      {count}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (!currentUser) {
-                              onRequireAuth();
-                            } else {
-                              onRegisterClick(t);
-                            }
-                          }}
-                          title="Zapisz się na ten turniej"
-                          style={{
-                            background: '#10b981',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '4px 10px',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
+                          onClick={() => setSelectedTournament(t)}
+                          title="Zobacz listę zapisanych zawodników"
+                          style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
-                          <UserPlus size={12} /> Zapisz się
+                          <Eye size={13} /> Lista
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                        {!isCompleted && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!currentUser) onRequireAuth();
+                              else onRegisterClick(t);
+                            }}
+                            title="Zapisz się"
+                            style={{ background: '#0284c7', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <UserPlus size={13} /> Zapisz
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
-        {filteredTournaments.length === 0 && (
-          <div className="empty-state" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
-            Brak turniejów w bazie.
-          </div>
-        )}
+          {filteredTournaments.length === 0 && (
+            <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>
+              Brak turniejów w wybranym filtrze.
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

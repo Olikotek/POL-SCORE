@@ -28,6 +28,8 @@ import {
   GripVertical,
   Dices,
   Clock,
+  ClipboardList,
+  CheckCircle2,
 } from 'lucide-react';
 import type { Category, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
@@ -124,7 +126,7 @@ export function Admin({
   onSelectTournament: (id: string) => void;
   onLock: () => void;
 }) {
-  const [tab, setTab] = useState<'turnieje' | 'ustawienia' | 'pole' | 'zawodnicy' | 'flighty' | 'rundy' | 'wyniki'>('turnieje');
+  const [tab, setTab] = useState<'turnieje' | 'zapisy' | 'ustawienia' | 'pole' | 'zawodnicy' | 'flighty' | 'rundy' | 'wyniki'>('turnieje');
   const [notice, setNotice] = useState('');
   const noticeTimer = useRef<number | null>(null);
 
@@ -158,6 +160,7 @@ export function Admin({
 
   const tabs: [typeof tab, string, React.ReactNode][] = [
     ['turnieje', 'Turnieje', <Trophy size={15} key="t" />],
+    ['zapisy', 'Zapisy', <ClipboardList size={15} key="reg" />],
     ['ustawienia', 'Ustawienia', <ShieldCheck size={15} key="f" />],
     ['pole', 'Pole', <BarChart3 size={15} key="a" />],
     ['zawodnicy', 'Zawodnicy', <Users size={15} key="b" />],
@@ -175,7 +178,7 @@ export function Admin({
           </p>
           <h1>Panel administratora</h1>
           <p className="intro-copy">
-            Zarządzaj turniejami, polem, bazą uczestników, flightami i wynikami.
+            Zarządzaj turniejami, zgłoszeniami uczestników, polem, bazą graczy, flightami i wynikami.
           </p>
         </div>
         <button className="secondary-button" onClick={onLock}>
@@ -208,6 +211,13 @@ export function Admin({
           }}
           onUpdateTournaments={setLocalTournaments}
           onUpdateStore={setLocalStore}
+          flash={flash}
+        />
+      )}
+      {tab === 'zapisy' && (
+        <RegistrationManager
+          tournaments={localTournaments}
+          store={localStore}
           flash={flash}
         />
       )}
@@ -254,6 +264,176 @@ export function Admin({
         />
       )}
     </section>
+  );
+}
+
+// NOWY MODUŁ: ZARZĄDZANIE ZAPISAMI
+function RegistrationManager({
+  tournaments,
+  store,
+  flash,
+}: {
+  tournaments: Tournament[];
+  store: Store;
+  flash: FlashFn;
+}) {
+  const [selectedTournId, setSelectedTournId] = useState<string>(tournaments[0]?.id || '');
+  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchRegistrations = async () => {
+    if (!selectedTournId) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('tournament_registrations')
+        .select('*')
+        .eq('tournament_id', selectedTournId);
+      if (error) throw error;
+      setRegistrations(data || []);
+    } catch (err) {
+      console.error(err);
+      flash('Błąd pobierania zapisów.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRegistrations();
+  }, [selectedTournId]);
+
+  const togglePaymentStatus = async (regId: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'confirmed' || currentStatus === 'paid' ? 'pending' : 'confirmed';
+    try {
+      await supabase
+        .from('tournament_registrations')
+        .update({ status: nextStatus })
+        .eq('id', regId);
+      setRegistrations((prev) =>
+        prev.map((r) => (r.id === regId ? { ...r, status: nextStatus } : r))
+      );
+      flash(nextStatus === 'confirmed' ? 'Oznaczono jako opłacone.' : 'Cofnięto status opłaty.');
+    } catch {
+      flash('Błąd zapisu statusu.');
+    }
+  };
+
+  const deleteRegistration = async (regId: string) => {
+    if (!window.confirm('Czy na pewno chcesz usunąć to zgłoszenie?')) return;
+    try {
+      await supabase.from('tournament_registrations').delete().eq('id', regId);
+      setRegistrations((prev) => prev.filter((r) => r.id !== regId));
+      flash('Zgłoszenie usunięte.');
+    } catch {
+      flash('Błąd usuwania zgłoszenia.');
+    }
+  };
+
+  return (
+    <div className="admin-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">
+            <span /> REJESTR ZGŁOSZEŃ · RECEPCJA
+          </p>
+          <h2>Zarządzanie Zapisami ({registrations.length})</h2>
+          <p>Potwierdzaj opłacone wpisowe (80 zł / 40 zł) lub usuwaj zgłoszenia.</p>
+        </div>
+        <ClipboardList size={22} className="muted-icon" />
+      </div>
+
+      <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>Wybierz turniej:</label>
+        <select
+          value={selectedTournId}
+          onChange={(e) => setSelectedTournId(e.target.value)}
+          style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700 }}
+        >
+          {tournaments.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.date})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Wczytywanie zapisów...</div>
+      ) : (
+        <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px' }}>Zawodnik</th>
+                <th style={{ padding: '10px 12px' }}>Kategoria</th>
+                <th style={{ padding: '10px 12px' }}>Klub</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center' }}>Wpisowe</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center' }}>Akcje</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registrations.map((r) => {
+                const player = store.players.find((p) => p.id === r.player_id);
+                const isPaid = r.status === 'confirmed' || r.status === 'paid';
+
+                return (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 800, color: '#0f172a' }}>
+                      {player?.name || 'Gracz z bazy'}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#475569' }}>
+                      {player?.category || '–'}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                      {player?.club || '–'}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => togglePaymentStatus(r.id, r.status)}
+                        style={{
+                          background: isPaid ? '#dcfce7' : '#fef3c7',
+                          color: isPaid ? '#15803d' : '#b45309',
+                          border: `1px solid ${isPaid ? '#86efac' : '#fde68a'}`,
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        {isPaid ? <CheckCircle2 size={13} /> : <Clock size={13} />}
+                        {isPaid ? 'Opłacone (OK)' : 'Oczekuje'}
+                      </button>
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => deleteRegistration(r.id)}
+                        style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}
+                        title="Usuń zgłoszenie"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {registrations.length === 0 && (
+            <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+              Brak zgłoszeń na ten turniej.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
