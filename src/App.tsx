@@ -44,8 +44,7 @@ function App() {
   };
 
   const handleRequireAuth = () => {
-    alert('Aby zapisać się na turniej, musisz posiadać profil zawodnika i być zalogowanym.');
-    setAuthModalConfig({ open: true, mode: 'login' });
+    setView('tournaments');
   };
 
   const formatShortName = (fullName: string | undefined, fallbackEmail: string | undefined) => {
@@ -199,8 +198,8 @@ function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <button
                   type="button"
-                  onClick={() => setAuthModalConfig({ open: true, mode: 'edit_profile' })}
-                  title="Kliknij, aby edytować swój profil zawodnika"
+                  onClick={() => setView('tournaments')}
+                  title="Kliknij, aby przejść do zapisów na turniej"
                   style={{
                     background: '#172554',
                     border: '1px solid #1e40af',
@@ -248,7 +247,7 @@ function App() {
               </div>
             ) : (
               <button
-                onClick={() => setAuthModalConfig({ open: true, mode: 'login' })}
+                onClick={() => setView('tournaments')}
                 style={{
                   background: '#1b88cc',
                   color: '#ffffff',
@@ -263,7 +262,7 @@ function App() {
                   gap: '4px',
                 }}
               >
-                <LogIn size={12} /> ZALOGUJ
+                <LogIn size={12} /> ZALOGUJ / ZAPISZ SIĘ
               </button>
             )}
 
@@ -329,6 +328,7 @@ function App() {
         {view === 'wyniki' && (
           <Leaderboard
             store={store}
+            activeTournament={activeTournament}
             onEnter={() => setView('karta')}
             onOpenPlayer={setModalPlayerId}
             onRefresh={refresh}
