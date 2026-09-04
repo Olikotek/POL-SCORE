@@ -1,21 +1,21 @@
 // src/components/TournamentsView.tsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Calendar,
   MapPin,
-  Users,
   CheckCircle2,
-  XCircle,
+  Clock,
   UserPlus,
   ArrowLeft,
   RotateCcw,
-  CreditCard,
   Search,
   Eye,
+  ImageIcon,
 } from 'lucide-react';
 import type { Tournament, Store, Player, Category } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { compressImage } from '@/lib/imageCompressor';
 
 export function TournamentsView({
   tournaments,
@@ -48,7 +48,7 @@ export function TournamentsView({
   const [playerNameFilter, setPlayerNameFilter] = useState('');
   const [playerClubFilter, setPlayerClubFilter] = useState('');
 
-  // Pola uproszczonego formularza zapisu
+  // Pola formularza zapisu
   const [formTournamentId, setFormTournamentId] = useState<string>(
     tournaments.find((t) => t.status !== 'completed')?.id || tournaments[0]?.id || ''
   );
@@ -58,9 +58,10 @@ export function TournamentsView({
   const [city, setCity] = useState(userProfile?.city || '');
   const [countryFlag, setCountryFlag] = useState(userProfile?.flag || 'PL');
   const [clubName, setClubName] = useState(userProfile?.club || '');
-  const [photoPath, setPhotoPath] = useState('');
+  const [rawPhotoData, setRawPhotoData] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formNotice, setFormNotice] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeTournaments = useMemo(() => {
     return (tournaments || []).filter((t) => t.status !== 'completed');
@@ -101,6 +102,16 @@ export function TournamentsView({
     });
   }, [registeredPlayers, playerCategoryFilter, playerNameFilter, playerClubFilter]);
 
+  const handlePhotoUpload = async (file?: File) => {
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, 400, 400, 0.9);
+      setRawPhotoData(compressed);
+    } catch {
+      alert('Błąd przetwarzania zdjęcia.');
+    }
+  };
+
   const handleDirectFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !formTournamentId) return;
@@ -111,8 +122,8 @@ export function TournamentsView({
     try {
       const formattedBirth = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
       const cleanFlag = countryFlag.trim().toUpperCase() || 'PL';
-      const cleanAvatar = photoPath.trim() ? (photoPath.startsWith('/') ? photoPath : `/${photoPath}`) : undefined;
 
+      // 1. Zapisujemy/aktualizujemy gracza w tabeli players (isActive: true natychmiast wrzuca go do tabeli na żywo)
       let playerId = userProfile?.id;
 
       if (!playerId) {
@@ -125,7 +136,6 @@ export function TournamentsView({
             city: city.trim() || undefined,
             flag: cleanFlag,
             club: clubName.trim() || undefined,
-            avatar: cleanAvatar,
             category: gender === 'Female' ? 'Women' : 'Men',
             is_active: true,
           })
@@ -134,32 +144,39 @@ export function TournamentsView({
 
         if (playerErr) throw playerErr;
         playerId = newPlayer.id;
+      } else {
+        await supabase
+          .from('players')
+          .update({ is_active: true })
+          .eq('id', playerId);
       }
 
+      // 2. Dodajemy zgłoszenie turniejowe wraz ze zdjęciem dla admina
       const { error: regErr } = await supabase.from('tournament_registrations').insert({
         tournament_id: formTournamentId,
         player_id: playerId,
         status: 'pending',
+        photo_data: rawPhotoData || undefined,
       });
 
       if (regErr && !regErr.message.includes('unique')) {
         throw regErr;
       }
 
-      setFormNotice('Zgłoszenie zostało pomyślnie zarejestrowane!');
+      setFormNotice('Zapisano pomyślnie! Zawodnik został dodany do turnieju.');
       setTimeout(() => {
         setShowDirectForm(false);
         setFormNotice(null);
-      }, 1500);
+        window.location.reload();
+      }, 1200);
     } catch (err: any) {
       console.error(err);
-      alert('Błąd podczas zapisu: ' + (err?.message || 'Spróbuj ponownie później.'));
+      alert('Błąd zapisu: ' + (err?.message || 'Spróbuj ponownie.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // WIDOK: LISTA ZAPISANYCH NA KONKRETNY TURNIEJ
   if (selectedTournament) {
     return (
       <section style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)' }}>
@@ -200,7 +217,6 @@ export function TournamentsView({
           </button>
         </div>
 
-        {/* FILTRY ZAWODNIKÓW */}
         <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>Kategoria</label>
@@ -251,7 +267,6 @@ export function TournamentsView({
           </button>
         </div>
 
-        {/* TABELA ZAWODNIKÓW */}
         <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
             <thead>
@@ -334,10 +349,8 @@ export function TournamentsView({
     );
   }
 
-  // WIDOK: LISTA TURNIEJÓW ORAZ ZAPISY
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* BANER INFORMACYJNY Z PRZYCISKIEM ZAPISU */}
       <div
         style={{
           background: 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)',
@@ -360,8 +373,7 @@ export function TournamentsView({
             Oficjalny Kalendarz & Zapisy
           </h1>
           <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#94a3b8', maxWidth: '580px', lineHeight: 1.4 }}>
-            Wybierz turniej, zgłoś swój udział lub sprawdź listę potwierdzonych graczy. 
-            Opłata wpisowa: <strong>80 zł</strong> (dorośli) / <strong>40 zł</strong> (studenci i juniorzy) uiszczana w recepcji domu klubowego w dniu turnieju.
+            Opłata startowa uiszczana w dniu turnieju w recepcji: <strong>80 zł</strong> (dorośli), <strong>40 zł</strong> (studenci / niepełnoletni).
           </p>
         </div>
 
@@ -388,19 +400,18 @@ export function TournamentsView({
         </button>
       </div>
 
-      {/* ROZWIJANY FORMULARZ ZAPISU BEZPOŚREDNIEGO */}
       {showDirectForm && (
         <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', margin: '0 0 4px 0' }}>
-            Formularz Zgłoszeniowy Zawodnika
+            Formularz Rejestracji na Turniej
           </h2>
           <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 16px 0' }}>
-            Wpisowe płatne na miejscu w recepcji: 80 zł (dorośli), 40 zł (studenci / niepełnoletni).
+            Po wysłaniu zgłoszenia zostaniesz automatycznie przypisany do wybranego turnieju.
           </p>
 
           <form onSubmit={handleDirectFormSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Wybierz turniej *</label>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Turniej *</label>
               <select
                 value={formTournamentId}
                 onChange={(e) => setFormTournamentId(e.target.value)}
@@ -422,7 +433,7 @@ export function TournamentsView({
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                placeholder="np. Jan Kowalski"
+                placeholder="Jan Kowalski"
                 style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
               />
             </div>
@@ -447,7 +458,7 @@ export function TournamentsView({
                 max={2030}
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value)}
-                placeholder="np. 2004"
+                placeholder="2000"
                 style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
               />
             </div>
@@ -458,7 +469,7 @@ export function TournamentsView({
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                placeholder="np. Gdańsk"
+                placeholder="Gdańsk"
                 style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
               />
             </div>
@@ -476,25 +487,37 @@ export function TournamentsView({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Klub footgolfa</label>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Klub (opcjonalnie)</label>
               <input
                 type="text"
                 value={clubName}
                 onChange={(e) => setClubName(e.target.value)}
-                placeholder="np. Gdański Klub Footgolfa"
+                placeholder="Nazwa Twojego klubu"
                 style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
               />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Ścieżka zdjęcia w /public (opcjonalnie)</label>
-              <input
-                type="text"
-                value={photoPath}
-                onChange={(e) => setPhotoPath(e.target.value)}
-                placeholder="np. players/jan-kowalski.jpg"
-                style={{ padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-              />
+              <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569' }}>Zdjęcie profilowe (do weryfikacji)</label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handlePhotoUpload(e.target.files?.[0])}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <ImageIcon size={14} /> Wybierz plik
+                </button>
+                <span style={{ fontSize: '11px', color: rawPhotoData ? '#16a34a' : '#94a3b8', fontWeight: 700 }}>
+                  {rawPhotoData ? 'Zdjęcie dołączone' : 'Brak pliku'}
+                </span>
+              </div>
             </div>
 
             <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
@@ -523,7 +546,6 @@ export function TournamentsView({
         </div>
       )}
 
-      {/* LISTA TURNIEJÓW W BAZIE */}
       <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -621,8 +643,9 @@ export function TournamentsView({
                           <button
                             type="button"
                             onClick={() => {
-                              if (!currentUser) onRequireAuth();
-                              else onRegisterClick(t);
+                              setFormTournamentId(t.id);
+                              setShowDirectForm(true);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
                             title="Zapisz się"
                             style={{ background: '#0284c7', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
