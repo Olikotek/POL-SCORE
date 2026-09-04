@@ -190,7 +190,7 @@ export function Leaderboard({
       const strokes = s1 + (store.round2Started ? s2 : 0);
       const thru = thruLabel(player);
       const delta = positionDeltas.get(player.id) ?? { type: 'same', diff: 0 };
-      const avatarSrc = player.avatar ? getPublicAvatarPath(player.name, player.avatar) : '';
+      const avatarSrc = getPublicAvatarPath(player.name, player.avatar);
 
       return {
         player,
@@ -211,7 +211,6 @@ export function Leaderboard({
     });
   }, [sorted, ranks, holesR1, holesR2, store.round2Started, positionDeltas]);
 
-  // Pobieranie aktualnej nazwy pola z konfiguracji turnieju z panelu admina
   const currentCourseName = useMemo(() => {
     if (activeTournament?.courseName && activeTournament.courseName.trim()) {
       return activeTournament.courseName.trim();
@@ -599,10 +598,10 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* ZAWODNIK + AVATAR LUB INICJAŁY */}
+                  {/* ZAWODNIK + ZDJĘCIE LUB INICJAŁY */}
                   <td className="col-player" style={{ padding: '6px 6px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                      {player.avatar && !hasError ? (
+                      {!hasError ? (
                         <img
                           src={avatarSrc}
                           alt={player.name}
