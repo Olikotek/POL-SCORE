@@ -6,6 +6,23 @@ import { flagEmoji, ROUNDS } from '@/types';
 import { initials } from '@/scoring';
 import { PlayerModal } from '@/components/PlayerModal';
 
+function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
+  if (existingAvatar && existingAvatar.startsWith('http')) {
+    return existingAvatar;
+  }
+  if (existingAvatar && existingAvatar.startsWith('/')) {
+    return existingAvatar;
+  }
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-');
+  return `/players/${normalized}.jpg`;
+}
+
 export function TeeTimes({
   store,
   activeTournament,
@@ -17,6 +34,7 @@ export function TeeTimes({
 }) {
   const [selectedRound, setSelectedRound] = useState<Round>(1);
   const [selectedPlayerModal, setSelectedPlayerModal] = useState<{ player: Player; rank: number } | null>(null);
+  const [avatarErrors, setAvatarErrors] = useState<Record<string, boolean>>({});
 
   const roundFlights = useMemo(() => {
     return store.flights
@@ -160,97 +178,107 @@ export function TeeTimes({
               {/* LISTA GRACZY */}
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {members.length > 0 ? (
-                  members.map((p, idx) => (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        if (onOpenPlayer) {
-                          onOpenPlayer(p.id);
-                        } else {
-                          setSelectedPlayerModal({ player: p, rank: idx + 1 });
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 14px',
-                        borderBottom: idx !== members.length - 1 ? '1px solid #f1f5f9' : 'none',
-                        background: idx % 2 === 0 ? '#ffffff' : '#fcfdfd',
-                        cursor: 'pointer',
-                        transition: 'background 0.1s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f0f9ff')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fcfdfd')}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                        <img
-                          src={p.flagImage || flagEmoji(p.flag || 'PL')}
-                          alt={p.flag || 'PL'}
-                          style={{
-                            width: '20px',
-                            height: '14px',
-                            objectFit: 'cover',
-                            borderRadius: '2px',
-                            border: '1px solid #cbd5e1',
-                            display: 'block',
-                            flexShrink: 0,
-                          }}
-                        />
+                  members.map((p, idx) => {
+                    const avatarPath = getPublicAvatarPath(p.name, p.avatar);
+                    const hasError = avatarErrors[p.id];
 
-                        {p.avatar ? (
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          if (onOpenPlayer) {
+                            onOpenPlayer(p.id);
+                          } else {
+                            setSelectedPlayerModal({ player: p, rank: idx + 1 });
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 14px',
+                          borderBottom: idx !== members.length - 1 ? '1px solid #f1f5f9' : 'none',
+                          background: idx % 2 === 0 ? '#ffffff' : '#fcfdfd',
+                          cursor: 'pointer',
+                          transition: 'background 0.1s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f0f9ff')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fcfdfd')}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                           <img
-                            src={p.avatar}
-                            alt={p.name}
+                            src={p.flagImage || flagEmoji(p.flag || 'PL')}
+                            alt={p.flag || 'PL'}
                             style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '50%',
+                              width: '20px',
+                              height: '14px',
                               objectFit: 'cover',
+                              borderRadius: '2px',
                               border: '1px solid #cbd5e1',
+                              display: 'block',
                               flexShrink: 0,
                             }}
                           />
-                        ) : (
-                          <span
-                            style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '50%',
-                              background: '#e2e8f0',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '10px',
-                              fontWeight: 800,
-                              color: '#475569',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {initials(p.name)}
-                          </span>
-                        )}
 
-                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <b style={{ fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {p.name}
-                            </b>
-                            {p.isAmateur && (
-                              <span style={{ fontSize: '8.5px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 4px', borderRadius: '3px', lineHeight: 1 }}>
-                                AM
-                              </span>
-                            )}
+                          {!hasError ? (
+                            <img
+                              src={avatarPath}
+                              alt={p.name}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: '1px solid #cbd5e1',
+                                flexShrink: 0,
+                                backgroundColor: '#e2e8f0',
+                              }}
+                              onError={() => {
+                                setAvatarErrors((prev) => ({ ...prev, [p.id]: true }));
+                              }}
+                            />
+                          ) : (
+                            <span
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                background: '#e2e8f0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                color: '#475569',
+                                flexShrink: 0,
+                                border: '1px solid #cbd5e1',
+                              }}
+                            >
+                              {initials(p.name)}
+                            </span>
+                          )}
+
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <b style={{ fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {p.name}
+                              </b>
+                              {p.isAmateur && (
+                                <span style={{ fontSize: '8.5px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 4px', borderRadius: '3px', lineHeight: 1 }}>
+                                  AM
+                                </span>
+                              )}
+                            </div>
+                            <small style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {p.club || 'Bez klubu'} · {p.category}
+                            </small>
                           </div>
-                          <small style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {p.club || 'Bez klubu'} · {p.category}
-                          </small>
                         </div>
-                      </div>
 
-                      <ChevronRight size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
-                    </div>
-                  ))
+                        <ChevronRight size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
+                      </div>
+                    );
+                  })
                 ) : (
                   <div style={{ padding: '18px', textAlign: 'center', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>
                     Brak graczy we flightcie
