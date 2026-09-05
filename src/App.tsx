@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, Clock } from 'lucide-react';
 import type { Flight, View, Tournament } from '@/types';
 import { useStore } from '@/useStore';
@@ -16,6 +16,8 @@ import { PlayerModal } from '@/components/PlayerModal';
 import { RegisterModal } from '@/components/RegisterModal';
 import { AuthModal } from '@/components/AuthModal';
 
+const REFRESH_COOLDOWN_MS = 10000; // Minimalny odstęp między zapytaniami do bazy (10s)
+
 function App() {
   const { store, tournaments, activeTournament, setActiveTournamentId, leaguePoints, registrations, currentUser, userProfile, loading, error, refresh } = useStore();
   const [view, setView] = useState<View | 'standings' | 'archive' | 'tournaments' | 'teetimes'>('wyniki');
@@ -26,11 +28,22 @@ function App() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [authModalConfig, setAuthModalConfig] = useState<{ open: boolean; mode: 'login' | 'register' | 'forgot' | 'edit_profile' }>({ open: false, mode: 'login' });
 
+  const lastRefreshTimestamp = useRef<number>(0);
+
+  // Optymalizacja transferu: blokuje powielanie zapytań do Supabase w krótkim czasie
+  const throttledRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRefreshTimestamp.current >= REFRESH_COOLDOWN_MS) {
+      lastRefreshTimestamp.current = now;
+      refresh();
+    }
+  }, [refresh]);
+
   const openAdmin = () => setView('admin');
 
   const handleGoToLeaderboard = () => {
     setView('wyniki');
-    refresh();
+    throttledRefresh();
   };
 
   const handleLogout = async () => {
@@ -331,7 +344,7 @@ function App() {
             activeTournament={activeTournament}
             onEnter={() => setView('karta')}
             onOpenPlayer={setModalPlayerId}
-            onRefresh={refresh}
+            onRefresh={throttledRefresh}
           />
         )}
         {view === 'teetimes' && (
