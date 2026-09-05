@@ -73,6 +73,23 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
+  if (existingAvatar && existingAvatar.startsWith('http')) {
+    return existingAvatar;
+  }
+  if (existingAvatar && existingAvatar.startsWith('/')) {
+    return existingAvatar;
+  }
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-');
+  return `/players/${normalized}.jpg`;
+}
+
 function ScoreShape({ value, par, size = 'md' }: { value: number | null; par: number; size?: 'sm' | 'md' }) {
   const dim = size === 'sm' ? '26px' : '36px';
   const fontSize = size === 'sm' ? '11px' : '14px';
@@ -318,6 +335,10 @@ export function PlayerModal({
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [hasAvatarError, setHasAvatarError] = useState(false);
+
+  const avatarSrc = useMemo(() => {
+    return getPublicAvatarPath(player.name, player.avatar);
+  }, [player.name, player.avatar]);
 
   const holes = roundTab === 1 ? holesR1 : holesR2;
 
@@ -680,30 +701,31 @@ export function PlayerModal({
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                 <div
-                  style={{ position: 'relative', cursor: player.avatar && !hasAvatarError ? 'pointer' : 'default' }}
-                  onClick={() => player.avatar && !hasAvatarError && setShowPhotoModal(true)}
+                  style={{ position: 'relative', cursor: !hasAvatarError ? 'pointer' : 'default' }}
+                  onClick={() => !hasAvatarError && setShowPhotoModal(true)}
                 >
-                  {player.avatar && !hasAvatarError ? (
-                    <>
-                      <img
-                        src={player.avatar}
-                        alt={player.name}
-                        style={{
-                          width: '46px',
-                          height: '46px',
-                          borderRadius: '50%',
-                          objectFit: 'cover',
-                          border: '2px solid #e2e8f0',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                          display: 'block',
-                        }}
-                        onError={() => setHasAvatarError(true)}
-                      />
-                      <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#0284c7', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>
-                        <ZoomIn size={10} />
-                      </div>
-                    </>
-                  ) : (
+                  <img
+                    src={avatarSrc}
+                    alt={player.name}
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid #e2e8f0',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                      display: !hasAvatarError ? 'block' : 'none',
+                      backgroundColor: '#e2e8f0',
+                    }}
+                    onError={() => setHasAvatarError(true)}
+                  />
+                  {!hasAvatarError ? (
+                    <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#0284c7', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>
+                      <ZoomIn size={10} />
+                    </div>
+                  ) : null}
+
+                  {hasAvatarError && (
                     <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#e2e8f0', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px', color: '#475569' }}>
                       {getInitials(player.name)}
                     </div>
@@ -1309,8 +1331,8 @@ export function PlayerModal({
         </div>
       </div>
 
-      {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) */}
-      {showPhotoModal && player.avatar && !hasAvatarError && (
+      {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) - CZYSTE ZDJĘCIE BEZ ŻADNYCH PODPISÓW */}
+      {showPhotoModal && !hasAvatarError && (
         <div
           style={{
             position: 'fixed',
@@ -1359,7 +1381,7 @@ export function PlayerModal({
               <X size={20} />
             </button>
             <img
-              src={player.avatar}
+              src={avatarSrc}
               alt={player.name}
               style={{
                 maxWidth: '90vw',
