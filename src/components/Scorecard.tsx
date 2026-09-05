@@ -62,6 +62,23 @@ function formatShortName(fullName: string) {
   return fullName;
 }
 
+function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
+  if (existingAvatar && existingAvatar.startsWith('http')) {
+    return existingAvatar;
+  }
+  if (existingAvatar && existingAvatar.startsWith('/')) {
+    return existingAvatar;
+  }
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-');
+  return `/players/${normalized}.jpg`;
+}
+
 function ScoreShape({ value, par }: { value: number | null; par: number }) {
   if (!value) {
     return (
@@ -125,6 +142,7 @@ export function Scorecard({
   const [feedback, setFeedback] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const [avatarErrors, setAvatarErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const session = loadSession();
@@ -525,6 +543,8 @@ export function Scorecard({
           const honour = honourMap.get(player.id) ?? 0;
           const isExpanded = expandedPlayerId === player.id;
           const shortPlayerName = formatShortName(player.name);
+          const avatarPath = getPublicAvatarPath(player.name, player.avatar);
+          const hasError = avatarErrors[player.id];
 
           return (
             <div className={`scorecard-player-card ${isExpanded ? 'numpad-selected' : ''}`} key={player.id}>
@@ -538,14 +558,17 @@ export function Scorecard({
 
                   {/* AVATAR + FLAGA */}
                   <div className="player-avatar-box" style={{ position: 'relative', flexShrink: 0, width: '42px', height: '42px' }}>
-                    {player.avatar ? (
+                    {!hasError ? (
                       <img
-                        src={player.avatar}
+                        src={avatarPath}
                         alt={player.name}
-                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', display: 'block' }}
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', display: 'block', backgroundColor: '#e2e8f0' }}
+                        onError={() => {
+                          setAvatarErrors((prev) => ({ ...prev, [player.id]: true }));
+                        }}
                       />
                     ) : (
-                      <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '13px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                      <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '13px', fontWeight: 'bold', background: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '1px solid #cbd5e1' }}>
                         {initials(player.name)}
                       </div>
                     )}
