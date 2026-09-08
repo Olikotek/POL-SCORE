@@ -191,6 +191,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
     code: f.code,
     round: f.round as Round,
     startHole: f.start_hole,
+    teeTime: f.tee_time || f.teeTime || '10:00',
     playerIds: flightPlayers.filter((fp) => fp.flight_id === f.id).map((fp) => fp.player_id),
   }));
 

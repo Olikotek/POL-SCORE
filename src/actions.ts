@@ -392,13 +392,15 @@ export async function createFlight(data: {
   round: Round;
   startHole: number;
   code?: string;
+  teeTime?: string;
   tournamentId?: string | null;
 }) {
-  const flight = {
+  const flight: Record<string, any> = {
     name: data.name,
     code: data.code?.length === 4 ? data.code : randomCode(),
     round: data.round,
     start_hole: data.startHole,
+    tee_time: data.teeTime || '10:00',
     tournament_id: data.tournamentId || null,
   };
   const { data: created, error } = await supabase.from('flights').insert(flight).select().single();
@@ -406,10 +408,19 @@ export async function createFlight(data: {
   return created;
 }
 
-export async function updateFlight(id: string, data: { name: string; code: string; startHole: number }) {
+export async function updateFlight(id: string, data: { name: string; code: string; startHole: number; teeTime?: string }) {
+  const payload: Record<string, any> = {
+    name: data.name,
+    code: data.code,
+    start_hole: data.startHole,
+  };
+  if (data.teeTime !== undefined) {
+    payload.tee_time = data.teeTime;
+  }
+
   const { error } = await supabase
     .from('flights')
-    .update({ name: data.name, code: data.code, start_hole: data.startHole })
+    .update(payload)
     .eq('id', id);
   if (error) throw error;
 }
@@ -615,6 +626,7 @@ export async function reflightForRound2(
         code: randomCode(),
         round: 2,
         start_hole: 1,
+        tee_time: '10:00',
         tournament_id: tournamentId || null,
       });
       if (fe) throw fe;
