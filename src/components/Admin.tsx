@@ -436,7 +436,7 @@ function RegistrationManager({
                         <Trash2 size={13} />
                       </button>
                     </td>
-                  </td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -1906,6 +1906,7 @@ function FlightManager({
 
   const handleQuickTimeChange = async (flight: Flight, newTime: string) => {
     if (!newTime) return;
+
     onUpdateStore((prev) => ({
       ...prev,
       flights: prev.flights.map((f) =>
@@ -1914,22 +1915,20 @@ function FlightManager({
     }));
 
     try {
-      await updateFlight(flight.id, {
-        name: flight.name,
-        code: flight.code,
-        startHole: flight.startHole ?? 1,
-        teeTime: newTime,
-      });
-
-      await supabase
+      const { error } = await supabase
         .from('flights')
-        .update({ tee_time: newTime, teeTime: newTime })
+        .update({ tee_time: newTime })
         .eq('id', flight.id);
 
-      flash(`Zmieniono godzinę ${flight.name} na ${newTime}`);
-    } catch (err) {
-      console.error(err);
-      flash('Błąd zapisu godziny.');
+      if (error) {
+        console.error('Błąd zapisu tee_time:', error);
+        flash(`Błąd bazy: ${error.message}`);
+      } else {
+        flash(`Zapisano czas ${flight.name}: ${newTime}`);
+      }
+    } catch (err: any) {
+      console.error('Błąd połączenia:', err);
+      flash('Błąd połączenia z bazą.');
     }
   };
 
@@ -1953,27 +1952,24 @@ function FlightManager({
     }));
 
     try {
-      await updateFlight(flight.id, {
-        name: nextName.trim(),
-        code: nextCode,
-        startHole: parsedStart,
-        teeTime: finalTeeTime,
-      });
-
-      await supabase
+      const { error } = await supabase
         .from('flights')
         .update({
           name: nextName.trim(),
           code: nextCode,
           start_hole: parsedStart,
-          startHole: parsedStart,
           tee_time: finalTeeTime,
-          teeTime: finalTeeTime,
         })
         .eq('id', flight.id);
 
-      flash('Flight zmieniony.');
-    } catch {
+      if (error) {
+        console.error('Błąd zapisu edycji flightu:', error);
+        flash(`Błąd bazy: ${error.message}`);
+      } else {
+        flash('Flight zmieniony.');
+      }
+    } catch (err: any) {
+      console.error(err);
       flash('Błąd edycji flightu.');
     }
   };
@@ -2382,6 +2378,7 @@ function FlightManager({
                     type="time"
                     value={flight.teeTime || '10:00'}
                     onChange={(e) => handleQuickTimeChange(flight, e.target.value)}
+                    onBlur={(e) => handleQuickTimeChange(flight, e.target.value)}
                     style={{
                       fontSize: '11px',
                       padding: '2px 6px',
