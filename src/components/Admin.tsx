@@ -68,6 +68,9 @@ function getPublicAvatarPath(name: string, existingAvatar?: string | null): stri
   if (existingAvatar && existingAvatar.startsWith('http')) {
     return existingAvatar;
   }
+  if (existingAvatar && existingAvatar.startsWith('/')) {
+    return existingAvatar;
+  }
   const normalized = name
     .trim()
     .toLowerCase()
@@ -433,7 +436,7 @@ function RegistrationManager({
                         <Trash2 size={13} />
                       </button>
                     </td>
-                  </tr>
+                  </td>
                 );
               })}
             </tbody>
@@ -1276,7 +1279,6 @@ function PlayerManager({
     const trimmedName = name.trim();
     const formattedBirthDate = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
 
-    // Automatyczne przypisanie ścieżki z folderu public jeśli brak załadowanego base64
     const resolvedAvatar = avatar.trim() || getPublicAvatarPath(trimmedName);
 
     const playerData: any = {
@@ -1651,7 +1653,6 @@ function PlayerManager({
                   alt={p.name}
                   className="avatar avatar-img"
                   onError={(e) => {
-                    // Fallback na inicjały jeśli plik w public nie istnieje
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
@@ -1903,7 +1904,7 @@ function FlightManager({
     }
   };
 
-  const handleQuickTimeChange = (flight: Flight, newTime: string) => {
+  const handleQuickTimeChange = async (flight: Flight, newTime: string) => {
     if (!newTime) return;
     onUpdateStore((prev) => ({
       ...prev,
@@ -1912,17 +1913,27 @@ function FlightManager({
       ),
     }));
 
-    updateFlight(flight.id, {
-      name: flight.name,
-      code: flight.code,
-      startHole: flight.startHole ?? 1,
-      teeTime: newTime,
-    })
-      .then(() => flash(`Zmieniono godzinę ${flight.name} na ${newTime}`))
-      .catch(() => flash('Błąd zapisu godziny.'));
+    try {
+      await updateFlight(flight.id, {
+        name: flight.name,
+        code: flight.code,
+        startHole: flight.startHole ?? 1,
+        teeTime: newTime,
+      });
+
+      await supabase
+        .from('flights')
+        .update({ tee_time: newTime, teeTime: newTime })
+        .eq('id', flight.id);
+
+      flash(`Zmieniono godzinę ${flight.name} na ${newTime}`);
+    } catch (err) {
+      console.error(err);
+      flash('Błąd zapisu godziny.');
+    }
   };
 
-  const editFlight = (flight: Flight) => {
+  const editFlight = async (flight: Flight) => {
     const nextName = window.prompt('Nazwa flightu', flight.name);
     const nextCode = window.prompt('Kod Flightu (4 cyfry)', flight.code);
     const nextStart = window.prompt('Dołek startowy (np. 1 dla standardowego startu)', String(flight.startHole ?? 1));
@@ -1941,14 +1952,30 @@ function FlightManager({
       ),
     }));
 
-    updateFlight(flight.id, {
-      name: nextName.trim(),
-      code: nextCode,
-      startHole: parsedStart,
-      teeTime: finalTeeTime,
-    })
-      .then(() => flash('Flight zmieniony.'))
-      .catch(() => flash('Błąd edycji flightu.'));
+    try {
+      await updateFlight(flight.id, {
+        name: nextName.trim(),
+        code: nextCode,
+        startHole: parsedStart,
+        teeTime: finalTeeTime,
+      });
+
+      await supabase
+        .from('flights')
+        .update({
+          name: nextName.trim(),
+          code: nextCode,
+          start_hole: parsedStart,
+          startHole: parsedStart,
+          tee_time: finalTeeTime,
+          teeTime: finalTeeTime,
+        })
+        .eq('id', flight.id);
+
+      flash('Flight zmieniony.');
+    } catch {
+      flash('Błąd edycji flightu.');
+    }
   };
 
   const removeFlight = async (id: string) => {
