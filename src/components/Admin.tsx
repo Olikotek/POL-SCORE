@@ -145,11 +145,11 @@ export function Admin({
 }) {
   const [tab, setTab] = useState<'turnieje' | 'zapisy' | 'ustawienia' | 'pole' | 'zawodnicy' | 'flighty' | 'rundy' | 'wyniki'>('turnieje');
   const [notice, setNotice] = useState('');
-  const noticeTimer = useRef(null);
+  const noticeTimer = useRef<number | null>(null);
 
-  const [localStore, setLocalStore] = useState(initialStore);
-  const [localTournaments, setLocalTournaments] = useState(initialTournaments);
-  const [localActiveTournament, setLocalActiveTournament] = useState(initialActiveTournament);
+  const [localStore, setLocalStore] = useState<Store>(initialStore);
+  const [localTournaments, setLocalTournaments] = useState<Tournament[]>(initialTournaments);
+  const [localActiveTournament, setLocalActiveTournament] = useState<Tournament | null>(initialActiveTournament);
 
   useEffect(() => {
     setLocalStore(initialStore);
@@ -175,31 +175,15 @@ export function Admin({
     };
   }, []);
 
-  const handleGlobalTournamentSelect = async (id: string) => {
-    const found = localTournaments.find((t) => t.id === id) || null;
-    setLocalActiveTournament(found);
-    onSelectTournament(id);
-
-    try {
-      await supabase
-        .from('tournament_settings')
-        .update({ active_tournament_id: id })
-        .eq('id', 1);
-      flash(`Aktywowano podgląd dla wszystkich: ${found?.name || id}`);
-    } catch (err) {
-      console.warn('Błąd synchronizacji aktywnego turnieju:', err);
-    }
-  };
-
   const tabs: [typeof tab, string, React.ReactNode][] = [
-    ['turnieje', 'Turnieje', ],
-    ['zapisy', 'Zapisy', ],
-    ['ustawienia', 'Ustawienia', ],
-    ['pole', 'Pole', ],
-    ['zawodnicy', 'Zawodnicy', ],
-    ['flighty', 'Flighty & Tee Times', ],
-    ['rundy', 'Rundy', ],
-    ['wyniki', 'Korekta wyników', ],
+    ['turnieje', 'Turnieje', <Trophy size={15} key="t" />],
+    ['zapisy', 'Zapisy', <ClipboardList size={15} key="reg" />],
+    ['ustawienia', 'Ustawienia', <ShieldCheck size={15} key="f" />],
+    ['pole', 'Pole', <BarChart3 size={15} key="a" />],
+    ['zawodnicy', 'Zawodnicy', <Users size={15} key="b" />],
+    ['flighty', 'Flighty & Tee Times', <Flag size={15} key="c" />],
+    ['rundy', 'Rundy', <Layers size={15} key="e" />],
+    ['wyniki', 'Korekta wyników', <Edit3 size={15} key="d" />],
   ];
 
   return (
@@ -237,7 +221,11 @@ export function Admin({
           store={localStore}
           tournaments={localTournaments}
           activeTournament={localActiveTournament}
-          onSelectTournament={handleGlobalTournamentSelect}
+          onSelectTournament={(id) => {
+            const found = localTournaments.find((t) => t.id === id) || null;
+            setLocalActiveTournament(found);
+            onSelectTournament(id);
+          }}
           onUpdateTournaments={setLocalTournaments}
           onUpdateStore={setLocalStore}
           flash={flash}
@@ -477,11 +465,11 @@ function TournamentManager({
   tournaments: Tournament[];
   activeTournament: Tournament | null;
   onSelectTournament: (id: string) => void;
-  onUpdateTournaments: React.Dispatch>;
-  onUpdateStore: React.Dispatch>;
+  onUpdateTournaments: React.Dispatch<React.SetStateAction<Tournament[]>>;
+  onUpdateStore: React.Dispatch<React.SetStateAction<Store>>;
   flash: FlashFn;
 }) {
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [courseName, setCourseName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -491,7 +479,7 @@ function TournamentManager({
   const [playoffModal, setPlayoffModal] = useState<{
     tournament: Tournament;
     candidates: any[];
-    overrides: Record;
+    overrides: Record<string, number>;
   } | null>(null);
 
   const resetForm = () => {
@@ -554,13 +542,9 @@ function TournamentManager({
         });
 
         onUpdateTournaments((prev) => [...prev, created]);
-        onUpdateStore((prev) => ({
-          ...prev,
-          tournamentName: created.name,
-          players: prev.players.map((p) => ({ ...p, isActive: false, is_active: false })),
-        }));
+        onUpdateStore((prev) => ({ ...prev, tournamentName: created.name }));
         onSelectTournament(created.id);
-        flash('Utworzono i aktywowano nowy turniej z 0 uczestnikami.');
+        flash('Utworzono i aktywowano nowy turniej.');
         resetForm();
       } catch {
         flash('Błąd tworzenia turnieju.');
@@ -951,8 +935,8 @@ function TournamentSettings({
 }: {
   store: Store;
   activeTournament: Tournament | null;
-  onUpdateStore: React.Dispatch>;
-  onUpdateTournaments: React.Dispatch>;
+  onUpdateStore: React.Dispatch<React.SetStateAction<Store>>;
+  onUpdateTournaments: React.Dispatch<React.SetStateAction<Tournament[]>>;
   flash: FlashFn;
 }) {
   const [name, setName] = useState(store.tournamentName);
@@ -1067,7 +1051,7 @@ function CourseEditor({
   flash,
 }: {
   store: Store;
-  onUpdateStore: React.Dispatch>;
+  onUpdateStore: React.Dispatch<React.SetStateAction<Store>>;
   flash: FlashFn;
 }) {
   const [selectedCourseId, setSelectedCourseId] = useState(store.round1CourseId ?? store.courses[0]?.id ?? '');
@@ -1243,7 +1227,7 @@ function PlayerManager({
 }: {
   store: Store;
   activeTournament: Tournament | null;
-  onUpdateStore: React.Dispatch>;
+  onUpdateStore: React.Dispatch<React.SetStateAction<Store>>;
   flash: FlashFn;
 }) {
   const [name, setName] = useState('');
@@ -1262,27 +1246,6 @@ function PlayerManager({
   const [editing, setEditing] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!activeTournament?.id) return;
-    supabase
-      .from('tournament_players')
-      .select('player_id')
-      .eq('tournament_id', activeTournament.id)
-      .then(({ data, error }) => {
-        if (!error && data) {
-          const participantIds = new Set(data.map((r: any) => r.player_id));
-          onUpdateStore((prev) => ({
-            ...prev,
-            players: prev.players.map((p) => ({
-              ...p,
-              isActive: participantIds.has(p.id),
-              is_active: participantIds.has(p.id),
-            })),
-          }));
-        }
-      });
-  }, [activeTournament?.id]);
 
   const reset = () => {
     setName('');
@@ -1349,25 +1312,19 @@ function PlayerManager({
         flash('Dane zawodnika zaktualizowane.');
       } else {
         const added = await addPlayer(playerData);
-        const newPlayer = added || {
-          id: `temp-${Date.now()}`,
-          scores: { 1: Array(18).fill(0), 2: Array(18).fill(0) },
-          flightId: { 1: null, 2: null },
-          ...playerData,
-        };
-
-        if (activeTournament?.id && newPlayer?.id) {
-          await supabase.from('tournament_players').upsert({
-            tournament_id: activeTournament.id,
-            player_id: newPlayer.id,
-          });
-        }
-
         onUpdateStore((prev) => ({
           ...prev,
-          players: [...prev.players, newPlayer],
+          players: [
+            ...prev.players,
+            added || {
+              id: `temp-${Date.now()}`,
+              scores: { 1: Array(18).fill(0), 2: Array(18).fill(0) },
+              flightId: { 1: null, 2: null },
+              ...playerData,
+            },
+          ],
         }));
-        flash('Zawodnik dodany do bazy i przypisany do tego turnieju.');
+        flash('Zawodnik dodany do bazy.');
       }
       reset();
     } catch {
@@ -1386,29 +1343,16 @@ function PlayerManager({
     }));
 
     try {
-      if (!activeTournament?.id) {
-        flash('Wybierz najpierw turniej!');
-        return;
-      }
-
-      if (!nextState) {
+      if (!nextState && activeTournament?.id) {
         await removePlayerFromTournament(p.id, activeTournament.id);
-        await supabase
-          .from('tournament_players')
-          .delete()
-          .eq('tournament_id', activeTournament.id)
-          .eq('player_id', p.id);
-        flash(`${p.name} wycofany z turnieju "${activeTournament.name}".`);
+        flash(`${p.name} wycofany z turnieju.`);
       } else {
-        await supabase.from('tournament_players').upsert({
-          tournament_id: activeTournament.id,
-          player_id: p.id,
-        });
-        flash(`${p.name} dodany do turnieju "${activeTournament.name}".`);
+        await supabase.from('players').update({ is_active: true }).eq('id', p.id);
+        flash(`${p.name} włączony do turnieju.`);
       }
     } catch (err) {
       console.error(err);
-      flash('Błąd zapisu statusu w turnieju.');
+      flash('Błąd zapisu statusu.');
     }
   };
 
@@ -1782,7 +1726,7 @@ function FlightManager({
 }: {
   store: Store;
   activeTournament: Tournament | null;
-  onUpdateStore: React.Dispatch>;
+  onUpdateStore: React.Dispatch<React.SetStateAction<Store>>;
   flash: FlashFn;
 }) {
   const [round, setRound] = useState<Round>(1);
@@ -2548,7 +2492,7 @@ function RoundManager({
 }: {
   store: Store;
   activeTournament: Tournament | null;
-  onUpdateStore: React.Dispatch;
+  onUpdateStore: React.Dispatch<React.SetStateAction<Store>>;
   flash: FlashFn;
 }) {
   const [groupSize, setGroupSize] = useState(4);
