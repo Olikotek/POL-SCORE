@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Flag, LockKeyhole, Trophy, Calendar, Archive as ArchiveIcon, Award, User, LogIn, LogOut, Clock } from 'lucide-react';
 import type { Flight, View, Tournament } from '@/types';
 import { useStore } from '@/useStore';
@@ -16,7 +16,7 @@ import { PlayerModal } from '@/components/PlayerModal';
 import { RegisterModal } from '@/components/RegisterModal';
 import { AuthModal } from '@/components/AuthModal';
 
-const REFRESH_COOLDOWN_MS = 10000; // Minimalny odstęp między zapytaniami do bazy (10s)
+const REFRESH_COOLDOWN_MS = 10000;
 
 function App() {
   const { store, tournaments, activeTournament, setActiveTournamentId, leaguePoints, registrations, currentUser, userProfile, loading, error, refresh } = useStore();
@@ -30,7 +30,6 @@ function App() {
 
   const lastRefreshTimestamp = useRef<number>(0);
 
-  // Optymalizacja transferu: blokuje powielanie zapytań do Supabase w krótkim czasie
   const throttledRefresh = useCallback(() => {
     const now = Date.now();
     if (now - lastRefreshTimestamp.current >= REFRESH_COOLDOWN_MS) {
@@ -38,6 +37,28 @@ function App() {
       refresh();
     }
   }, [refresh]);
+
+  // Nasłuch w czasie rzeczywistym: automatyczna synchronizacja wybranego turnieju między wszystkimi urządzeniami
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:tournament_settings_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tournament_settings' },
+        (payload: any) => {
+          const nextActiveId = payload?.new?.active_tournament_id;
+          if (nextActiveId && typeof setActiveTournamentId === 'function') {
+            setActiveTournamentId(nextActiveId);
+            refresh();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [setActiveTournamentId, refresh]);
 
   const openAdmin = () => setView('admin');
 
@@ -64,7 +85,7 @@ function App() {
     if (!fullName) return fallbackEmail ?? 'Zawodnik';
     const parts = fullName.trim().split(/\s+/);
     if (parts.length >= 2) {
-      return `${parts[0][0].toUpperCase()}. ${parts.slice(1).join(' ')}`;
+      return parts[0][0].toUpperCase() + '. ' + parts.slice(1).join(' ');
     }
     return fullName;
   };
@@ -341,7 +362,6 @@ function App() {
         {view === 'wyniki' && (
           <Leaderboard
             store={store}
-            activeTournament={activeTournament}
             onEnter={() => setView('karta')}
             onOpenPlayer={setModalPlayerId}
             onRefresh={throttledRefresh}
@@ -485,7 +505,7 @@ function Nav({
   onClick: () => void;
 }) {
   return (
-    <button className={`nav-button ${active ? 'active' : ''}`} onClick={onClick}>
+    <button className={'nav-button ' + (active ? 'active' : '')} onClick={onClick}>
       {icon}
       <span>{label}</span>
     </button>
