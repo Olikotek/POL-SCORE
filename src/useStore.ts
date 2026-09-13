@@ -37,11 +37,12 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   const settings = settingsRes.data;
 
+  // Priorytet wyboru aktywnego turnieju: ID z bazy globalnej -> status active -> pierwszy z listy
   let activeTournament: Tournament | null = null;
   if (tournaments.length > 0) {
     activeTournament =
-      (activeTournamentId ? tournaments.find((t) => t.id === activeTournamentId) : null) ||
       (settings?.active_tournament_id ? tournaments.find((t) => t.id === settings.active_tournament_id) : null) ||
+      (activeTournamentId ? tournaments.find((t) => t.id === activeTournamentId) : null) ||
       tournaments.find((t) => t.status === 'active') ||
       tournaments.find((t) => t.status !== 'completed') ||
       tournaments[0];
@@ -139,8 +140,11 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const flightPlayers = flightPlayersRes.data ?? [];
   const rawPlayers = playersRes.data ?? [];
 
+  // Lista ID zawodników przypisanych do tego turnieju
+  const tpData = tournamentPlayersRes.data;
+  const hasTournamentPlayersTable = !tournamentPlayersRes.error && Array.isArray(tpData);
   const assignedPlayerIds = new Set(
-    (tournamentPlayersRes.data ?? []).map((tp: any) => String(tp.player_id).toLowerCase())
+    (tpData ?? []).map((tp: any) => String(tp.player_id).toLowerCase())
   );
 
   const players: Player[] = rawPlayers.map((p) => {
@@ -167,9 +171,13 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       2: flightsRows.find((f) => f.round === 2 && linkedFlightIds.includes(f.id))?.id ?? null,
     };
 
-    const isAssignedToThisTournament = activeTournId
-      ? assignedPlayerIds.has(String(p.id).toLowerCase())
-      : (p.is_active ?? true);
+    // Zawodnik jest aktywny jeśli jest powiązany z tym turniejem
+    let isActiveForThisTournament = false;
+    if (hasTournamentPlayersTable && activeTournId) {
+      isActiveForThisTournament = assignedPlayerIds.has(String(p.id).toLowerCase());
+    } else {
+      isActiveForThisTournament = p.is_active ?? true;
+    }
 
     return {
       id: p.id,
@@ -180,7 +188,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       flag: p.flag ?? 'PL',
       flagImage: p.flag_image ?? undefined,
       isAmateur: !!p.is_amateur,
-      isActive: isAssignedToThisTournament,
+      isActive: isActiveForThisTournament,
       userId: p.user_id ?? undefined,
       email: p.email ?? undefined,
       gender: p.gender ?? undefined,
@@ -228,9 +236,7 @@ export function useStore() {
   const [store, setStore] = useState<Store | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
-  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(() =>
-    localStorage.getItem('pffg_active_tournament')
-  );
+  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
   const [leaguePoints, setLeaguePoints] = useState<any[]>([]);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -245,6 +251,9 @@ export function useStore() {
       setStore(res.store);
       setTournaments(res.tournaments);
       setActiveTournament(res.activeTournament);
+      if (res.activeTournament && res.activeTournament.id !== activeTournamentId) {
+        setActiveTournamentId(res.activeTournament.id);
+      }
       setLeaguePoints(res.leaguePoints);
       setRegistrations(res.registrations);
       setLogoUrl(res.logoUrl);
@@ -274,23 +283,16 @@ export function useStore() {
       debounceRef.current = window.setTimeout(load, 250);
     };
 
-    const handleLeaguePointsChange = () => {
-      localStorage.removeItem(LEAGUE_POINTS_CACHE_KEY);
-      localStorage.removeItem(LEAGUE_POINTS_TIME_KEY);
-      scheduleReload();
-    };
-
-    const handleSettingsChange = (payload: any) => {
+    const handleSettingsRealtime = (payload: any) => {
       const newGlobalId = payload?.new?.active_tournament_id;
-      if (newGlobalId && newGlobalId !== activeTournamentId) {
+      if (newGlobalId) {
         setActiveTournamentId(newGlobalId);
-        localStorage.setItem('pffg_active_tournament', newGlobalId);
       }
       scheduleReload();
     };
 
     const channel = supabase
-      .channel('tournament-live')
+      .channel('tournament-live-main')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'course_holes' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, scheduleReload)
@@ -298,9 +300,8 @@ export function useStore() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'flight_players' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, scheduleReload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_settings' }, handleSettingsChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_settings' }, handleSettingsRealtime)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, scheduleReload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_points' }, handleLeaguePointsChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_registrations' }, scheduleReload)
       .subscribe();
 
@@ -313,11 +314,8 @@ export function useStore() {
 
   const selectTournament = async (id: string) => {
     setActiveTournamentId(id);
-    localStorage.setItem('pffg_active_tournament', id);
 
     try {
-      await supabase.from('tournaments').update({ status: 'completed' }).neq('id', id);
-      await supabase.from('tournaments').update({ status: 'active' }).eq('id', id);
       await supabase.from('tournament_settings').update({ active_tournament_id: id }).eq('id', 1);
     } catch (e) {
       console.warn('Global tournament sync error:', e);
