@@ -180,12 +180,29 @@ export function Admin({
     setLocalActiveTournament(found);
     onSelectTournament(id);
 
+    // Natychmiastowa aktualizacja statusów w pamięci lokalnej
+    setLocalTournaments((prev) =>
+      prev.map((t) => ({
+        ...t,
+        status: t.id === id ? 'active' : 'completed',
+      }))
+    );
+
     try {
+      // Przestawienie aktywnego turnieju w tabeli tournaments
+      await supabase.from('tournaments').update({ status: 'completed' }).neq('id', id);
+      await supabase.from('tournaments').update({ status: 'active' }).eq('id', id);
+
+      // Zapis w ustawieniach globalnych
       await supabase
         .from('tournament_settings')
-        .update({ active_tournament_id: id })
+        .update({
+          active_tournament_id: id,
+          tournament_name: found?.name || 'Turniej Footgolfa',
+        })
         .eq('id', 1);
-      flash('Aktywowano podgląd dla wszystkich: ' + (found?.name || id));
+
+      flash('Aktywowano turniej: ' + (found?.name || id));
     } catch (err) {
       console.warn('Błąd synchronizacji aktywnego turnieju:', err);
     }
@@ -779,7 +796,6 @@ function TournamentManager({
         <div className="management-list">
           {tournaments.map((t) => {
             const isActive = activeTournament?.id === t.id;
-            const isCompleted = t.status === 'completed';
             return (
               <div
                 className="management-row"
@@ -805,13 +821,13 @@ function TournamentManager({
                         POLISH OPEN
                       </span>
                     )}
-                    {isCompleted ? (
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
-                        ZAKOŃCZONY
+                    {isActive ? (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                        AKTYWNY W PODGLĄDZIE
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">
-                        AKTYWNY W PODGLĄDZIE
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
+                        ZAKOŃCZONY
                       </span>
                     )}
                   </div>
@@ -1914,7 +1930,7 @@ function FlightManager({
         const created = await createFlight({
           name: flightName,
           round,
-          startHole: assignedStartHole,
+          startHole,
           code: flightCode,
           teeTime: calculatedTeeTime,
           tournamentId: activeTournament?.id,
@@ -1981,7 +1997,7 @@ function FlightManager({
         flash('Zapisano czas ' + flight.name + ': ' + newTime);
       }
     } catch (err: any) {
-      console.error('Błąd połączenia:', err);
+      console.error(err);
       flash('Błąd połączenia z bazą.');
     }
   };
