@@ -120,7 +120,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       .map((h) => ({ number: h.number, par: h.par, meters: h.meters }));
   }
 
-  const holesByCourse: Record = {};
+  const holesByCourse: Record<string, Hole[]> = {};
   for (const c of courses) {
     holesByCourse[c.id] = holesForCourse(c.id);
   }
@@ -144,7 +144,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   );
 
   const players: Player[] = rawPlayers.map((p) => {
-    const scores: Record = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
+    const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
     scoresRows
       .filter((s) => String(s.player_id).toLowerCase() === String(p.id).toLowerCase())
@@ -162,7 +162,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       .filter((fp) => String(fp.player_id).toLowerCase() === String(p.id).toLowerCase())
       .map((fp) => fp.flight_id);
 
-    const flightId: Record = {
+    const flightId: Record<Round, string | null> = {
       1: flightsRows.find((f) => f.round === 1 && linkedFlightIds.includes(f.id))?.id ?? null,
       2: flightsRows.find((f) => f.round === 2 && linkedFlightIds.includes(f.id))?.id ?? null,
     };
@@ -225,19 +225,19 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 }
 
 export function useStore() {
-  const [store, setStore] = useState(null);
-  const [tournaments, setTournaments] = useState([]);
-  const [activeTournament, setActiveTournament] = useState(null);
-  const [activeTournamentId, setActiveTournamentId] = useState(() =>
+  const [store, setStore] = useState<Store | null>(null);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(() =>
     localStorage.getItem('pffg_active_tournament')
   );
-  const [leaguePoints, setLeaguePoints] = useState([]);
-  const [registrations, setRegistrations] = useState([]);
-  const [logoUrl, setLogoUrl] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [leaguePoints, setLeaguePoints] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const debounceRef = useRef(null);
+  const [error, setError] = useState<string | null>(null);
+  const debounceRef = useRef<number | null>(null);
 
   const load = async () => {
     try {
