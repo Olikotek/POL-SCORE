@@ -32,7 +32,7 @@ export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
 function formatShortPlayerName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length >= 2) {
-    return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+    return parts[0][0] + '. ' + parts.slice(1).join(' ');
   }
   return fullName;
 }
@@ -61,7 +61,7 @@ function getPublicAvatarPath(name: string, existingAvatar?: string | null): stri
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '-');
-  return `/players/${normalized}.jpg`;
+  return '/players/' + normalized + '.jpg';
 }
 
 export function Leaderboard({
@@ -140,7 +140,8 @@ export function Leaderboard({
   const [positionDeltas, setPositionDeltas] = useState<Map<string, { type: 'up' | 'down' | 'same'; diff: number }>>(new Map());
 
   useEffect(() => {
-    const storageKey = `pffg_tourney_ranks_${store.tournamentName}_${filter}`;
+    const currentTournName = activeTournament?.name || store.tournamentName;
+    const storageKey = 'pffg_tourney_ranks_' + currentTournName + '_' + filter;
     let previousRanks: Record<string, number> = {};
 
     try {
@@ -171,7 +172,7 @@ export function Leaderboard({
 
     setPositionDeltas(nextDeltas);
     sessionStorage.setItem(storageKey, JSON.stringify(currentRanksObj));
-  }, [sorted, ranks, filter, store.tournamentName]);
+  }, [sorted, ranks, filter, activeTournament?.name, store.tournamentName]);
 
   const preparedRows = useMemo(() => {
     const tiedCounts = new Map<number, number>();
@@ -180,7 +181,7 @@ export function Leaderboard({
     return sorted.map((player, index) => {
       const rank = ranks[index];
       const isTied = (tiedCounts.get(rank) || 0) > 1;
-      const display = isTied ? `T${rank}` : ordinalLabel(rank);
+      const display = isTied ? ('T' + rank) : ordinalLabel(rank);
 
       const total = combinedRelative(player, holesR1, holesR2);
       const r1Rel = relative(player.scores[1] || [], holesR1);
@@ -211,13 +212,16 @@ export function Leaderboard({
     });
   }, [sorted, ranks, holesR1, holesR2, store.round2Started, positionDeltas]);
 
+  // Priorytet dla pola wpisanego w formularzu turnieju
   const currentCourseName = useMemo(() => {
     if (activeTournament?.courseName && activeTournament.courseName.trim()) {
       return activeTournament.courseName.trim();
     }
     const r1Course = store.round1CourseId ? store.courses.find((c) => c.id === store.round1CourseId) : null;
     return r1Course?.name || store.courses[0]?.name || 'Pole Turniejowe PFFG';
-  }, [activeTournament, store.round1CourseId, store.courses]);
+  }, [activeTournament?.courseName, store.round1CourseId, store.courses]);
+
+  const displayTournamentTitle = activeTournament?.name || store.tournamentName;
 
   return (
     <section className="leaderboard-container">
@@ -373,7 +377,7 @@ export function Leaderboard({
       {/* TYTUŁ TURNIEJU I POLE Z KONFIGURACJI TURNIEJU */}
       <div className="leaderboard-top-info">
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
-          {store.tournamentName}
+          {displayTournamentTitle}
         </h2>
         {currentCourseName && (
           <p style={{ margin: '2px 0 0 0', fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -383,7 +387,7 @@ export function Leaderboard({
         )}
       </div>
 
-      {/* PASEK KONTROLNY: KATEGORIA + ODŚWIEŻANIE + WPROWADŹ WYNIK */}
+      {/* PASEK KONTROLNY */}
       <div className="leaderboard-top-controls">
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
           <div style={{ position: 'relative' }} ref={dropdownRef}>
@@ -556,12 +560,10 @@ export function Leaderboard({
                     cursor: 'pointer',
                   }}
                 >
-                  {/* POZYCJA */}
                   <td className="col-pos" style={{ padding: '8px 2px', fontWeight: 800, fontSize: '12px', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     {display}
                   </td>
 
-                  {/* +/- DESKTOP */}
                   <td className="desktop-only-col col-delta" style={{ padding: '8px 4px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {delta.type === 'up' ? (
@@ -580,7 +582,6 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* FLAGA / NAT */}
                   <td className="col-nat" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <img
@@ -598,7 +599,6 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* ZAWODNIK + ZDJĘCIE LUB INICJAŁY */}
                   <td className="col-player" style={{ padding: '6px 6px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                       {!hasError ? (
@@ -669,7 +669,6 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* SUMA / TOT */}
                   <td className="col-sum" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {total < 0 ? (
@@ -698,14 +697,12 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* DOŁKI (THRU) */}
                   <td className="col-holes" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 600, fontSize: '12.5px' }}>
                       {thru}
                     </div>
                   </td>
 
-                  {/* RUNDA MOBILE */}
                   <td className="mobile-only-col col-r-mob" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {(() => {
@@ -718,14 +715,12 @@ export function Leaderboard({
                     </div>
                   </td>
 
-                  {/* RUNDA 1 DESKTOP */}
                   <td className="desktop-only-col col-r1" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {s1 > 0 ? (r1Rel === 0 ? 'E' : relativeLabel(r1Rel)) : '–'}
                     </div>
                   </td>
 
-                  {/* RUNDA 2 DESKTOP */}
                   {store.round2Started && (
                     <td className="desktop-only-col col-r2" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -734,14 +729,12 @@ export function Leaderboard({
                     </td>
                   )}
 
-                  {/* UDERZENIA DESKTOP */}
                   <td className="desktop-only-col col-strokes" style={{ padding: '8px 8px', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {strokes || '–'}
                     </div>
                   </td>
 
-                  {/* STRZAŁKA */}
                   <td className="desktop-only-col col-arrow" style={{ padding: '8px 2px', color: '#94a3b8' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <ChevronRight size={15} />
