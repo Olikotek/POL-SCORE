@@ -5,7 +5,7 @@ import type { Course, Flight, Hole, Player, Round, Store, Tournament } from '@/t
 
 const LEAGUE_POINTS_CACHE_KEY = 'pffg_cached_league_points';
 const LEAGUE_POINTS_TIME_KEY = 'pffg_cached_league_points_time';
-const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minut
+const CACHE_TTL_MS = 60 * 60 * 1000;
 
 async function fetchStore(activeTournamentId?: string | null): Promise<{
   store: Store;
@@ -15,7 +15,6 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   registrations: any[];
   logoUrl: string | null;
 }> {
-  // 1. Turnieje, ustawienia i rejestracje
   const [tournamentsRes, settingsRes, registrationsRes] = await Promise.all([
     supabase.from('tournaments').select('*').order('date', { ascending: false }),
     supabase.from('tournament_settings').select('*').maybeSingle(),
@@ -38,7 +37,6 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   const settings = settingsRes.data;
 
-  // Nadrzędny wybór turnieju: ID z bazy ustawione przez Admina -> status active -> fallback
   let activeTournament: Tournament | null = null;
   if (tournaments.length > 0) {
     activeTournament =
@@ -51,7 +49,6 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 
   const activeTournId = activeTournament?.id;
 
-  // 2. Pobieramy WSZYSTKIE dołki pętlą stronnicowania (przełamuje limit 1000 rekordów)
   let allScores: any[] = [];
   let from = 0;
   const step = 1000;
@@ -68,12 +65,15 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   }
 
   let flightsQuery = supabase.from('flights').select('*').order('name').range(0, 1999);
-
   if (activeTournId) {
     flightsQuery = flightsQuery.eq('tournament_id', activeTournId);
   }
 
-  // 3. Pamięć podręczna dla rankingu ligowego (League Points) - odświeżanie max co 60 minut
+  let tournamentPlayersQuery = supabase.from('tournament_players').select('player_id');
+  if (activeTournId) {
+    tournamentPlayersQuery = tournamentPlayersQuery.eq('tournament_id', activeTournId);
+  }
+
   const cachedLpRaw = localStorage.getItem(LEAGUE_POINTS_CACHE_KEY);
   const cachedLpTime = localStorage.getItem(LEAGUE_POINTS_TIME_KEY);
   const isLpCacheValid =
@@ -93,13 +93,14 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
           return res;
         });
 
-  const [coursesRes, courseHolesRes, playersRes, flightsRes, flightPlayersRes, leaguePointsRes] =
+  const [coursesRes, courseHolesRes, playersRes, flightsRes, flightPlayersRes, tournamentPlayersRes, leaguePointsRes] =
     await Promise.all([
       supabase.from('courses').select('*').order('name'),
       supabase.from('course_holes').select('*').order('course_id, number'),
       supabase.from('players').select('*').order('name').range(0, 4999),
       flightsQuery,
       supabase.from('flight_players').select('*').range(0, 4999),
+      tournamentPlayersQuery,
       lpPromise,
     ]);
 
@@ -119,7 +120,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       .map((h) => ({ number: h.number, par: h.par, meters: h.meters }));
   }
 
-  const holesByCourse: Record<string, Hole[]> = {};
+  const holesByCourse: Record = {};
   for (const c of courses) {
     holesByCourse[c.id] = holesForCourse(c.id);
   }
@@ -138,9 +139,12 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
   const flightPlayers = flightPlayersRes.data ?? [];
   const rawPlayers = playersRes.data ?? [];
 
-  // Przetwarzanie pełnej bazy zawodników
+  const assignedPlayerIds = new Set(
+    (tournamentPlayersRes.data ?? []).map((tp: any) => String(tp.player_id).toLowerCase())
+  );
+
   const players: Player[] = rawPlayers.map((p) => {
-    const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
+    const scores: Record = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
 
     scoresRows
       .filter((s) => String(s.player_id).toLowerCase() === String(p.id).toLowerCase())
@@ -158,10 +162,14 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       .filter((fp) => String(fp.player_id).toLowerCase() === String(p.id).toLowerCase())
       .map((fp) => fp.flight_id);
 
-    const flightId: Record<Round, string | null> = {
+    const flightId: Record = {
       1: flightsRows.find((f) => f.round === 1 && linkedFlightIds.includes(f.id))?.id ?? null,
       2: flightsRows.find((f) => f.round === 2 && linkedFlightIds.includes(f.id))?.id ?? null,
     };
+
+    const isAssignedToThisTournament = activeTournId
+      ? assignedPlayerIds.has(String(p.id).toLowerCase())
+      : (p.is_active ?? true);
 
     return {
       id: p.id,
@@ -172,7 +180,7 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
       flag: p.flag ?? 'PL',
       flagImage: p.flag_image ?? undefined,
       isAmateur: !!p.is_amateur,
-      isActive: p.is_active ?? true,
+      isActive: isAssignedToThisTournament,
       userId: p.user_id ?? undefined,
       email: p.email ?? undefined,
       gender: p.gender ?? undefined,
@@ -217,19 +225,19 @@ async function fetchStore(activeTournamentId?: string | null): Promise<{
 }
 
 export function useStore() {
-  const [store, setStore] = useState<Store | null>(null);
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
-  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(() =>
+  const [store, setStore] = useState(null);
+  const [tournaments, setTournaments] = useState([]);
+  const [activeTournament, setActiveTournament] = useState(null);
+  const [activeTournamentId, setActiveTournamentId] = useState(() =>
     localStorage.getItem('pffg_active_tournament')
   );
-  const [leaguePoints, setLeaguePoints] = useState<any[]>([]);
-  const [registrations, setRegistrations] = useState<any[]>([]);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [leaguePoints, setLeaguePoints] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
+  const [logoUrl, setLogoUrl] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const debounceRef = useRef<number | null>(null);
+  const [error, setError] = useState(null);
+  const debounceRef = useRef(null);
 
   const load = async () => {
     try {
@@ -243,7 +251,7 @@ export function useStore() {
       setError(null);
     } catch (err) {
       console.error(err);
-      setError('Nie udało się połączyć z bazą danych turnieju.');
+      setError('Nie udalo sie polaczyc z baza danych turnieju.');
     } finally {
       setLoading(false);
     }
@@ -267,9 +275,17 @@ export function useStore() {
     };
 
     const handleLeaguePointsChange = () => {
-      // Unieważnienie pamięci podręcznej punktów ligowych przy zapisie w panelu
       localStorage.removeItem(LEAGUE_POINTS_CACHE_KEY);
       localStorage.removeItem(LEAGUE_POINTS_TIME_KEY);
+      scheduleReload();
+    };
+
+    const handleSettingsChange = (payload: any) => {
+      const newGlobalId = payload?.new?.active_tournament_id;
+      if (newGlobalId && newGlobalId !== activeTournamentId) {
+        setActiveTournamentId(newGlobalId);
+        localStorage.setItem('pffg_active_tournament', newGlobalId);
+      }
       scheduleReload();
     };
 
@@ -278,10 +294,11 @@ export function useStore() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'course_holes' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_players' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'flight_players' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, scheduleReload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_settings' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_settings' }, handleSettingsChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, scheduleReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'league_points' }, handleLeaguePointsChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_registrations' }, scheduleReload)
