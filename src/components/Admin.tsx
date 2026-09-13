@@ -78,7 +78,7 @@ function getPublicAvatarPath(name: string, existingAvatar?: string | null): stri
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '-');
-  return `/players/${normalized}.jpg`;
+  return /players/${normalized}.jpg;
 }
 
 export function AdminLock({
@@ -175,6 +175,22 @@ export function Admin({
     };
   }, []);
 
+  const handleGlobalTournamentSelect = async (id: string) => {
+    const found = localTournaments.find((t) => t.id === id) || null;
+    setLocalActiveTournament(found);
+    onSelectTournament(id);
+
+    try {
+      await supabase
+        .from('tournament_settings')
+        .update({ active_tournament_id: id })
+        .eq('id', 1);
+      flash(Aktywowano podgląd dla wszystkich: ${found?.name || id});
+    } catch (err) {
+      console.warn('Błąd synchronizacji aktywnego turnieju:', err);
+    }
+  };
+
   const tabs: [typeof tab, string, React.ReactNode][] = [
     ['turnieje', 'Turnieje', <Trophy size={15} key="t" />],
     ['zapisy', 'Zapisy', <ClipboardList size={15} key="reg" />],
@@ -218,14 +234,9 @@ export function Admin({
       </div>
       {tab === 'turnieje' && (
         <TournamentManager
-          store={localStore}
           tournaments={localTournaments}
           activeTournament={localActiveTournament}
-          onSelectTournament={(id) => {
-            const found = localTournaments.find((t) => t.id === id) || null;
-            setLocalActiveTournament(found);
-            onSelectTournament(id);
-          }}
+          onSelectTournament={handleGlobalTournamentSelect}
           onUpdateTournaments={setLocalTournaments}
           onUpdateStore={setLocalStore}
           flash={flash}
@@ -354,7 +365,7 @@ function RegistrationManager({
             <span /> REJESTR ZGŁOSZEŃ · RECEPCJA
           </p>
           <h2>Zarządzanie Zapisami ({registrations.length})</h2>
-          <p>Potwierdzaj opłacone wpisowe (80 zł / 40 zł) lub usuwaj zgłoszenia.</p>
+          <p>Potwierdzaj opłacone wpisowe lub usuwaj zgłoszenia.</p>
         </div>
         <ClipboardList size={22} className="muted-icon" />
       </div>
@@ -411,7 +422,7 @@ function RegistrationManager({
                         style={{
                           background: isPaid ? '#dcfce7' : '#fef3c7',
                           color: isPaid ? '#15803d' : '#b45309',
-                          border: `1px solid ${isPaid ? '#86efac' : '#fde68a'}`,
+                          border: 1px solid ${isPaid ? '#86efac' : '#fde68a'},
                           borderRadius: '6px',
                           padding: '4px 10px',
                           fontSize: '11px',
@@ -461,7 +472,6 @@ function TournamentManager({
   onUpdateStore,
   flash,
 }: {
-  store: Store;
   tournaments: Tournament[];
   activeTournament: Tournament | null;
   onSelectTournament: (id: string) => void;
@@ -542,9 +552,13 @@ function TournamentManager({
         });
 
         onUpdateTournaments((prev) => [...prev, created]);
-        onUpdateStore((prev) => ({ ...prev, tournamentName: created.name }));
+        onUpdateStore((prev) => ({
+          ...prev,
+          tournamentName: created.name,
+          players: prev.players.map((p) => ({ ...p, isActive: false, is_active: false })),
+        }));
         onSelectTournament(created.id);
-        flash('Utworzono i aktywowano nowy turniej.');
+        flash('Utworzono i aktywowano nowy turniej z 0 uczestnikami.');
         resetForm();
       } catch {
         flash('Błąd tworzenia turnieju.');
@@ -675,7 +689,7 @@ function TournamentManager({
 
   const handleDeleteTournament = async (t: Tournament) => {
     const confirm = window.confirm(
-      `CZY NA PEWNO chcesz USUNĄĆ turniej "${t.name}"?\n\nTej operacji nie można cofnąć.`
+      CZY NA PEWNO chcesz USUNĄĆ turniej "${t.name}"?\n\nTej operacji nie można cofnąć.
     );
     if (!confirm) return;
 
@@ -803,7 +817,7 @@ function TournamentManager({
                   </div>
                   <b>{t.name}</b>
                   <small>
-                    <Calendar size={12} className="inline mr-1" /> {t.date} {t.courseName ? `· ${t.courseName}` : ''}
+                    <Calendar size={12} className="inline mr-1" /> {t.date} {t.courseName ? · ${t.courseName} : ''}
                   </small>
                 </div>
 
@@ -1077,7 +1091,7 @@ function CourseEditor({
 
     try {
       await updateCourseHole(selectedCourseId, selectedHole, field, value);
-      flash(`Dołek ${selectedHole} zapisany.`);
+      flash(Dołek ${selectedHole} zapisany.);
     } catch {
       flash('Błąd zapisu dołka.');
     }
@@ -1247,6 +1261,27 @@ function PlayerManager({
   const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!activeTournament?.id) return;
+    supabase
+      .from('tournament_players')
+      .select('player_id')
+      .eq('tournament_id', activeTournament.id)
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const participantIds = new Set(data.map((r: any) => r.player_id));
+          onUpdateStore((prev) => ({
+            ...prev,
+            players: prev.players.map((p) => ({
+              ...p,
+              isActive: participantIds.has(p.id),
+              is_active: participantIds.has(p.id),
+            })),
+          }));
+        }
+      });
+  }, [activeTournament?.id]);
+
   const reset = () => {
     setName('');
     setCategory('Men');
@@ -1277,7 +1312,7 @@ function PlayerManager({
   const submit = async () => {
     if (!name.trim()) return;
     const trimmedName = name.trim();
-    const formattedBirthDate = birthYear.trim() ? `${birthYear.trim()}-01-01` : undefined;
+    const formattedBirthDate = birthYear.trim() ? ${birthYear.trim()}-01-01 : undefined;
 
     const resolvedAvatar = avatar.trim() || getPublicAvatarPath(trimmedName);
 
@@ -1312,19 +1347,25 @@ function PlayerManager({
         flash('Dane zawodnika zaktualizowane.');
       } else {
         const added = await addPlayer(playerData);
+        const newPlayer = added || {
+          id: temp-${Date.now()},
+          scores: { 1: Array(18).fill(0), 2: Array(18).fill(0) },
+          flightId: { 1: null, 2: null },
+          ...playerData,
+        };
+
+        if (activeTournament?.id && newPlayer?.id) {
+          await supabase.from('tournament_players').upsert({
+            tournament_id: activeTournament.id,
+            player_id: newPlayer.id,
+          });
+        }
+
         onUpdateStore((prev) => ({
           ...prev,
-          players: [
-            ...prev.players,
-            added || {
-              id: `temp-${Date.now()}`,
-              scores: { 1: Array(18).fill(0), 2: Array(18).fill(0) },
-              flightId: { 1: null, 2: null },
-              ...playerData,
-            },
-          ],
+          players: [...prev.players, newPlayer],
         }));
-        flash('Zawodnik dodany do bazy.');
+        flash('Zawodnik dodany do bazy i przypisany do tego turnieju.');
       }
       reset();
     } catch {
@@ -1343,16 +1384,29 @@ function PlayerManager({
     }));
 
     try {
-      if (!nextState && activeTournament?.id) {
+      if (!activeTournament?.id) {
+        flash('Wybierz najpierw turniej!');
+        return;
+      }
+
+      if (!nextState) {
         await removePlayerFromTournament(p.id, activeTournament.id);
-        flash(`${p.name} wycofany z turnieju.`);
+        await supabase
+          .from('tournament_players')
+          .delete()
+          .eq('tournament_id', activeTournament.id)
+          .eq('player_id', p.id);
+        flash(${p.name} wycofany z turnieju "${activeTournament.name}".);
       } else {
-        await supabase.from('players').update({ is_active: true }).eq('id', p.id);
-        flash(`${p.name} włączony do turnieju.`);
+        await supabase.from('tournament_players').upsert({
+          tournament_id: activeTournament.id,
+          player_id: p.id,
+        });
+        flash(${p.name} dodany do turnieju "${activeTournament.name}".);
       }
     } catch (err) {
       console.error(err);
-      flash('Błąd zapisu statusu.');
+      flash('Błąd zapisu statusu w turnieju.');
     }
   };
 
@@ -1667,7 +1721,7 @@ function PlayerManager({
                     {(p.isAmateur || p.is_amateur) && <span className="am-badge">AM</span>}
                   </b>
                   <small>
-                    {p.club ?? 'Bez klubu'} · {p.category} {p.city ? `· ${p.city}` : ''}
+                    {p.club ?? 'Bez klubu'} · {p.category} {p.city ? · ${p.city} : ''}
                   </small>
                   {(p.ball_model || p.ballModel) && (
                     <small style={{ color: '#0284c7', display: 'block', fontSize: '11px' }}>
@@ -1768,7 +1822,7 @@ function FlightManager({
 
   const create = async () => {
     if (!name.trim()) return;
-    const fallbackId = `flight-${Date.now()}`;
+    const fallbackId = flight-${Date.now()};
     const generatedCode = code.length === 4 ? code : String(Math.floor(1000 + Math.random() * 9000));
     const finalTeeTime = teeTime || '10:00';
 
@@ -1822,7 +1876,7 @@ function FlightManager({
 
     const typeDesc = autoStartType === 'hole1' ? 'Start od 1. dołka (Tee Times)' : 'Shotgun (Różne dołki startowe)';
     const confirm = window.confirm(
-      `Wygenerować automatyczne flighty dla Rundy ${round}?\n\n- Tryb: ${autoMode === 'random' ? 'Losowo' : 'Według wyników'}\n- Format startu: ${typeDesc}\n- Grupy: po ${autoGroupSize} osób\n- Start pierwszego flightu: ${autoStartTime}\n- Odstęp między grupami: ${autoIntervalMinutes} min\n\nDotychczasowe flighty w tej rundzie zostaną usunięte i utworzone na nowo.`
+      Wygenerować automatyczne flighty dla Rundy ${round}?\n\n- Tryb: ${autoMode === 'random' ? 'Losowo' : 'Według wyników'}\n- Format startu: ${typeDesc}\n- Grupy: po ${autoGroupSize} osób\n- Start pierwszego flightu: ${autoStartTime}\n- Odstęp między grupami: ${autoIntervalMinutes} min\n\nDotychczasowe flighty w tej rundzie zostaną usunięte i utworzone na nowo.
     );
     if (!confirm) return;
 
@@ -1848,14 +1902,14 @@ function FlightManager({
 
       for (let g = 0; g < totalGroups; g++) {
         const groupPlayers = pool.slice(g * autoGroupSize, (g + 1) * autoGroupSize);
-        const flightName = `Flight ${String.fromCharCode(65 + (g % 26))}${g >= 26 ? Math.floor(g / 26) : ''}`;
+        const flightName = Flight ${String.fromCharCode(65 + (g % 26))}${g >= 26 ? Math.floor(g / 26) : ''};
         const flightCode = String(Math.floor(1000 + Math.random() * 9000));
         const assignedStartHole = autoStartType === 'hole1' ? 1 : (g % 18) + 1;
 
         const currentGroupMinutes = baseTotalMinutes + (g * autoIntervalMinutes);
         const groupH = Math.floor(currentGroupMinutes / 60) % 24;
         const groupM = currentGroupMinutes % 60;
-        const calculatedTeeTime = `${String(groupH).padStart(2, '0')}:${String(groupM).padStart(2, '0')}`;
+        const calculatedTeeTime = ${String(groupH).padStart(2, '0')}:${String(groupM).padStart(2, '0')};
 
         const created = await createFlight({
           name: flightName,
@@ -1866,7 +1920,7 @@ function FlightManager({
           tournamentId: activeTournament?.id,
         });
 
-        const flightId = created?.id || `flight-${Date.now()}-${g}`;
+        const flightId = created?.id || flight-${Date.now()}-${g};
         const pIds = groupPlayers.map((p) => p.id);
 
         for (const p of groupPlayers) {
@@ -1897,7 +1951,7 @@ function FlightManager({
         players: updatedPlayers,
       }));
 
-      flash(`Wygenerowano ${newFlightsList.length} flightów z czasem startu dla Rundy ${round}!`);
+      flash(Wygenerowano ${newFlightsList.length} flightów z czasem startu dla Rundy ${round}!);
     } catch (err) {
       console.error(err);
       flash('Błąd generowania flightów.');
@@ -1922,9 +1976,9 @@ function FlightManager({
 
       if (error) {
         console.error('Błąd zapisu tee_time:', error);
-        flash(`Błąd bazy: ${error.message}`);
+        flash(Błąd bazy: ${error.message});
       } else {
-        flash(`Zapisano czas ${flight.name}: ${newTime}`);
+        flash(Zapisano czas ${flight.name}: ${newTime});
       }
     } catch (err: any) {
       console.error('Błąd połączenia:', err);
@@ -1964,7 +2018,7 @@ function FlightManager({
 
       if (error) {
         console.error('Błąd zapisu edycji flightu:', error);
-        flash(`Błąd bazy: ${error.message}`);
+        flash(Błąd bazy: ${error.message});
       } else {
         flash('Flight zmieniony.');
       }
@@ -2277,7 +2331,7 @@ function FlightManager({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                   <span style={{ fontWeight: 800, fontSize: '10px', color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
-                    {rel > 0 ? `+${rel}` : rel}
+                    {rel > 0 ? +${rel} : rel}
                   </span>
 
                   {roundFlights.length > 0 && (
@@ -2434,7 +2488,7 @@ function FlightManager({
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                           <span style={{ fontSize: '10px', fontWeight: 700, color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
-                            {rel > 0 ? `+${rel}` : rel}
+                            {rel > 0 ? +${rel} : rel}
                           </span>
                           <button
                             onClick={() => assignPlayer(p.id, null)}
@@ -2469,7 +2523,7 @@ function FlightManager({
                       const rel = combinedRelative(p, holesR1, holesR2);
                       return (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({rel > 0 ? `+${rel}` : rel})
+                          {p.name} ({rel > 0 ? +${rel} : rel})
                         </option>
                       );
                     })}
@@ -2537,7 +2591,7 @@ function RoundManager({
     try {
       const existingR2 = store.flights.filter((f) => f.round === 2);
       await reflightForRound2(activePlayers, holesR1, holesR2, groupSize, existingR2, activeTournament?.id);
-      flash(`Flighty R2 przegrupowane (grupy po ${groupSize}).`);
+      flash(Flighty R2 przegrupowane (grupy po ${groupSize}).);
     } catch {
       flash('Błąd przegrupowania.');
     }
@@ -2550,7 +2604,7 @@ function RoundManager({
     }
 
     const verification = window.prompt(
-      `UWAGA: Chcesz wyzerować wyniki wyłącznie RUNDY ${r} dla turnieju: "${activeTournament.name}".\n\nWpisz dokładnie słowo "RESET" (wielkimi literami), aby potwierdzić operację:`
+      UWAGA: Chcesz wyzerować wyniki wyłącznie RUNDY ${r} dla turnieju: "${activeTournament.name}".\n\nWpisz dokładnie słowo "RESET" (wielkimi literami), aby potwierdzić operację:
     );
 
     if (verification !== 'RESET') {
@@ -2568,9 +2622,9 @@ function RoundManager({
 
     try {
       await resetRoundScores(r, activeTournament.id);
-      flash(`Wyzerowano wyniki Rundy ${r} w turnieju "${activeTournament.name}".`);
+      flash(Wyzerowano wyniki Rundy ${r} w turnieju "${activeTournament.name}".);
     } catch {
-      flash(`Błąd podczas zerowania Rundy ${r}.`);
+      flash(Błąd podczas zerowania Rundy ${r}.);
     }
   };
 
@@ -2777,14 +2831,14 @@ function OverridePanel({
 
     try {
       await saveBatchScores(currentPlayer.id, round, finalScores, activeTournament?.id);
-      flash(`Zapisano kompletną kartę 18 dołków dla ${currentPlayer.name}.`);
+      flash(Zapisano kompletną kartę 18 dołków dla ${currentPlayer.name}.);
     } catch {
       flash('Błąd zapisu wyników.');
     }
   };
 
   const handleClearPlayerScores = async () => {
-    const confirm = window.confirm(`Czy na pewno chcesz wyczyścić wszystkie dołki gracza ${currentPlayer.name} w Rundzie ${round}?`);
+    const confirm = window.confirm(Czy na pewno chcesz wyczyścić wszystkie dołki gracza ${currentPlayer.name} w Rundzie ${round}?);
     if (!confirm) return;
 
     setScoresBuffer(Array(18).fill(0));
@@ -2807,7 +2861,7 @@ function OverridePanel({
             : p
         ),
       }));
-      flash(`Wyczyszczono uderzenia Rundy ${round} dla ${currentPlayer.name}.`);
+      flash(Wyczyszczono uderzenia Rundy ${round} dla ${currentPlayer.name}.);
     } catch (err) {
       console.error(err);
       flash('Błąd podczas czyszczenia wyników.');
