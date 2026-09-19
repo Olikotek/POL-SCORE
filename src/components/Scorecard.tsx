@@ -311,12 +311,13 @@ export function Scorecard({
           <p>Wprowadź czterocyfrowy Kod Flightu, aby rozpocząć zapisywanie wyników.</p>
           <input
             autoFocus
+            type="password"
             inputMode="numeric"
             maxLength={4}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             onKeyDown={(e) => e.key === 'Enter' && enter()}
-            placeholder="4821"
+            placeholder="••••"
           />
           <button disabled={code.length !== 4} className="primary-button full" onClick={enter}>
             Otwórz kartę <ChevronRight size={16} />
