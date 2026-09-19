@@ -1,6 +1,6 @@
 // src/components/Archive.tsx
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Calendar, MapPin, ArrowLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
+import { Calendar, MapPin, ArrowLeft, ChevronRight, ChevronDown, Check, Package } from 'lucide-react';
 import type { Tournament, Store, Category, Player, Hole, Round } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { combinedRelative, relativeLabel, totalStrokes } from '@/scoring';
@@ -33,10 +33,12 @@ const getInitials = (name: string) => {
 export function Archive({
   tournaments,
   store,
+  isAdmin = false,
 }: {
   tournaments: Tournament[];
   store: Store;
   onOpenPlayer?: (playerId: string) => void;
+  isAdmin?: boolean;
 }) {
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [filter, setFilter] = useState<'all' | 'league' | 'training'>('all');
@@ -51,6 +53,25 @@ export function Archive({
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
   const [archivedPlayers, setArchivedPlayers] = useState<(Player & { savedRank?: number })[]>([]);
   const [loadingArchive, setLoadingArchive] = useState(false);
+
+  // Blokada dla użytkowników niebędących adminem: zero zapytań do Supabase
+  if (!isAdmin) {
+    return (
+      <section style={{ background: '#ffffff', borderRadius: '12px', padding: '60px 24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)', textAlign: 'center' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+            <Package size={32} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: '0 0 6px 0' }}>Przerwa techniczna</h2>
+            <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+              Archiwum wyników jest tymczasowo niedostępne dla użytkowników.<br />Zapraszamy wkrótce!
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const handleSelectCategory = (cat: Category | 'Wszystkie') => {
     setCategoryFilter(cat);
@@ -95,13 +116,12 @@ export function Archive({
   }, [selectedTournament, store.holesByCourse, store.holesByRound]);
 
   useEffect(() => {
-    if (!selectedTournament) return;
+    if (!selectedTournament || !isAdmin) return;
 
     let isMounted = true;
     const tournId = selectedTournament.id;
     const CACHE_KEY = `pffg_archive_t_${tournId}`;
 
-    // Sprawdzenie pamięci podręcznej (turniej zakończony = dane niezmienne)
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       try {
@@ -205,7 +225,7 @@ export function Archive({
 
     fetchArchivedData();
     return () => { isMounted = false; };
-  }, [selectedTournament]);
+  }, [selectedTournament, isAdmin]);
 
   const rankedArchivedPlayers = useMemo(() => {
     if (!selectedTournament) return [];
@@ -253,7 +273,6 @@ export function Archive({
   if (selectedTournament) {
     return (
       <section style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
-        {/* NAGŁÓWEK TURNIEJU W ARCHIWUM */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '18px' }}>
           <div>
             <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
@@ -298,7 +317,6 @@ export function Archive({
           </button>
         </div>
 
-        {/* WYBÓR KATEGORII */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -379,7 +397,6 @@ export function Archive({
           </span>
         </div>
 
-        {/* TABELA WYNIKÓW ARCHIWALNYCH */}
         {loadingArchive ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: 700 }}>
             Wczytywanie historycznych wyników...
@@ -429,7 +446,6 @@ export function Archive({
                       onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                     >
-                      {/* POZYCJA */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {rank === 1 ? (
@@ -452,7 +468,6 @@ export function Archive({
                         </div>
                       </td>
 
-                      {/* FLAGA */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           <img
@@ -470,7 +485,6 @@ export function Archive({
                         </div>
                       </td>
 
-                      {/* ZAWODNIK */}
                       <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
                           {p.avatar ? (
@@ -524,7 +538,6 @@ export function Archive({
                         </div>
                       </td>
 
-                      {/* WYNIK DO PAR */}
                       <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {rel < 0 ? (
@@ -539,35 +552,30 @@ export function Archive({
                         </div>
                       </td>
 
-                      {/* DOŁKI */}
                       <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {thru}
                         </div>
                       </td>
 
-                      {/* RUNDA 1 */}
                       <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {r1Rel}
                         </div>
                       </td>
 
-                      {/* RUNDA 2 */}
                       <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {r2Rel}
                         </div>
                       </td>
 
-                      {/* UDERZENIA */}
                       <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           {strokes > 0 ? strokes : '–'}
                         </div>
                       </td>
 
-                      {/* STRZAŁKA */}
                       <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                           <ChevronRight size={15} />
@@ -587,13 +595,13 @@ export function Archive({
           </div>
         )}
 
-        {/* MODAL Z KARTĄ DOŁKÓW */}
         {modalPlayer && (
           <PlayerModal
             player={modalPlayer}
             store={modalStore}
             rank={modalRank}
             initialTab="scorecard"
+            isAdmin={isAdmin}
             onClose={() => setModalPlayerId(null)}
           />
         )}
@@ -668,7 +676,6 @@ export function Archive({
         </div>
       </div>
 
-      {/* KAFELKI ZAKOŃCZONYCH TURNIEJÓW */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
         {filtered.map((t) => (
           <div
