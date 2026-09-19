@@ -11,6 +11,7 @@ import {
   Eye,
   ImageIcon,
   CheckCircle2,
+  Package,
 } from 'lucide-react';
 import type { Tournament, Store, Player, Category } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
@@ -24,7 +25,6 @@ function formatShortPlayerName(fullName: string) {
   return fullName;
 }
 
-// Bezpieczna kompresja do optymalnego Base64 mieszczącego się w limicie mailowym Web3Forms
 function compressPhotoForEmail(file: File): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -66,6 +66,7 @@ export function TournamentsView({
   registrations,
   currentUser,
   userProfile,
+  isAdmin = false,
   onRegisterClick,
   onRequireAuth,
   onOpenPlayer,
@@ -75,6 +76,7 @@ export function TournamentsView({
   registrations: any[];
   currentUser: any;
   userProfile: Player | null;
+  isAdmin?: boolean;
   onRegisterClick: (tournament: Tournament) => void;
   onRequireAuth: () => void;
   onOpenPlayer: (playerId: string) => void;
@@ -82,16 +84,13 @@ export function TournamentsView({
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [showDirectForm, setShowDirectForm] = useState(false);
 
-  // Filtry listy turniejów - domyślnie tylko aktywne z otwartą rejestracją
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('active');
 
-  // Filtry listy zawodników
   const [playerCategoryFilter, setPlayerCategoryFilter] = useState<Category | 'all'>('all');
   const [playerNameFilter, setPlayerNameFilter] = useState('');
   const [playerClubFilter, setPlayerClubFilter] = useState('');
 
-  // Pola formularza zapisu
   const [formTournamentId, setFormTournamentId] = useState<string>(
     tournaments.find((t) => t.status !== 'completed')?.id || tournaments[0]?.id || ''
   );
@@ -106,6 +105,25 @@ export function TournamentsView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Blokada techniczna dla osób bez praw admina
+  if (!isAdmin) {
+    return (
+      <section style={{ background: '#ffffff', borderRadius: '12px', padding: '60px 24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)', textAlign: 'center' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+            <Package size={32} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: '0 0 6px 0' }}>Przerwa techniczna</h2>
+            <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+              Moduł turniejów i zapisów jest tymczasowo niedostępny.<br />Zapraszamy wkrótce!
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const activeTournaments = useMemo(() => {
     return (tournaments || []).filter((t) => t.status !== 'completed');
@@ -133,7 +151,6 @@ export function TournamentsView({
     });
   }, [tournaments, searchQuery, statusFilter]);
 
-  // Lista zawodników: powiązani przez registrations lub wszyscy aktywni gracze w systemie
   const registeredPlayers = useMemo(() => {
     if (!selectedTournament) return [];
     const regIds = new Set(
@@ -187,7 +204,6 @@ export function TournamentsView({
       const formattedBirth = `${birthYear.trim()}-01-01`;
       const cleanFlag = countryFlag.trim().toUpperCase() || 'PL';
 
-      // 1. Zapisujemy zawodnika w Supabase
       let playerId = userProfile?.id;
 
       if (!playerId) {
@@ -219,7 +235,6 @@ export function TournamentsView({
           .eq('id', playerId);
       }
 
-      // 2. Dodajemy rejestrację do turnieju
       try {
         const { error: regErr } = await supabase.from('tournament_registrations').insert({
           tournament_id: formTournamentId,
@@ -233,7 +248,6 @@ export function TournamentsView({
         console.warn('Pomijam błąd relacji tournament_registrations:', err);
       }
 
-      // 3. WYSYŁKA DANYCH I ZDJĘCIA NA TWÓJ E-MAIL (WEB3FORMS)
       try {
         const tournamentName = activeTournaments.find((t) => t.id === formTournamentId)?.name || formTournamentId;
         const payload: Record<string, any> = {
@@ -347,7 +361,6 @@ export function TournamentsView({
           display: none;
         }
 
-        /* POPRAWKA KADROWANIA ZDJĘĆ - ŚRODEK */
         img {
           object-fit: cover;
           object-position: center center;
@@ -405,7 +418,6 @@ export function TournamentsView({
             margin-top: 1px !important;
           }
 
-          /* Tabela główna turniejów - telefon */
           .col-mob-date {
             width: 66px !important;
             padding: 6px 2px !important;
@@ -434,7 +446,6 @@ export function TournamentsView({
             padding: 6px 2px !important;
           }
 
-          /* Tabela listy startowej - telefon */
           .col-start-nr {
             width: 22px !important;
             text-align: center !important;
@@ -478,7 +489,6 @@ export function TournamentsView({
         }
       `}</style>
 
-      {/* BANER SUKCESU PO ZAPISIE */}
       {formNotice && (
         <div style={{
           background: '#f0fdf4',
@@ -501,7 +511,6 @@ export function TournamentsView({
       )}
 
       {selectedTournament ? (
-        /* WIDOK LISTY STARTOWEJ TURNIEJU */
         <div className="tournaments-table-container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
@@ -540,7 +549,6 @@ export function TournamentsView({
             </button>
           </div>
 
-          {/* FILTRY ZAWODNIKÓW */}
           <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
               <label style={{ fontSize: '10px', fontWeight: 800, color: '#475569' }}>Kat.</label>
@@ -590,7 +598,6 @@ export function TournamentsView({
             </button>
           </div>
 
-          {/* TABELA ZAWODNIKÓW */}
           <div className="tournaments-table-box">
             <table className="tourn-table-main">
               <thead>
@@ -686,7 +693,6 @@ export function TournamentsView({
           </div>
         </div>
       ) : (
-        /* WIDOK GŁÓWNY: TERMINARZ TURNIEJÓW */
         <>
           <div
             style={{
