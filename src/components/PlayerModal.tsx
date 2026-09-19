@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   ZoomIn,
+  Package,
 } from 'lucide-react';
 import type { Category, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
@@ -296,6 +297,7 @@ export function PlayerModal({
   hideScorecardTab = false,
   tournaments = [],
   leaguePoints = [],
+  isAdmin = false,
   onClose,
 }: {
   player: Player;
@@ -305,6 +307,7 @@ export function PlayerModal({
   hideScorecardTab?: boolean;
   tournaments?: Tournament[];
   leaguePoints?: any[];
+  isAdmin?: boolean;
   onClose: () => void;
 }) {
   const holesR1 = (store.holesByRound[1] && store.holesByRound[1].length > 0)
@@ -699,7 +702,7 @@ export function PlayerModal({
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                 <div
-                  style={{ position: 'relative', cursor: !hasAvatarError ? 'pointer' : 'default', flexShrink: 0 }}
+                  style={{ position: 'relative', cursor: !hasAvatarError ? 'pointer' : 'default' }}
                   onClick={() => !hasAvatarError && setShowPhotoModal(true)}
                 >
                   <img
@@ -907,71 +910,83 @@ export function PlayerModal({
                   </h3>
                 </div>
 
-                <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', WebkitOverflowScrolling: 'touch' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', minWidth: '450px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
-                        <th style={{ padding: '8px 10px' }}>Ranking</th>
-                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>Kategoria</th>
-                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>Turnieje</th>
-                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>1. m.</th>
-                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>2. m.</th>
-                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>3. m.</th>
-                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>TOP 10</th>
-                        <th style={{ padding: '8px 6px', textAlign: 'center', color: '#0284c7' }}>Punkty</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'right' }}>Pozycja</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 10px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                          <span style={{ padding: '2px 6px', borderRadius: '10px', background: '#0b1329', color: '#ffffff', fontSize: '10px', fontWeight: 800 }}>Absolut</span>
-                        </td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.events}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'right' }}>
-                          {rank === 1 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>1</span>
-                          ) : rank === 2 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>2</span>
-                          ) : rank === 3 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>3</span>
-                          ) : (
-                            <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
-                          )}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '8px 10px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                          <span style={{ padding: '2px 6px', borderRadius: '10px', background: '#0284c7', color: '#ffffff', fontSize: '10px', fontWeight: 800 }}>{player.category}</span>
-                        </td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.events}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'right' }}>
-                          {rank === 1 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>1</span>
-                          ) : rank === 2 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>2</span>
-                          ) : rank === 3 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>3</span>
-                          ) : (
-                            <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
-                          )}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                {!isAdmin ? (
+                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '36px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                      <Package size={24} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>Przerwa techniczna</h4>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Rankingi ligowe są tymczasowo niedostępne dla użytkowników.<br />Zapraszamy wkrótce!</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', WebkitOverflowScrolling: 'touch' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', minWidth: '450px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
+                          <th style={{ padding: '8px 10px' }}>Ranking</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center' }}>Kategoria</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center' }}>Turnieje</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center' }}>1. m.</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center' }}>2. m.</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center' }}>3. m.</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center' }}>TOP 10</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center', color: '#0284c7' }}>Punkty</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'right' }}>Pozycja</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px 10px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>
+                            <span style={{ padding: '2px 6px', borderRadius: '10px', background: '#0b1329', color: '#ffffff', fontSize: '10px', fontWeight: 800 }}>Absolut</span>
+                          </td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.events}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                            {rank === 1 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>1</span>
+                            ) : rank === 2 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>2</span>
+                            ) : rank === 3 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>3</span>
+                            ) : (
+                              <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
+                            )}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '8px 10px', fontWeight: 800, color: '#0284c7' }}>Liga PFFG</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>
+                            <span style={{ padding: '2px 6px', borderRadius: '10px', background: '#0284c7', color: '#ffffff', fontSize: '10px', fontWeight: 800 }}>{player.category}</span>
+                          </td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.events}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.firsts || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.seconds || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.thirds || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center' }}>{playerHistory.top10 || '–'}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>{playerHistory.totalPoints.toFixed(2)}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                            {rank === 1 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>1</span>
+                            ) : rank === 2 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>2</span>
+                            ) : rank === 3 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>3</span>
+                            ) : (
+                              <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>{rank > 0 ? rank : '–'}</span>
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -980,61 +995,73 @@ export function PlayerModal({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
                   <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    ROZEGRANE TURNIEJE 2026 ({playerHistory.list.length})
+                    ROZEGRANE TURNIEJE 2026 ({isAdmin ? playerHistory.list.length : 0})
                   </h3>
                 </div>
 
-                <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', WebkitOverflowScrolling: 'touch' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', minWidth: '400px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
-                        <th style={{ padding: '8px 10px' }}>Data</th>
-                        <th style={{ padding: '8px 10px' }}>Turniej</th>
-                        <th style={{ padding: '8px 10px' }}>Pole</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Miejsce</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0284c7' }}>Punkty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {playerHistory.list.map((t) => (
-                        <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 10px', color: '#64748b', whiteSpace: 'nowrap' }}>{t.date}</td>
-                          <td style={{ padding: '8px 10px', fontWeight: 800, color: '#0284c7' }}>{t.name}</td>
-                          <td style={{ padding: '8px 10px', color: '#475569' }}>{t.courseName}</td>
-                          <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                            {t.rank === 1 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>
-                                1
-                              </span>
-                            ) : t.rank === 2 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>
-                                2
-                              </span>
-                            ) : t.rank === 3 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>
-                                3
-                              </span>
-                            ) : (
-                              <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
-                                {t.rank}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 900, color: '#0284c7', fontSize: '12px' }}>
-                            {t.points.toFixed(2)}
-                          </td>
+                {!isAdmin ? (
+                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '36px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                      <Package size={24} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>Przerwa techniczna</h4>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Historia rozegranych turniejów jest tymczasowo niedostępna dla użytkowników.<br />Zapraszamy wkrótce!</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', WebkitOverflowScrolling: 'touch' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', minWidth: '400px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>
+                          <th style={{ padding: '8px 10px' }}>Data</th>
+                          <th style={{ padding: '8px 10px' }}>Turniej</th>
+                          <th style={{ padding: '8px 10px' }}>Pole</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'center' }}>Miejsce</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0284c7' }}>Punkty</th>
                         </tr>
-                      ))}
-                      {playerHistory.list.length === 0 && (
-                        <tr>
-                          <td colSpan={5} style={{ padding: '14px', textAlign: 'center', color: '#94a3b8' }}>
-                            Brak zakończonych turniejów z wynikami.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {playerHistory.list.map((t) => (
+                          <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '8px 10px', color: '#64748b', whiteSpace: 'nowrap' }}>{t.date}</td>
+                            <td style={{ padding: '8px 10px', fontWeight: 800, color: '#0284c7' }}>{t.name}</td>
+                            <td style={{ padding: '8px 10px', color: '#475569' }}>{t.courseName}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                              {t.rank === 1 ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>
+                                  1
+                                </span>
+                              ) : t.rank === 2 ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>
+                                  2
+                                </span>
+                              ) : t.rank === 3 ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '4px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>
+                                  3
+                                </span>
+                              ) : (
+                                <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
+                                  {t.rank}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 900, color: '#0284c7', fontSize: '12px' }}>
+                              {t.points.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                        {playerHistory.list.length === 0 && (
+                          <tr>
+                            <td colSpan={5} style={{ padding: '14px', textAlign: 'center', color: '#94a3b8' }}>
+                              Brak zakończonych turniejów z wynikami.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
