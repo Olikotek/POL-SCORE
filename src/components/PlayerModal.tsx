@@ -64,13 +64,10 @@ const AVERAGE_CARDS: { key: StatCategory; label: string }[] = [
 const ALL_CARDS = [...TOTAL_CARDS, ...PAR_CARDS, ...PERF_CARDS, ...STREAK_CARDS, ...AVERAGE_CARDS];
 
 function getInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '–';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
@@ -335,6 +332,7 @@ export function PlayerModal({
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [hasAvatarError, setHasAvatarError] = useState(false);
+  const [failedLeaderboardAvatars, setFailedLeaderboardAvatars] = useState<Record<string, boolean>>({});
 
   const avatarSrc = useMemo(() => {
     return getPublicAvatarPath(player.name, player.avatar);
@@ -701,7 +699,7 @@ export function PlayerModal({
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                 <div
-                  style={{ position: 'relative', cursor: !hasAvatarError ? 'pointer' : 'default' }}
+                  style={{ position: 'relative', cursor: !hasAvatarError ? 'pointer' : 'default', flexShrink: 0 }}
                   onClick={() => !hasAvatarError && setShowPhotoModal(true)}
                 >
                   <img
@@ -1331,7 +1329,7 @@ export function PlayerModal({
         </div>
       </div>
 
-      {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) - CZYSTE ZDJĘCIE BEZ ŻADNYCH PODPISÓW */}
+      {/* MODAL POWIĘKSZENIA ZDJĘCIA (LUPKA) */}
       {showPhotoModal && !hasAvatarError && (
         <div
           style={{
@@ -1461,6 +1459,8 @@ export function PlayerModal({
               {categoryLeaderboard.map((item, idx) => {
                 const isCurrentPlayer = item.player.id === player.id;
                 const isExpanded = expandedPlayerId === item.player.id;
+                const itemAvatarSrc = getPublicAvatarPath(item.player.name, item.player.avatar);
+                const hasItemAvatarFailed = failedLeaderboardAvatars[item.player.id];
 
                 return (
                   <div
@@ -1489,11 +1489,18 @@ export function PlayerModal({
                         <span style={{ fontWeight: '900', width: '22px', fontSize: '12px', color: idx < 3 ? '#0284c7' : '#64748b' }}>
                           {idx + 1}.
                         </span>
-                        {item.player.avatar ? (
-                          <img src={item.player.avatar} alt={item.player.name} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
+                        {!hasItemAvatarFailed ? (
+                          <img
+                            src={itemAvatarSrc}
+                            alt={item.player.name}
+                            style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', backgroundColor: '#e2e8f0', display: 'block', flexShrink: 0 }}
+                            onError={() => {
+                              setFailedLeaderboardAvatars((prev) => ({ ...prev, [item.player.id]: true }));
+                            }}
+                          />
                         ) : (
-                          <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>
-                            {item.player.name.slice(0, 2).toUpperCase()}
+                          <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#e2e8f0', border: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: '#475569', flexShrink: 0 }}>
+                            {getInitials(item.player.name)}
                           </span>
                         )}
                         <span style={{ fontWeight: isCurrentPlayer ? 900 : 700, fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
