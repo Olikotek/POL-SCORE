@@ -1,6 +1,6 @@
 // src/components/LeagueStandings.tsx
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { ChevronRight, RefreshCw, ChevronDown, Check, User, Shield, ChevronUp } from 'lucide-react';
+import { ChevronRight, RefreshCw, ChevronDown, Check, User, Shield, ChevronUp, Package } from 'lucide-react';
 import type { Category, Store, Tournament, Player, Hole } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { initials, combinedRelative } from '@/scoring';
@@ -20,11 +20,13 @@ const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
 export function LeagueStandings({
   tournaments = [],
   store,
+  isAdmin = false,
 }: {
   store?: Store | null;
   tournaments?: Tournament[];
   leaguePoints?: any[];
   onOpenPlayer?: (playerId: string) => void;
+  isAdmin?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<'individual' | 'team'>('individual');
   const [categoryFilter, setCategoryFilter] = useState<Category | 'Wszystkie'>(() => {
@@ -45,6 +47,25 @@ export function LeagueStandings({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPlayerModal, setSelectedPlayerModal] = useState<{ player: Player; rank: number } | null>(null);
 
+  // Blokada dla użytkowników bez uprawnień administratora - 0 zapytań do bazy
+  if (!isAdmin) {
+    return (
+      <section style={{ background: '#ffffff', borderRadius: '12px', padding: '60px 24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)', textAlign: 'center' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+            <Package size={32} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: '0 0 6px 0' }}>Przerwa techniczna</h2>
+            <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+              Ranking Ligi PFFG jest tymczasowo niedostępny dla użytkowników.<br />Zapraszamy wkrótce!
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const handleSelectCategory = (cat: Category | 'Wszystkie') => {
     setCategoryFilter(cat);
     localStorage.setItem('pffg_standings_category', cat);
@@ -62,6 +83,8 @@ export function LeagueStandings({
   }, []);
 
   const loadFullData = async (forceRefresh = false) => {
+    if (!isAdmin) return;
+
     const CACHE_KEY = 'pffg_league_cache_nologo_v1';
     const CACHE_TIME_KEY = 'pffg_league_cache_nologo_time';
     const TTL = 1000 * 60 * 60 * 12; // 12 godzin pamięci podręcznej
@@ -156,8 +179,10 @@ export function LeagueStandings({
   };
 
   useEffect(() => {
-    loadFullData(false);
-  }, []);
+    if (isAdmin) {
+      loadFullData(false);
+    }
+  }, [isAdmin]);
 
   const leagueTournaments = useMemo(() => {
     return (dbTournaments.length > 0 ? dbTournaments : tournaments)
@@ -1263,6 +1288,7 @@ export function LeagueStandings({
           leaguePoints={fullAggregatedLeaguePoints}
           hideScorecardTab={true}
           initialTab="tournaments"
+          isAdmin={isAdmin}
           onClose={() => setSelectedPlayerModal(null)}
         />
       )}
