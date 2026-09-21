@@ -1,23 +1,25 @@
 // src/data/archive/round6_2026.ts
-export const GRADI_HOLES_R1 = [
-  { number: 1, par: 5, meters: 110 },
-  { number: 2, par: 4, meters: 85 },
-  { number: 3, par: 3, meters: 55 },
-  { number: 4, par: 4, meters: 90 },
-  { number: 5, par: 3, meters: 60 },
-  { number: 6, par: 4, meters: 80 },
-  { number: 7, par: 5, meters: 125 },
-  { number: 8, par: 4, meters: 95 },
-  { number: 9, par: 4, meters: 75 },
-  { number: 10, par: 5, meters: 115 },
-  { number: 11, par: 4, meters: 85 },
-  { number: 12, par: 3, meters: 50 },
-  { number: 13, par: 5, meters: 130 },
-  { number: 14, par: 4, meters: 90 },
-  { number: 15, par: 5, meters: 120 },
-  { number: 16, par: 4, meters: 85 },
-  { number: 17, par: 4, meters: 95 },
-  { number: 18, par: 5, meters: 140 },
+import type { Hole } from '@/types';
+
+export const GRADI_HOLES_R1: Hole[] = [
+  { number: 1, par: 5, meters: 250 },
+  { number: 2, par: 4, meters: 180 },
+  { number: 3, par: 3, meters: 90 },
+  { number: 4, par: 4, meters: 180 },
+  { number: 5, par: 3, meters: 65 },
+  { number: 6, par: 4, meters: 180 },
+  { number: 7, par: 4, meters: 160 },
+  { number: 8, par: 4, meters: 170 },
+  { number: 9, par: 4, meters: 180 },
+  { number: 10, par: 5, meters: 210 },
+  { number: 11, par: 4, meters: 150 },
+  { number: 12, par: 3, meters: 80 },
+  { number: 13, par: 5, meters: 220 },
+  { number: 14, par: 4, meters: 150 },
+  { number: 15, par: 4, meters: 160 },
+  { number: 16, par: 3, meters: 90 },
+  { number: 17, par: 4, meters: 170 },
+  { number: 18, par: 5, meters: 180 },
 ];
 
 export const ROUND_6_DATA = {
@@ -183,17 +185,6 @@ export const ROUND_6_DATA = {
       flag: "PL",
       scores: {
         1: [5, 3, 2, 4, 3, 4, 4, 4, 4, 5, 4, 4, 6, 3, 5, 3, 4, 5],
-        2: []
-      }
-    },
-    {
-      id: "ef65bd2d-24c2-4293-a0fb-c4d614291e27",
-      name: "Jakub Krawczun",
-      category: "Men",
-      club: null,
-      flag: "PL",
-      scores: {
-        1: [10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         2: []
       }
     },
