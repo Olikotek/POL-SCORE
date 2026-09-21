@@ -1,7 +1,7 @@
 // src/components/Archive.tsx
 import { useState, useMemo, useRef } from 'react';
 import { Calendar, MapPin, ArrowLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
-import type { Store, Category, Player, Hole } from '@/types';
+import type { Store, Category, Hole } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { combinedRelative, relativeLabel, totalStrokes } from '@/scoring';
 import { PlayerModal } from '@/components/PlayerModal';
@@ -18,20 +18,52 @@ export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
 
 const countPlayedHoles = (scores: number[] = []) => scores.filter((s) => s > 0).length;
 
-const getInitials = (name: string) => {
-  if (!name) return 'PL';
-  return name
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '–';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
+  if (existingAvatar && existingAvatar.startsWith('http')) return existingAvatar;
+  if (existingAvatar && existingAvatar.startsWith('/')) return existingAvatar;
+  const normalized = name
     .trim()
-    .split(/\s+/)
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-');
+  return `/players/${normalized}.jpg`;
+}
+
+function renderFlag(flagValue: string | undefined) {
+  const flag = flagValue || 'PL';
+  const isUrl = flag.startsWith('http://') || flag.startsWith('https://') || flag.startsWith('/');
+  const src = isUrl ? flag : flagEmoji(flag);
+
+  return (
+    <img
+      src={src}
+      alt={flag}
+      style={{
+        width: '22px',
+        height: '15px',
+        objectFit: 'cover',
+        borderRadius: '2px',
+        border: '1px solid #cbd5e1',
+        display: 'inline-block',
+      }}
+      onError={(e) => {
+        (e.target as HTMLElement).style.display = 'none';
+      }}
+    />
+  );
+}
 
 export function Archive({
   store,
-  onOpenPlayer,
 }: {
   tournaments?: any[];
   store: Store;
@@ -43,8 +75,8 @@ export function Archive({
   const [categoryFilter, setCategoryFilter] = useState<Category | 'Wszystkie'>('Wszystkie');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
+  const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
 
   const completed = ARCHIVE_REGISTRY;
 
@@ -71,7 +103,10 @@ export function Archive({
       .sort((a, b) => {
         const relA = combinedRelative(a, archivedHoles[1], archivedHoles[2]);
         const relB = combinedRelative(b, archivedHoles[1], archivedHoles[2]);
-        return relA - relB;
+        if (relA !== relB) return relA - relB;
+        const strokesA = totalStrokes(a.scores[1] || []) + totalStrokes(a.scores[2] || []);
+        const strokesB = totalStrokes(b.scores[1] || []) + totalStrokes(b.scores[2] || []);
+        return strokesA - strokesB;
       });
 
     return sorted.map((p, idx) => ({
@@ -256,6 +291,8 @@ export function Archive({
                   : '–';
 
                 const isEven = index % 2 === 0;
+                const avatarUrl = getPublicAvatarPath(p.name, p.avatar);
+                const hasAvatarFailed = failedAvatars[p.id];
 
                 return (
                   <tr
@@ -294,29 +331,47 @@ export function Archive({
 
                     <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                        <span style={{ fontSize: '16px', lineHeight: 1 }}>{flagEmoji(p.flag || 'PL')}</span>
+                        {renderFlag(p.flag)}
                       </div>
                     </td>
 
                     <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
-                        <span
-                          style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            background: '#e2e8f0',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            color: '#475569',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {getInitials(p.name)}
-                        </span>
+                        {!hasAvatarFailed ? (
+                          <img
+                            src={avatarUrl}
+                            alt={p.name}
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              backgroundColor: '#e2e8f0',
+                              flexShrink: 0,
+                              display: 'block',
+                              border: '1px solid #cbd5e1',
+                            }}
+                            onError={() => setFailedAvatars((prev) => ({ ...prev, [p.id]: true }))}
+                          />
+                        ) : (
+                          <span
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: '#e2e8f0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              color: '#475569',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {getInitials(p.name)}
+                          </span>
+                        )}
 
                         <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
                           {p.name}
@@ -378,6 +433,8 @@ export function Archive({
             store={modalStore}
             rank={modalRank}
             initialTab="scorecard"
+            leaguePoints={selectedTournament.leaguePoints || []}
+            tournaments={[selectedTournament as any]}
             onClose={() => setModalPlayerId(null)}
           />
         )}
