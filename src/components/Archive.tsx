@@ -18,6 +18,14 @@ export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
 
 const countPlayedHoles = (scores: number[] = []) => scores.filter((s) => s > 0).length;
 
+function formatShortPlayerName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return parts[0][0] + '. ' + parts.slice(1).join(' ');
+  }
+  return fullName;
+}
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '–';
@@ -35,7 +43,7 @@ function getPublicAvatarPath(name: string, existingAvatar?: string | null): stri
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '-');
-  return `/players/${normalized}.jpg`;
+  return '/players/' + normalized + '.jpg';
 }
 
 function renderFlag(flagValue: string | undefined) {
@@ -48,12 +56,12 @@ function renderFlag(flagValue: string | undefined) {
       src={src}
       alt={flag}
       style={{
-        width: '22px',
-        height: '15px',
+        width: '18px',
+        height: '12px',
         objectFit: 'cover',
         borderRadius: '2px',
         border: '1px solid #cbd5e1',
-        display: 'inline-block',
+        display: 'block',
       }}
       onError={(e) => {
         (e.target as HTMLElement).style.display = 'none';
@@ -138,26 +146,160 @@ export function Archive({
 
   if (selectedTournament) {
     return (
-      <section style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '18px' }}>
+      <section className="archive-detail-container">
+        <style>{`
+          .archive-detail-container {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 16px 20px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .archive-top-info {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #0f172a;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+          .archive-top-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: nowrap;
+          }
+          .archive-table-wrap {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            width: 100%;
+            overflow-x: auto;
+            box-sizing: border-box;
+          }
+          .archive-main-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+            table-layout: auto;
+          }
+          .archive-main-table thead tr th {
+            color: #475569;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: #f8fafc;
+            border-bottom: 2px solid #cbd5e1;
+          }
+          .arc-col-pos { width: 44px; text-align: center; }
+          .arc-col-nat { width: 36px; text-align: center; }
+          .arc-col-player { width: auto; text-align: left; }
+          .arc-col-sum { width: 70px; text-align: center; }
+          .arc-col-holes { width: 65px; text-align: center; }
+          .arc-col-r1 { width: 60px; text-align: center; }
+          .arc-col-strokes { width: 90px; text-align: center; }
+          .arc-col-arrow { width: 30px; text-align: center; }
+
+          .arc-desktop-only { display: table-cell; }
+          .arc-mobile-only { display: none; }
+          .arc-player-name-desktop { display: inline; font-weight: 800; font-size: 13px; color: #0f172a; white-space: nowrap; }
+          .arc-player-name-mobile { display: none; }
+          .arc-player-subline-mobile { display: none; }
+          .arc-player-club-desktop { display: inline; font-size: 11px; font-weight: 500; color: #64748b; white-space: nowrap; margin-left: 6px; }
+
+          @media (max-width: 640px) {
+            .archive-detail-container {
+              padding: 8px 0 !important;
+              border-radius: 0 !important;
+              border-left: none !important;
+              border-right: none !important;
+              box-shadow: none !important;
+              width: 100vw !important;
+              position: relative !important;
+              left: 50% !important;
+              right: 50% !important;
+              margin-left: -50vw !important;
+              margin-right: -50vw !important;
+            }
+            .archive-top-info {
+              padding: 0 12px 10px 12px !important;
+              margin-bottom: 8px !important;
+            }
+            .archive-top-controls {
+              padding: 0 10px !important;
+              margin-bottom: 8px !important;
+            }
+            .archive-table-wrap {
+              border-radius: 0 !important;
+              border-left: none !important;
+              border-right: none !important;
+              overflow-x: hidden !important;
+              width: 100% !important;
+            }
+            .archive-main-table {
+              table-layout: fixed !important;
+              width: 100% !important;
+            }
+            .arc-desktop-only { display: none !important; }
+            .arc-mobile-only { display: table-cell !important; }
+
+            .arc-col-pos { width: 34px !important; }
+            .arc-col-nat { width: 28px !important; }
+            .arc-col-player { width: auto !important; }
+            .arc-col-sum { width: 46px !important; }
+            .arc-col-holes { width: 40px !important; }
+            .arc-col-r-mob { width: 40px !important; text-align: center !important; }
+
+            .arc-player-name-desktop { display: none !important; }
+            .arc-player-name-mobile {
+              display: inline !important;
+              font-size: 13px !important;
+              font-weight: 800 !important;
+              color: #0f172a !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+            .arc-player-subline-mobile {
+              display: block !important;
+              font-size: 10px !important;
+              color: #64748b !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              line-height: 1.2 !important;
+              margin-top: 1px !important;
+            }
+            .arc-player-club-desktop { display: none !important; }
+          }
+        `}</style>
+
+        <div className="archive-top-info">
           <div>
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: '4px' }}>
-                ARCHIWUM WYNIKÓW
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, background: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px' }}>
+                ARCHIWUM
               </span>
               {selectedTournament.isLeague && (
-                <span style={{ fontSize: '11px', fontWeight: 800, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '4px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px' }}>
                   LIGA PFFG
                 </span>
               )}
             </div>
-            <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#0f172a', margin: 0 }}>
+            <h1 style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', margin: 0 }}>
               {selectedTournament.name}
             </h1>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span><Calendar size={13} style={{ display: 'inline', marginRight: '4px' }} />{selectedTournament.date}</span>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '3px 0 0 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span><Calendar size={12} style={{ display: 'inline', marginRight: '3px' }} />{selectedTournament.date}</span>
               {selectedTournament.courseName && (
-                <span><MapPin size={13} style={{ display: 'inline', marginRight: '4px' }} />{selectedTournament.courseName}</span>
+                <span><MapPin size={12} style={{ display: 'inline', marginRight: '3px' }} />{selectedTournament.courseName}</span>
               )}
             </p>
           </div>
@@ -169,115 +311,115 @@ export function Archive({
               background: '#0f172a',
               color: '#ffffff',
               border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
               fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '5px',
             }}
           >
-            <ArrowLeft size={15} /> Wróć do listy turniejów
+            <ArrowLeft size={14} /> Wróć
           </button>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Kategoria:
-            </span>
+        <div className="archive-top-controls">
+          <div style={{ position: 'relative' }} ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '12px',
+                fontWeight: 800,
+                color: '#0f172a',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span>{CATEGORY_NAMES_PL[categoryFilter]}</span>
+              <ChevronDown size={13} style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none' }} />
+            </button>
 
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setDropdownOpen((prev) => !prev)}
+            {dropdownOpen && (
+              <div
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  left: 0,
+                  zIndex: 50,
+                  minWidth: '200px',
                   background: '#ffffff',
-                  border: '1px solid #94a3b8',
+                  border: '1px solid #cbd5e1',
                   borderRadius: '8px',
-                  padding: '7px 14px',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  color: '#0f172a',
-                  cursor: 'pointer',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
+                  padding: '4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
                 }}
               >
-                <span>{CATEGORY_NAMES_PL[categoryFilter]}</span>
-                <ChevronDown size={14} style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-              </button>
-
-              {dropdownOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 4px)',
-                    left: 0,
-                    zIndex: 50,
-                    minWidth: '220px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
-                    padding: '4px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '2px',
-                  }}
-                >
-                  {(['Wszystkie', ...CATEGORIES] as (Category | 'Wszystkie')[]).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        setCategoryFilter(cat);
-                        setDropdownOpen(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: categoryFilter === cat ? '#eff6ff' : 'transparent',
-                        color: categoryFilter === cat ? '#1b88cc' : '#334155',
-                        fontSize: '13px',
-                        fontWeight: categoryFilter === cat ? 800 : 600,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <span>{CATEGORY_NAMES_PL[cat]}</span>
-                      {categoryFilter === cat && <Check size={14} color="#1b88cc" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {((['Wszystkie', ...CATEGORIES]) as (Category | 'Wszystkie')[]).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      setCategoryFilter(cat);
+                      setDropdownOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: categoryFilter === cat ? '#eff6ff' : 'transparent',
+                      color: categoryFilter === cat ? '#1b88cc' : '#334155',
+                      fontSize: '12.5px',
+                      fontWeight: categoryFilter === cat ? 800 : 600,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span>{CATEGORY_NAMES_PL[cat]}</span>
+                    {categoryFilter === cat && <Check size={14} color="#1b88cc" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
-            Zawodników w kategorii: <b>{rankedArchivedPlayers.length}</b>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>
+            Graczy: <b>{rankedArchivedPlayers.length}</b>
           </span>
         </div>
 
-        <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+        <div className="archive-table-wrap">
+          <table className="archive-main-table">
             <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                <th style={{ padding: '12px 10px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POZ</th>
-                <th style={{ padding: '12px 8px', width: '54px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
-                <th style={{ padding: '12px 14px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-                <th style={{ padding: '12px 10px', width: '75px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>WYNIK</th>
-                <th style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
-                <th style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
-                <th style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
-                <th style={{ padding: '12px 8px', width: '36px', textAlign: 'center' }}></th>
+              <tr>
+                <th className="arc-col-pos" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>POS</th>
+                <th className="arc-col-nat" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>NAT</th>
+                <th className="arc-col-player" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+                <th className="arc-col-sum" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>TOT</th>
+                <th className="arc-col-holes" style={{ padding: '9px 4px', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+                
+                <th className="arc-mobile-only arc-col-r-mob" style={{ padding: '9px 2px', borderRight: '1px solid #e2e8f0' }}>
+                  R1
+                </th>
+
+                <th className="arc-desktop-only arc-col-r1" style={{ padding: '9px 6px', borderRight: '1px solid #e2e8f0' }}>R1</th>
+                <th className="arc-desktop-only arc-col-strokes" style={{ padding: '9px 8px', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+                <th className="arc-desktop-only arc-col-arrow" style={{ padding: '9px 2px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -293,6 +435,7 @@ export function Archive({
                 const isEven = index % 2 === 0;
                 const avatarUrl = getPublicAvatarPath(p.name, p.avatar);
                 const hasAvatarFailed = failedAvatars[p.id];
+                const shortName = formatShortPlayerName(p.name);
 
                 return (
                   <tr
@@ -302,117 +445,151 @@ export function Archive({
                       background: isEven ? '#ffffff' : '#f8fafc',
                       borderBottom: '1px solid #e2e8f0',
                       cursor: 'pointer',
-                      transition: 'background 0.1s ease',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
                   >
-                    <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                    <td className="arc-col-pos" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         {rank === 1 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '5px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '11px', border: '1px solid #fde047' }}>
                             1
                           </span>
                         ) : rank === 2 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '5px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '11px', border: '1px solid #cbd5e1' }}>
                             2
                           </span>
                         ) : rank === 3 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '5px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '11px', border: '1px solid #fed7aa' }}>
                             3
                           </span>
                         ) : (
-                          <span style={{ fontWeight: 800, fontSize: '13px', color: '#0f172a' }}>
+                          <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
                             {rank}
                           </span>
                         )}
                       </div>
                     </td>
 
-                    <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                    <td className="arc-col-nat" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {renderFlag(p.flag)}
                       </div>
                     </td>
 
-                    <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
+                    <td className="arc-col-player" style={{ padding: '6px 6px', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                         {!hasAvatarFailed ? (
                           <img
                             src={avatarUrl}
                             alt={p.name}
                             style={{
-                              width: '28px',
-                              height: '28px',
+                              width: '30px',
+                              height: '30px',
                               borderRadius: '50%',
                               objectFit: 'cover',
-                              backgroundColor: '#e2e8f0',
+                              border: '1.5px solid #cbd5e1',
                               flexShrink: 0,
-                              display: 'block',
-                              border: '1px solid #cbd5e1',
+                              backgroundColor: '#e2e8f0',
                             }}
                             onError={() => setFailedAvatars((prev) => ({ ...prev, [p.id]: true }))}
                           />
                         ) : (
                           <span
                             style={{
-                              width: '28px',
-                              height: '28px',
+                              width: '30px',
+                              height: '30px',
                               borderRadius: '50%',
                               background: '#e2e8f0',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: '11px',
+                              fontSize: '10px',
                               fontWeight: 800,
                               color: '#475569',
                               flexShrink: 0,
+                              border: '1px solid #cbd5e1',
                             }}
                           >
                             {getInitials(p.name)}
                           </span>
                         )}
 
-                        <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                          {p.name}
-                        </span>
-
-                        {p.club && (
-                          <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap' }}>
-                            {p.club}
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap', overflow: 'hidden' }}>
+                            <span className="arc-player-name-desktop">
+                              {p.name}
+                            </span>
+                            <span className="arc-player-name-mobile">
+                              {shortName}
+                            </span>
+                            {p.club && (
+                              <span className="arc-player-club-desktop">
+                                {p.club}
+                              </span>
+                            )}
+                          </div>
+                          <span className="arc-player-subline-mobile">
+                            {p.club || 'Bez klubu'}
                           </span>
-                        )}
+                        </div>
                       </div>
                     </td>
 
-                    <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                    <td className="arc-col-sum" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {rel < 0 ? (
-                          <span style={{ color: '#dc2626', background: '#fee2e2', padding: '3px 7px', borderRadius: '4px' }}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: '#fee2e2',
+                              color: '#dc2626',
+                              fontWeight: 900,
+                              fontSize: '12.5px',
+                              borderRadius: '5px',
+                              padding: '3px 5px',
+                              minWidth: '32px',
+                              lineHeight: 1.1,
+                            }}
+                          >
                             {thru > 0 ? relativeLabel(rel) : 'E'}
                           </span>
                         ) : (
-                          <span style={{ color: '#0f172a' }}>
-                            {thru > 0 ? relativeLabel(rel) : 'E'}
+                          <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '13px' }}>
+                            {thru > 0 ? (rel === 0 ? 'E' : relativeLabel(rel)) : 'E'}
                           </span>
                         )}
                       </div>
                     </td>
 
-                    <td style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                      {thru}
+                    <td className="arc-col-holes" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 600, fontSize: '12.5px' }}>
+                        {thru}
+                      </div>
                     </td>
 
-                    <td style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                      {r1Rel}
+                    <td className="arc-mobile-only arc-col-r-mob" style={{ padding: '8px 2px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontWeight: 600, fontSize: '12.5px' }}>
+                        {r1Rel}
+                      </div>
                     </td>
 
-                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
-                      {strokes > 0 ? strokes : '–'}
+                    <td className="arc-desktop-only arc-col-r1" style={{ padding: '8px 6px', color: '#475569', fontWeight: 600, fontSize: '12.5px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {r1Rel}
+                      </div>
                     </td>
 
-                    <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
-                      <ChevronRight size={15} />
+                    <td className="arc-desktop-only arc-col-strokes" style={{ padding: '8px 8px', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {strokes > 0 ? strokes : '–'}
+                      </div>
+                    </td>
+
+                    <td className="arc-desktop-only arc-col-arrow" style={{ padding: '8px 2px', color: '#94a3b8' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <ChevronRight size={15} />
+                      </div>
                     </td>
                   </tr>
                 );
