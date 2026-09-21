@@ -1,12 +1,11 @@
 // src/components/Archive.tsx
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { Calendar, MapPin, ArrowLeft, ChevronRight, ChevronDown, Check, Package } from 'lucide-react';
-import type { Tournament, Store, Category, Player, Hole, Round } from '@/types';
+import { useState, useMemo, useRef } from 'react';
+import { Calendar, MapPin, ArrowLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
+import type { Store, Category, Player, Hole } from '@/types';
 import { CATEGORIES, flagEmoji } from '@/types';
 import { combinedRelative, relativeLabel, totalStrokes } from '@/scoring';
-import { compareCountback } from '@/leagueScoring';
-import { supabase } from '@/lib/supabase';
 import { PlayerModal } from '@/components/PlayerModal';
+import { ARCHIVE_REGISTRY, type StaticArchiveTournament } from '@/data/archive';
 
 export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
   Wszystkie: 'Wszystkie (Absolut)',
@@ -31,67 +30,23 @@ const getInitials = (name: string) => {
 };
 
 export function Archive({
-  tournaments,
   store,
-  isAdmin = false,
+  onOpenPlayer,
 }: {
-  tournaments: Tournament[];
+  tournaments?: any[];
   store: Store;
   onOpenPlayer?: (playerId: string) => void;
   isAdmin?: boolean;
 }) {
-  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [selectedTournament, setSelectedTournament] = useState<StaticArchiveTournament | null>(null);
   const [filter, setFilter] = useState<'all' | 'league' | 'training'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<Category | 'Wszystkie'>(() => {
-    const saved = localStorage.getItem('pffg_archive_category');
-    return (saved as Category | 'Wszystkie') || 'Wszystkie';
-  });
-
+  const [categoryFilter, setCategoryFilter] = useState<Category | 'Wszystkie'>('Wszystkie');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
-  const [archivedPlayers, setArchivedPlayers] = useState<(Player & { savedRank?: number })[]>([]);
-  const [loadingArchive, setLoadingArchive] = useState(false);
 
-  // Blokada dla użytkowników niebędących adminem: zero zapytań do Supabase
-  if (!isAdmin) {
-    return (
-      <section style={{ background: '#ffffff', borderRadius: '12px', padding: '60px 24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)', textAlign: 'center' }}>
-        <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-            <Package size={32} />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: '0 0 6px 0' }}>Przerwa techniczna</h2>
-            <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-              Archiwum wyników jest tymczasowo niedostępne dla użytkowników.<br />Zapraszamy wkrótce!
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const handleSelectCategory = (cat: Category | 'Wszystkie') => {
-    setCategoryFilter(cat);
-    localStorage.setItem('pffg_archive_category', cat);
-    setDropdownOpen(false);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const completed = useMemo(() => {
-    return tournaments.filter((t) => t.status === 'completed' || t.status === 'finished');
-  }, [tournaments]);
+  const completed = ARCHIVE_REGISTRY;
 
   const filtered = useMemo(() => {
     return completed.filter((t) => {
@@ -105,150 +60,18 @@ export function Archive({
     if (!selectedTournament) {
       return { 1: store.holesByRound[1] || [], 2: store.holesByRound[2] || [] };
     }
-
-    const r1Course = selectedTournament.round1CourseId;
-    const r2Course = selectedTournament.round2CourseId || r1Course;
-
-    const holes1 = (r1Course && store.holesByCourse[r1Course]) ? store.holesByCourse[r1Course] : (store.holesByRound[1] || []);
-    const holes2 = (r2Course && store.holesByCourse[r2Course]) ? store.holesByCourse[r2Course] : (store.holesByRound[2] || holes1);
-
-    return { 1: holes1, 2: holes2 };
-  }, [selectedTournament, store.holesByCourse, store.holesByRound]);
-
-  useEffect(() => {
-    if (!selectedTournament || !isAdmin) return;
-
-    let isMounted = true;
-    const tournId = selectedTournament.id;
-    const CACHE_KEY = `pffg_archive_t_${tournId}`;
-
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setArchivedPlayers(parsed);
-        setLoadingArchive(false);
-        return;
-      } catch (e) {
-        console.error('Błąd odczytu archiwum z cache:', e);
-      }
-    }
-
-    setLoadingArchive(true);
-
-    async function fetchArchivedData() {
-      try {
-        let allScores: any[] = [];
-        let from = 0;
-        const step = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from('scores')
-            .select('*')
-            .eq('tournament_id', tournId)
-            .range(from, from + step - 1);
-
-          if (error) throw error;
-
-          if (data && data.length > 0) {
-            allScores = allScores.concat(data);
-            if (data.length < step) {
-              hasMore = false;
-            } else {
-              from += step;
-            }
-          } else {
-            hasMore = false;
-          }
-        }
-
-        const [playersRes, leaguePointsRes] = await Promise.all([
-          supabase.from('players').select('*').order('name').limit(3000),
-          supabase.from('league_points').select('*').eq('tournament_id', tournId),
-        ]);
-
-        if (!isMounted) return;
-
-        const scoresData = allScores;
-        const playersData = playersRes.data || [];
-        const lpData = leaguePointsRes.data || [];
-
-        const playersBase = playersData.map((p: any) => {
-          const scores: Record<Round, number[]> = { 1: Array(18).fill(0), 2: Array(18).fill(0) };
-
-          scoresData
-            .filter((s: any) => String(s.player_id).toLowerCase() === String(p.id).toLowerCase())
-            .forEach((s: any) => {
-              const r = Number(s.round ?? s.round_number ?? 1);
-              const h = Number(s.hole_number ?? s.hole ?? 0);
-              const val = Number(s.strokes ?? s.score ?? 0);
-              if ((r === 1 || r === 2) && h >= 1 && h <= 18) {
-                scores[r as Round][h - 1] = val;
-              }
-            });
-
-          const savedLp = lpData.find((lp: any) => String(lp.player_id).toLowerCase() === String(p.id).toLowerCase());
-
-          return {
-            id: p.id,
-            name: p.name,
-            category: p.category,
-            avatar: p.avatar ?? undefined,
-            club: p.club ?? undefined,
-            flag: p.flag ?? 'PL',
-            flagImage: p.flag_image ?? undefined,
-            isAmateur: !!p.is_amateur,
-            isActive: true,
-            city: p.city ?? undefined,
-            ballModel: p.ball_model ?? undefined,
-            birthDate: p.birth_date ?? undefined,
-            flightId: { 1: null, 2: null },
-            scores,
-            savedRank: savedLp ? Number(savedLp.rank) : undefined,
-          };
-        });
-
-        const participants = playersBase.filter((p) =>
-          p.scores[1].some((s) => s > 0) || p.scores[2].some((s) => s > 0)
-        );
-
-        setArchivedPlayers(participants);
-        localStorage.setItem(CACHE_KEY, JSON.stringify(participants));
-      } catch (err) {
-        console.error('Błąd wczytywania archiwum:', err);
-      } finally {
-        if (isMounted) setLoadingArchive(false);
-      }
-    }
-
-    fetchArchivedData();
-    return () => { isMounted = false; };
-  }, [selectedTournament, isAdmin]);
+    return selectedTournament.holes;
+  }, [selectedTournament, store.holesByRound]);
 
   const rankedArchivedPlayers = useMemo(() => {
     if (!selectedTournament) return [];
 
-    const sorted = [...archivedPlayers]
+    const sorted = [...selectedTournament.players]
       .filter((p) => categoryFilter === 'Wszystkie' || p.category === categoryFilter)
       .sort((a, b) => {
-        if (categoryFilter === 'Wszystkie') {
-          if (a.savedRank !== undefined && b.savedRank !== undefined) {
-            return a.savedRank - b.savedRank;
-          }
-          if (a.savedRank !== undefined) return -1;
-          if (b.savedRank !== undefined) return 1;
-        }
-
         const relA = combinedRelative(a, archivedHoles[1], archivedHoles[2]);
         const relB = combinedRelative(b, archivedHoles[1], archivedHoles[2]);
-        if (relA !== relB) return relA - relB;
-
-        return compareCountback(
-          { scoresR1: a.scores[1], scoresR2: a.scores[2] },
-          { scoresR1: b.scores[1], scoresR2: b.scores[2] }
-        );
+        return relA - relB;
       });
 
     return sorted.map((p, idx) => ({
@@ -256,19 +79,27 @@ export function Archive({
       rank: idx + 1,
       rel: combinedRelative(p, archivedHoles[1], archivedHoles[2]),
     }));
-  }, [selectedTournament, archivedPlayers, categoryFilter, archivedHoles]);
+  }, [selectedTournament, categoryFilter, archivedHoles]);
 
-  const modalStore = useMemo<Store>(() => ({
-    ...store,
-    tournamentName: selectedTournament?.name || store.tournamentName,
-    holesByRound: archivedHoles,
-    players: archivedPlayers,
-    round2Started: true,
-    round1Approved: true,
-  }), [store, selectedTournament, archivedHoles, archivedPlayers]);
+  const modalStore = useMemo<Store>(() => {
+    if (!selectedTournament) return store;
+    return {
+      ...store,
+      tournamentName: selectedTournament.name,
+      holesByRound: selectedTournament.holes,
+      players: selectedTournament.players,
+      round2Started: selectedTournament.players.some((p) => p.scores[2] && p.scores[2].some((s: number) => s > 0)),
+      round1Approved: true,
+    };
+  }, [store, selectedTournament]);
 
-  const modalPlayer = modalPlayerId ? archivedPlayers.find((p) => p.id === modalPlayerId) ?? null : null;
-  const modalRank = modalPlayer ? (rankedArchivedPlayers.find((r) => r.player.id === modalPlayer.id)?.rank || 1) : 1;
+  const modalPlayer = modalPlayerId && selectedTournament 
+    ? selectedTournament.players.find((p) => p.id === modalPlayerId) ?? null 
+    : null;
+
+  const modalRank = modalPlayer 
+    ? (rankedArchivedPlayers.find((r) => r.player.id === modalPlayer.id)?.rank || 1) 
+    : 1;
 
   if (selectedTournament) {
     return (
@@ -367,7 +198,10 @@ export function Archive({
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => handleSelectCategory(cat)}
+                      onClick={() => {
+                        setCategoryFilter(cat);
+                        setDropdownOpen(false);
+                      }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -397,203 +231,146 @@ export function Archive({
           </span>
         </div>
 
-        {loadingArchive ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: 700 }}>
-            Wczytywanie historycznych wyników...
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <th style={{ padding: '12px 10px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POZ</th>
-                  <th style={{ padding: '12px 8px', width: '54px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
-                  <th style={{ padding: '12px 14px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
-                  <th style={{ padding: '12px 10px', width: '75px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>WYNIK</th>
-                  <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
-                  <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
-                  <th className="desktop-col" style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R2</th>
-                  <th style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
-                  <th style={{ padding: '12px 8px', width: '36px', textAlign: 'center' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rankedArchivedPlayers.map(({ player: p, rank, rel }, index) => {
-                  const thru = countPlayedHoles(p.scores[1]) + countPlayedHoles(p.scores[2]);
-                  const strokes = totalStrokes(p.scores[1] || []) + totalStrokes(p.scores[2] || []);
-                  const r1Played = countPlayedHoles(p.scores[1]);
-                  const r2Played = countPlayedHoles(p.scores[2]);
+        <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <th style={{ padding: '12px 10px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>POZ</th>
+                <th style={{ padding: '12px 8px', width: '54px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>KRAJ</th>
+                <th style={{ padding: '12px 14px', borderRight: '1px solid #e2e8f0' }}>ZAWODNIK</th>
+                <th style={{ padding: '12px 10px', width: '75px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>WYNIK</th>
+                <th style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>DOŁKI</th>
+                <th style={{ padding: '12px 8px', width: '60px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>R1</th>
+                <th style={{ padding: '12px 12px', width: '90px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>UDERZENIA</th>
+                <th style={{ padding: '12px 8px', width: '36px', textAlign: 'center' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rankedArchivedPlayers.map(({ player: p, rank, rel }, index) => {
+                const thru = countPlayedHoles(p.scores[1]) + countPlayedHoles(p.scores[2]);
+                const strokes = totalStrokes(p.scores[1] || []) + totalStrokes(p.scores[2] || []);
+                const r1Played = countPlayedHoles(p.scores[1]);
 
-                  const r1Rel = r1Played > 0
-                    ? relativeLabel(p.scores[1].reduce((sum, s, i) => s > 0 ? sum + (s - (archivedHoles[1][i]?.par || 4)) : sum, 0))
-                    : '–';
-                  const r2Rel = r2Played > 0
-                    ? relativeLabel(p.scores[2].reduce((sum, s, i) => s > 0 ? sum + (s - (archivedHoles[2][i]?.par || 4)) : sum, 0))
-                    : '–';
+                const r1Rel = r1Played > 0
+                  ? relativeLabel(p.scores[1].reduce((sum: number, s: number, i: number) => s > 0 ? sum + (s - (archivedHoles[1][i]?.par || 4)) : sum, 0))
+                  : '–';
 
-                  const isEven = index % 2 === 0;
+                const isEven = index % 2 === 0;
 
-                  return (
-                    <tr
-                      key={p.id}
-                      onClick={() => setModalPlayerId(p.id)}
-                      style={{
-                        background: isEven ? '#ffffff' : '#f8fafc',
-                        borderBottom: '1px solid #e2e8f0',
-                        cursor: 'pointer',
-                        transition: 'background 0.1s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
-                    >
-                      <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {rank === 1 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
-                              1
-                            </span>
-                          ) : rank === 2 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
-                              2
-                            </span>
-                          ) : rank === 3 ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
-                              3
-                            </span>
-                          ) : (
-                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#0f172a' }}>
-                              {rank}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          <img
-                            src={p.flagImage || flagEmoji(p.flag || 'PL')}
-                            alt={p.flag || 'PL'}
-                            style={{
-                              width: '22px',
-                              height: '15px',
-                              objectFit: 'cover',
-                              borderRadius: '2px',
-                              border: '1px solid #cbd5e1',
-                              display: 'block',
-                            }}
-                          />
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
-                          {p.avatar ? (
-                            <img
-                              src={p.avatar}
-                              alt={p.name}
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                objectFit: 'cover',
-                                border: '1px solid #cbd5e1',
-                                flexShrink: 0,
-                              }}
-                            />
-                          ) : (
-                            <span
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                background: '#e2e8f0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '11px',
-                                fontWeight: 800,
-                                color: '#475569',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {getInitials(p.name)}
-                            </span>
-                          )}
-
-                          <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                            {p.name}
+                return (
+                  <tr
+                    key={p.id}
+                    onClick={() => setModalPlayerId(p.id)}
+                    style={{
+                      background: isEven ? '#ffffff' : '#f8fafc',
+                      borderBottom: '1px solid #e2e8f0',
+                      cursor: 'pointer',
+                      transition: 'background 0.1s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = isEven ? '#ffffff' : '#f8fafc')}
+                  >
+                    <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        {rank === 1 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#fef08a', color: '#854d0e', fontWeight: 900, fontSize: '13px', border: '1px solid #fde047' }}>
+                            1
                           </span>
+                        ) : rank === 2 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 900, fontSize: '13px', border: '1px solid #cbd5e1' }}>
+                            2
+                          </span>
+                        ) : rank === 3 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', color: '#9a3412', fontWeight: 900, fontSize: '13px', border: '1px solid #fed7aa' }}>
+                            3
+                          </span>
+                        ) : (
+                          <span style={{ fontWeight: 800, fontSize: '13px', color: '#0f172a' }}>
+                            {rank}
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                          {p.isAmateur && (
-                            <span style={{ fontSize: '9px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 5px', borderRadius: '3px' }}>
-                              AM
-                            </span>
-                          )}
+                    <td style={{ padding: '10px 8px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        <span style={{ fontSize: '16px', lineHeight: 1 }}>{flagEmoji(p.flag || 'PL')}</span>
+                      </div>
+                    </td>
 
-                          {p.club && (
-                            <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap' }}>
-                              {p.club}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                    <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
+                        <span
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: '#e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#475569',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {getInitials(p.name)}
+                        </span>
 
-                      <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {rel < 0 ? (
-                            <span style={{ color: '#dc2626', background: '#fee2e2', padding: '3px 7px', borderRadius: '4px' }}>
-                              {thru > 0 ? relativeLabel(rel) : 'E'}
-                            </span>
-                          ) : (
-                            <span style={{ color: '#0f172a' }}>
-                              {thru > 0 ? relativeLabel(rel) : 'E'}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                        <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap' }}>
+                          {p.name}
+                        </span>
 
-                      <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {thru}
-                        </div>
-                      </td>
+                        {p.club && (
+                          <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap' }}>
+                            {p.club}
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                      <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {r1Rel}
-                        </div>
-                      </td>
+                    <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 900, fontSize: '13px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        {rel < 0 ? (
+                          <span style={{ color: '#dc2626', background: '#fee2e2', padding: '3px 7px', borderRadius: '4px' }}>
+                            {thru > 0 ? relativeLabel(rel) : 'E'}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#0f172a' }}>
+                            {thru > 0 ? relativeLabel(rel) : 'E'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                      <td className="desktop-col" style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {r2Rel}
-                        </div>
-                      </td>
+                    <td style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                      {thru}
+                    </td>
 
-                      <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          {strokes > 0 ? strokes : '–'}
-                        </div>
-                      </td>
+                    <td style={{ padding: '10px 8px', textAlign: 'center', color: '#475569', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                      {r1Rel}
+                    </td>
 
-                      <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                          <ChevronRight size={15} />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                      {strokes > 0 ? strokes : '–'}
+                    </td>
 
-            {rankedArchivedPlayers.length === 0 && (
-              <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>
-                Brak zapisanych wyników dla tej kategorii w turnieju.
-              </div>
-            )}
-          </div>
-        )}
+                    <td style={{ padding: '10px 6px', textAlign: 'center', color: '#94a3b8' }}>
+                      <ChevronRight size={15} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {rankedArchivedPlayers.length === 0 && (
+            <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>
+              Brak zapisanych wyników dla tej kategorii w turnieju.
+            </div>
+          )}
+        </div>
 
         {modalPlayer && (
           <PlayerModal
@@ -601,7 +378,6 @@ export function Archive({
             store={modalStore}
             rank={modalRank}
             initialTab="scorecard"
-            isAdmin={isAdmin}
             onClose={() => setModalPlayerId(null)}
           />
         )}
@@ -711,11 +487,6 @@ export function Archive({
                 ) : (
                   <span style={{ fontSize: '10px', fontWeight: 800, background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: '4px' }}>
                     TOWARZYSKI
-                  </span>
-                )}
-                {t.isPolishOpen && (
-                  <span style={{ fontSize: '10px', fontWeight: 800, background: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '4px', border: '1px solid #fca5a5' }}>
-                    POLISH OPEN
                   </span>
                 )}
               </div>
