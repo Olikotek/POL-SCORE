@@ -16,6 +16,8 @@ export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
   'Senior+': 'Seniorzy+',
 };
 
+const SEASONS = ['2026', '2027', '2028'] as const;
+
 const countPlayedHoles = (scores: number[] = []) => scores.filter((s) => s > 0).length;
 
 function formatShortPlayerName(fullName: string) {
@@ -79,6 +81,7 @@ export function Archive({
   isAdmin?: boolean;
 }) {
   const [selectedTournament, setSelectedTournament] = useState<StaticArchiveTournament | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string>('2026');
   const [filter, setFilter] = useState<'all' | 'league' | 'training'>('all');
   const [categoryFilter, setCategoryFilter] = useState<Category | 'Wszystkie'>('Wszystkie');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -90,11 +93,14 @@ export function Archive({
 
   const filtered = useMemo(() => {
     return completed.filter((t) => {
+      const tourneyYear = t.date ? t.date.slice(0, 4) : '2026';
+      if (tourneyYear !== selectedYear) return false;
+
       if (filter === 'league') return t.isLeague;
       if (filter === 'training') return !t.isLeague;
       return true;
     });
-  }, [completed, filter]);
+  }, [completed, selectedYear, filter]);
 
   const archivedHoles = useMemo<{ 1: Hole[]; 2: Hole[] }>(() => {
     if (!selectedTournament) {
@@ -620,8 +626,77 @@ export function Archive({
   }
 
   return (
-    <section style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '18px', flexWrap: 'wrap', gap: '16px' }}>
+    <section className="archive-list-container">
+      <style>{`
+        .archive-list-container {
+          background: #ffffff;
+          border-radius: 12px;
+          padding: 24px;
+          border: 1px solid #cbd5e1;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .archive-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 2px solid #0f172a;
+          padding-bottom: 16px;
+          margin-bottom: 18px;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .archive-filters-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 18px;
+          flex-wrap: wrap;
+        }
+        .archive-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 16px;
+        }
+
+        @media (max-width: 640px) {
+          .archive-list-container {
+            padding: 14px 12px !important;
+            border-radius: 0 !important;
+            border-left: none !important;
+            border-right: none !important;
+            box-shadow: none !important;
+            width: 100vw !important;
+            position: relative !important;
+            left: 50% !important;
+            right: 50% !important;
+            margin-left: -50vw !important;
+            margin-right: -50vw !important;
+          }
+          .archive-header-row {
+            padding-bottom: 12px !important;
+            margin-bottom: 14px !important;
+          }
+          .archive-header-row h1 {
+            font-size: 20px !important;
+          }
+          .archive-filters-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+            margin-bottom: 14px !important;
+          }
+          .archive-cards-grid {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+        }
+      `}</style>
+
+      {/* NAGŁÓWEK */}
+      <div className="archive-header-row">
         <div>
           <p style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: '#1b88cc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             HISTORIA ROZGRYWEK
@@ -633,14 +708,47 @@ export function Archive({
             Przeglądaj zakończone turnieje, oficjalne tabele wyników i karty graczy.
           </p>
         </div>
+      </div>
 
-        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      {/* BELKA FILTRÓW: ROK / SEZON + TYP ROZGRYWEK */}
+      <div className="archive-filters-row">
+        {/* WYBÓR SEZONU / ROKU */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            SEZON:
+          </span>
+          <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            {SEASONS.map((yr) => (
+              <button
+                key={yr}
+                type="button"
+                onClick={() => setSelectedYear(yr)}
+                style={{
+                  border: 'none',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  background: selectedYear === yr ? '#0284c7' : 'transparent',
+                  color: selectedYear === yr ? '#ffffff' : '#64748b',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {yr}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* TYP TURNIEJU */}
+        <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           <button
             type="button"
             onClick={() => setFilter('all')}
             style={{
               border: 'none',
-              padding: '7px 14px',
+              padding: '6px 12px',
               borderRadius: '6px',
               fontSize: '12px',
               fontWeight: 800,
@@ -649,14 +757,14 @@ export function Archive({
               color: filter === 'all' ? '#ffffff' : '#64748b',
             }}
           >
-            Wszystkie ({completed.length})
+            Wszystkie ({filtered.length})
           </button>
           <button
             type="button"
             onClick={() => setFilter('league')}
             style={{
               border: 'none',
-              padding: '7px 14px',
+              padding: '6px 12px',
               borderRadius: '6px',
               fontSize: '12px',
               fontWeight: 800,
@@ -672,7 +780,7 @@ export function Archive({
             onClick={() => setFilter('training')}
             style={{
               border: 'none',
-              padding: '7px 14px',
+              padding: '6px 12px',
               borderRadius: '6px',
               fontSize: '12px',
               fontWeight: 800,
@@ -686,7 +794,8 @@ export function Archive({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+      {/* LISTA KART TURNIEJÓW */}
+      <div className="archive-cards-grid">
         {filtered.map((t) => (
           <div
             key={t.id}
@@ -695,7 +804,7 @@ export function Archive({
               background: '#ffffff',
               border: '1px solid #cbd5e1',
               borderRadius: '10px',
-              padding: '18px',
+              padding: '16px',
               cursor: 'pointer',
               boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
               transition: 'all 0.15s ease',
@@ -746,7 +855,7 @@ export function Archive({
 
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-            Brak zakończonych turniejów w archiwum.
+            Brak zakończonych turniejów w sezonie {selectedYear}.
           </div>
         )}
       </div>
