@@ -23,6 +23,7 @@ import {
 export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
   Wszystkie: 'Wszystkie (Absolut)',
   Men: 'Mężczyźni',
+  'Men Pro': 'Mężczyźni PRO',
   Women: 'Kobiety',
   Senior: 'Seniorzy',
   Junior: 'Juniorzy',
@@ -549,6 +550,7 @@ export function Leaderboard({
               const { player, display, total, r1Rel, r2Rel, s1, s2, strokes, thru, delta, avatarSrc, shortName, initials } = row;
               const isEven = index % 2 === 0;
               const hasError = avatarErrors[player.id];
+              const isPro = player.category === 'Men Pro';
 
               return (
                 <tr
@@ -610,7 +612,7 @@ export function Leaderboard({
                             height: '30px',
                             borderRadius: '50%',
                             objectFit: 'cover',
-                            border: '1.5px solid #cbd5e1',
+                            border: isPro ? '2px solid #f59e0b' : '1.5px solid #cbd5e1',
                             flexShrink: '0',
                             backgroundColor: '#e2e8f0',
                           }}
@@ -632,7 +634,7 @@ export function Leaderboard({
                             fontWeight: 800,
                             color: '#475569',
                             flexShrink: 0,
-                            border: '1px solid #cbd5e1',
+                            border: isPro ? '2px solid #f59e0b' : '1px solid #cbd5e1',
                           }}
                         >
                           {initials}
@@ -648,6 +650,12 @@ export function Leaderboard({
                           <span className="player-name-mobile">
                             {shortName}
                           </span>
+
+                          {isPro && (
+                            <span style={{ fontSize: '8px', fontWeight: 900, background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '1px 3px', borderRadius: '3px', lineHeight: 1, flexShrink: 0 }}>
+                              PRO
+                            </span>
+                          )}
 
                           {player.isAmateur && (
                             <span style={{ fontSize: '8px', fontWeight: 800, background: '#7ea128', color: '#ffffff', padding: '1px 3px', borderRadius: '3px', lineHeight: 1, flexShrink: 0 }}>

@@ -1,7 +1,7 @@
 // src/types.ts
 export type View = 'wyniki' | 'teetimes' | 'admin' | 'karta';
-export type Category = 'Men' | 'Women' | 'Senior' | 'Junior' | 'Senior+';
-export const CATEGORIES: Category[] = ['Men', 'Women', 'Senior', 'Junior', 'Senior+'];
+export type Category = 'Men' | 'Men Pro' | 'Women' | 'Senior' | 'Junior' | 'Senior+';
+export const CATEGORIES: Category[] = ['Men', 'Men Pro', 'Women', 'Senior', 'Junior', 'Senior+'];
 
 export type Round = 1 | 2;
 export const ROUNDS: Round[] = [1, 2];

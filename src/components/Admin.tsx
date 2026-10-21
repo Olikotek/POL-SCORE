@@ -30,6 +30,7 @@ import {
   Clock,
   ClipboardList,
   CheckCircle2,
+  Filter,
 } from 'lucide-react';
 import type { Category, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
@@ -64,6 +65,15 @@ import {
 
 type FlashFn = (m: string) => void;
 
+export const CATEGORY_LABELS_ADMIN: Record<string, string> = {
+  Men: 'Mężczyźni (Men)',
+  'Men Pro': 'Mężczyźni PRO (Men PRO)',
+  Women: 'Kobiety (Women)',
+  Senior: 'Seniorzy (Senior)',
+  Junior: 'Juniorzy (Junior)',
+  'Senior+': 'Seniorzy+ (Senior+)',
+};
+
 function getPublicAvatarPath(name: string, existingAvatar?: string | null): string {
   if (existingAvatar && existingAvatar.startsWith('http')) {
     return existingAvatar;
@@ -90,7 +100,10 @@ export function AdminLock({
 }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const unlock = () => (code === ADMIN_CODE || code === '1920' || code === '2026' ? onUnlock() : setError('Nieprawidłowy kod administratora.'));
+  const unlock = () =>
+    code === ADMIN_CODE || code === '1920' || code === '2026'
+      ? onUnlock()
+      : setError('Nieprawidłowy kod administratora.');
   return (
     <section className="lock-page">
       <button className="back-link" onClick={onBack}>
@@ -180,7 +193,6 @@ export function Admin({
     setLocalActiveTournament(found);
     onSelectTournament(id);
 
-    // Natychmiastowa aktualizacja statusów w pamięci lokalnej
     setLocalTournaments((prev) =>
       prev.map((t) => ({
         ...t,
@@ -189,11 +201,9 @@ export function Admin({
     );
 
     try {
-      // Przestawienie aktywnego turnieju w tabeli tournaments
       await supabase.from('tournaments').update({ status: 'completed' }).neq('id', id);
       await supabase.from('tournaments').update({ status: 'active' }).eq('id', id);
 
-      // Zapis w ustawieniach globalnych
       await supabase
         .from('tournament_settings')
         .update({
@@ -420,14 +430,15 @@ function RegistrationManager({
               {registrations.map((r) => {
                 const player = store.players.find((p) => p.id === r.player_id);
                 const isPaid = r.status === 'confirmed' || r.status === 'paid';
+                const playerCat = player?.category ? (CATEGORY_LABELS_ADMIN[player.category] || player.category) : '–';
 
                 return (
                   <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '10px 12px', fontWeight: 800, color: '#0f172a' }}>
                       {player?.name || 'Gracz z bazy'}
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#475569' }}>
-                      {player?.category || '–'}
+                    <td style={{ padding: '10px 12px', color: '#475569', fontWeight: 700 }}>
+                      {playerCat}
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b' }}>
                       {player?.club || '–'}
@@ -916,7 +927,7 @@ function TournamentManager({
                           </span>
                         )}
                       </div>
-                      <small style={{ color: '#64748b' }}>Kategoria: <b>{c.category}</b> · Uderzenia: <b>{c.strokes}</b> · Punkty bazowe: <b style={{ color: '#0284c7' }}>{pts} pkt</b></small>
+                      <small style={{ color: '#64748b' }}>Kategoria: <b>{CATEGORY_LABELS_ADMIN[c.category] || c.category}</b> · Uderzenia: <b>{c.strokes}</b> · Punkty bazowe: <b style={{ color: '#0284c7' }}>{pts} pkt</b></small>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1275,6 +1286,7 @@ function PlayerManager({
   const [isActive, setIsActive] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilterTab, setCategoryFilterTab] = useState<string>('ALL');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1360,7 +1372,7 @@ function PlayerManager({
           players: prev.players.map((p) => (p.id === editing ? { ...p, ...playerData } : p)),
         }));
         await updatePlayer(editing, playerData);
-        flash('Dane zawodnika zaktualizowane.');
+        flash('Dane zawodnika zaktualizowane (' + (CATEGORY_LABELS_ADMIN[category] || category) + ').');
       } else {
         const added = await addPlayer(playerData);
         const newPlayer = added || {
@@ -1381,7 +1393,7 @@ function PlayerManager({
           ...prev,
           players: [...prev.players, newPlayer],
         }));
-        flash('Zawodnik dodany do bazy i przypisany do tego turnieju.');
+        flash('Zawodnik dodany do bazy jako ' + (CATEGORY_LABELS_ADMIN[category] || category) + '.');
       }
       reset();
     } catch {
@@ -1427,6 +1439,11 @@ function PlayerManager({
   };
 
   const remove = async (id: string) => {
+    const targetPlayer = store.players.find((p) => p.id === id);
+    if (!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć zawodnika: ' + (targetPlayer?.name || '') + '?')) {
+      return;
+    }
+
     onUpdateStore((prev) => ({
       ...prev,
       players: prev.players.filter((p) => p.id !== id),
@@ -1442,7 +1459,7 @@ function PlayerManager({
   const startEdit = (p: any) => {
     setEditing(p.id);
     setName(p.name);
-    setCategory(p.category);
+    setCategory(p.category as Category);
     setAvatar(p.avatar ?? '');
     setClub(p.club ?? '');
     setBallModel(p.ball_model ?? p.ballModel ?? '');
@@ -1463,6 +1480,9 @@ function PlayerManager({
   const filteredAndSortedPlayers = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     const filtered = store.players.filter((p: any) => {
+      if (categoryFilterTab !== 'ALL' && p.category !== categoryFilterTab) {
+        return false;
+      }
       if (!query) return true;
       return (
         p.name.toLowerCase().includes(query) ||
@@ -1479,7 +1499,7 @@ function PlayerManager({
       if (aActive !== bActive) return bActive - aActive;
       return a.name.localeCompare(b.name);
     });
-  }, [store.players, searchQuery]);
+  }, [store.players, searchQuery, categoryFilterTab]);
 
   return (
     <div className="management-grid" style={{ alignItems: 'start', position: 'relative' }}>
@@ -1578,20 +1598,24 @@ function PlayerManager({
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '8px' }}>
           <div className="form-field">
-            <label className="form-field-label">Kategoria</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value as Category)}>
+            <label className="form-field-label">Kategoria turniejowa *</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as Category)}
+              style={{ fontWeight: 800, color: '#0f172a' }}
+            >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
-                  {c}
+                  {CATEGORY_LABELS_ADMIN[c] || c}
                 </option>
               ))}
             </select>
           </div>
           <div className="form-field">
-            <label className="form-field-label">Kraj / Kod Flagi (np. PL, JP, US)</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label className="form-field-label">Kod Flagi (np. PL)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <img
                 src={flagEmoji(flag)}
                 alt={flag}
@@ -1600,8 +1624,8 @@ function PlayerManager({
               <input
                 value={flag}
                 onChange={(e) => setFlag(e.target.value.toUpperCase())}
-                placeholder="PL, JP, CZ, DE..."
-                style={{ fontWeight: 700, flex: 1 }}
+                placeholder="PL, JP..."
+                style={{ fontWeight: 800, textTransform: 'uppercase' }}
               />
             </div>
           </div>
@@ -1684,7 +1708,7 @@ function PlayerManager({
           <Users size={20} className="muted-icon" />
         </div>
 
-        <div style={{ marginBottom: '12px', position: 'relative' }}>
+        <div style={{ marginBottom: '10px', position: 'relative' }}>
           <div style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
             <Search size={15} />
           </div>
@@ -1696,10 +1720,55 @@ function PlayerManager({
           />
         </div>
 
+        {/* Filtr kategorii w rejestrze */}
+        <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '8px' }}>
+          <button
+            type="button"
+            onClick={() => setCategoryFilterTab('ALL')}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: '1px solid ' + (categoryFilterTab === 'ALL' ? '#0284c7' : '#cbd5e1'),
+              background: categoryFilterTab === 'ALL' ? '#e0f2fe' : '#ffffff',
+              color: categoryFilterTab === 'ALL' ? '#0369a1' : '#64748b',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Wszystkie ({store.players.length})
+          </button>
+          {CATEGORIES.map((cat) => {
+            const count = store.players.filter((p) => p.category === cat).length;
+            const isSel = categoryFilterTab === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategoryFilterTab(cat)}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  border: '1px solid ' + (isSel ? '#0284c7' : '#cbd5e1'),
+                  background: isSel ? '#e0f2fe' : '#ffffff',
+                  color: isSel ? '#0369a1' : '#64748b',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {cat} ({count})
+              </button>
+            );
+          })}
+        </div>
+
         <div
           className="management-list"
           style={{
-            maxHeight: 'calc(100vh - 230px)',
+            maxHeight: 'calc(100vh - 270px)',
             overflowY: 'auto',
             paddingRight: '6px',
           }}
@@ -1707,6 +1776,7 @@ function PlayerManager({
           {filteredAndSortedPlayers.map((p: any) => {
             const active = p.isActive !== false && p.is_active !== false;
             const displayAvatar = p.avatar || getPublicAvatarPath(p.name);
+            const isPro = p.category === 'Men Pro';
 
             return (
               <div
@@ -1715,7 +1785,7 @@ function PlayerManager({
                 style={{
                   opacity: active ? 1 : 0.55,
                   background: editing === p.id ? '#e0f2fe' : undefined,
-                  borderLeft: editing === p.id ? '4px solid #0284c7' : undefined,
+                  borderLeft: editing === p.id ? '4px solid #0284c7' : isPro ? '4px solid #f59e0b' : undefined,
                 }}
               >
                 <img
@@ -1734,10 +1804,15 @@ function PlayerManager({
                       style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #cbd5e1', display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }}
                     />
                     {p.name}
+                    {isPro && (
+                      <span style={{ fontSize: '9px', fontWeight: 900, background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px' }}>
+                        PRO
+                      </span>
+                    )}
                     {(p.isAmateur || p.is_amateur) && <span className="am-badge">AM</span>}
                   </b>
                   <small>
-                    {p.club ?? 'Bez klubu'} · {p.category} {p.city ? '· ' + p.city : ''}
+                    {p.club ?? 'Bez klubu'} · <strong style={{ color: isPro ? '#b45309' : '#0f172a' }}>{CATEGORY_LABELS_ADMIN[p.category] || p.category}</strong> {p.city ? '· ' + p.city : ''}
                   </small>
                   {(p.ball_model || p.ballModel) && (
                     <small style={{ color: '#0284c7', display: 'block', fontSize: '11px' }}>
@@ -2304,6 +2379,7 @@ function FlightManager({
           {unassignedPlayers.map((p, idx) => {
             const rel = combinedRelative(p, holesR1, holesR2);
             const displayAvatar = p.avatar || getPublicAvatarPath(p.name);
+            const isPro = p.category === 'Men Pro';
 
             return (
               <div
@@ -2316,7 +2392,8 @@ function FlightManager({
                   justifyContent: 'space-between',
                   padding: '6px 8px',
                   background: '#ffffff',
-                  border: '1px solid #cbd5e1',
+                  border: isPro ? '1px solid #fde68a' : '1px solid #cbd5e1',
+                  borderLeft: isPro ? '3px solid #f59e0b' : undefined,
                   borderRadius: '6px',
                   fontSize: '11px',
                   cursor: 'grab',
@@ -2343,6 +2420,11 @@ function FlightManager({
                     </span>
                     {p.name}
                   </b>
+                  {isPro && (
+                    <span style={{ fontSize: '8.5px', fontWeight: 900, background: '#fef3c7', color: '#b45309', padding: '0 3px', borderRadius: '3px' }}>
+                      PRO
+                    </span>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -2465,6 +2547,7 @@ function FlightManager({
                   {flightMembers.map((p) => {
                     const rel = combinedRelative(p, holesR1, holesR2);
                     const displayAvatar = p.avatar || getPublicAvatarPath(p.name);
+                    const isPro = p.category === 'Men Pro';
 
                     return (
                       <div
@@ -2477,7 +2560,8 @@ function FlightManager({
                           justifyContent: 'space-between',
                           padding: '6px 8px',
                           background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
+                          border: isPro ? '1px solid #fde68a' : '1px solid #e2e8f0',
+                          borderLeft: isPro ? '3px solid #f59e0b' : undefined,
                           borderRadius: '5px',
                           fontSize: '11px',
                           cursor: 'grab',
@@ -2501,6 +2585,11 @@ function FlightManager({
                             </span>
                             {p.name}
                           </b>
+                          {isPro && (
+                            <span style={{ fontSize: '8px', fontWeight: 900, background: '#fef3c7', color: '#b45309', padding: '0 3px', borderRadius: '3px' }}>
+                              PRO
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                           <span style={{ fontSize: '10px', fontWeight: 700, color: rel < 0 ? '#10b981' : rel > 0 ? '#ef4444' : '#64748b' }}>
@@ -2537,9 +2626,10 @@ function FlightManager({
                     </option>
                     {unassignedPlayers.map((p) => {
                       const rel = combinedRelative(p, holesR1, holesR2);
+                      const isPro = p.category === 'Men Pro';
                       return (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({rel > 0 ? '+' + rel : rel})
+                          {p.name} {isPro ? '[PRO]' : ''} ({rel > 0 ? '+' + rel : rel})
                         </option>
                       );
                     })}
@@ -2756,13 +2846,22 @@ function RoundManager({
               const rel = combinedRelative(p, holesR1, holesR2);
               const flightName =
                 store.flights.find((f) => f.id === p.flightId[1])?.name ?? 'Bez flightu';
+              const isPro = p.category === 'Men Pro';
+
               return (
                 <div className="standings-row" key={p.id}>
                   <span className="standings-pos">{idx + 1}</span>
                   <span className="avatar">{initials(p.name)}</span>
                   <span className="standings-name">
-                    <b>{p.name}</b>
-                    <small>{flightName}</small>
+                    <b>
+                      {p.name}
+                      {isPro && (
+                        <span style={{ fontSize: '9px', fontWeight: 900, background: '#fef3c7', color: '#b45309', padding: '1px 4px', borderRadius: '3px', marginLeft: '4px' }}>
+                          PRO
+                        </span>
+                      )}
+                    </b>
+                    <small>{flightName} · {p.category}</small>
                   </span>
                   <span className={`standings-rel ${rel < 0 ? 'neg' : ''}`}>
                     {rel > 0 ? '+' : ''}
@@ -2897,7 +2996,7 @@ function OverridePanel({
         <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
           {store.players.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} {p.isActive === false || (p as any).is_active === false ? '(PAUZA)' : ''}
+              {p.name} {p.category === 'Men Pro' ? '[PRO]' : `[${p.category}]`} {p.isActive === false || (p as any).is_active === false ? '(PAUZA)' : ''}
             </option>
           ))}
         </select>
