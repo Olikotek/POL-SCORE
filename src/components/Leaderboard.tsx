@@ -23,7 +23,7 @@ import {
 export const CATEGORY_NAMES_PL: Record<Category | 'Wszystkie', string> = {
   Wszystkie: 'Wszystkie (Absolut)',
   Men: 'Mężczyźni',
-  'Men Pro': 'Mężczyźni PRO',
+  'Men Pro': 'PRO',
   Women: 'Kobiety',
   Senior: 'Seniorzy',
   Junior: 'Juniorzy',
@@ -92,6 +92,35 @@ export function Leaderboard({
   const holesR1 = holesByRound[1] || [];
   const holesR2 = holesByRound[2] || [];
 
+  const activePlayers = useMemo(
+    () => store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false),
+    [store.players]
+  );
+
+  // Dynamiczne kategorie dostępne w tym turnieju (tylko te, które mają zawodników)
+  const availableCategories = useMemo(() => {
+    const activeCats = new Set<string>();
+    activePlayers.forEach((p) => {
+      if (p.category) activeCats.add(p.category);
+    });
+
+    const list: (Category | 'Wszystkie')[] = ['Wszystkie'];
+    CATEGORIES.forEach((cat) => {
+      if (activeCats.has(cat)) {
+        list.push(cat);
+      }
+    });
+    return list;
+  }, [activePlayers]);
+
+  // Jeśli wybrana kategoria została wygaszona w bieżącym turnieju, przełącz na Wszystkie
+  useEffect(() => {
+    if (filter !== 'Wszystkie' && !availableCategories.includes(filter)) {
+      setFilter('Wszystkie');
+      localStorage.setItem('pffg_live_category', 'Wszystkie');
+    }
+  }, [availableCategories, filter]);
+
   const handleSelectCategory = (cat: Category | 'Wszystkie') => {
     setFilter(cat);
     localStorage.setItem('pffg_live_category', cat);
@@ -114,11 +143,6 @@ export function Leaderboard({
     document.addEventListener('mousedown', handleClickOutside, { passive: true });
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const activePlayers = useMemo(
-    () => store.players.filter((p) => p.isActive !== false && (p as any).is_active !== false),
-    [store.players]
-  );
 
   const filtered = useMemo(
     () =>
@@ -213,7 +237,6 @@ export function Leaderboard({
     });
   }, [sorted, ranks, holesR1, holesR2, store.round2Started, positionDeltas]);
 
-  // Priorytet dla pola wpisanego w formularzu turnieju
   const currentCourseName = useMemo(() => {
     if (activeTournament?.courseName && activeTournament.courseName.trim()) {
       return activeTournament.courseName.trim();
@@ -375,7 +398,7 @@ export function Leaderboard({
         }
       `}</style>
 
-      {/* TYTUŁ TURNIEJU I POLE Z KONFIGURACJI TURNIEJU */}
+      {/* TYTUŁ TURNIEJU I POLE */}
       <div className="leaderboard-top-info">
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
           {displayTournamentTitle}
@@ -388,7 +411,7 @@ export function Leaderboard({
         )}
       </div>
 
-      {/* PASEK KONTROLNY */}
+      {/* PASEK KONTROLNY - DROPDOWN Z TYLKO AKTYWNYMI KATEGORIAMI */}
       <div className="leaderboard-top-controls">
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
           <div style={{ position: 'relative' }} ref={dropdownRef}>
@@ -432,7 +455,7 @@ export function Leaderboard({
                   gap: '2px',
                 }}
               >
-                {((['Wszystkie', ...CATEGORIES]) as (Category | 'Wszystkie')[]).map((cat) => (
+                {availableCategories.map((cat) => (
                   <button
                     key={cat}
                     type="button"
