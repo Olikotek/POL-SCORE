@@ -31,6 +31,8 @@ import {
   ClipboardList,
   CheckCircle2,
   Filter,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import type { Category, Flight, Hole, Player, Round, Store, Tournament } from '@/types';
 import { CATEGORIES, ROUNDS, flagEmoji } from '@/types';
@@ -67,7 +69,7 @@ type FlashFn = (m: string) => void;
 
 export const CATEGORY_LABELS_ADMIN: Record<string, string> = {
   Men: 'Mężczyźni (Men)',
-  'Men Pro': 'Mężczyźni PRO (Men PRO)',
+  'Men Pro': 'PRO',
   Women: 'Kobiety (Women)',
   Senior: 'Seniorzy (Senior)',
   Junior: 'Juniorzy (Junior)',
@@ -984,11 +986,38 @@ function TournamentSettings({
   const [round1Course, setRound1Course] = useState(store.round1CourseId ?? '');
   const [round2Course, setRound2Course] = useState(store.round2CourseId ?? '');
 
+  // Zarządzanie aktywnymi kategoriami turnieju (wygaszanie/włączanie)
+  const categoryStorageKey = `pffg_disabled_cats_${activeTournament?.id || 'default'}`;
+  const [disabledCategories, setDisabledCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(categoryStorageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   useEffect(() => {
     setName(store.tournamentName);
     setRound1Course(store.round1CourseId ?? '');
     setRound2Course(store.round2CourseId ?? '');
-  }, [store.tournamentName, store.round1CourseId, store.round2CourseId]);
+    try {
+      const saved = localStorage.getItem(`pffg_disabled_cats_${activeTournament?.id || 'default'}`);
+      setDisabledCategories(saved ? JSON.parse(saved) : []);
+    } catch {
+      setDisabledCategories([]);
+    }
+  }, [store.tournamentName, store.round1CourseId, store.round2CourseId, activeTournament?.id]);
+
+  const toggleCategoryStatus = (cat: string) => {
+    const next = disabledCategories.includes(cat)
+      ? disabledCategories.filter((c) => c !== cat)
+      : [...disabledCategories, cat];
+
+    setDisabledCategories(next);
+    localStorage.setItem(categoryStorageKey, JSON.stringify(next));
+    flash(next.includes(cat) ? `Kategoria ${CATEGORY_LABELS_ADMIN[cat] || cat} została wygaszona.` : `Kategoria ${CATEGORY_LABELS_ADMIN[cat] || cat} została aktywowana.`);
+  };
 
   const saveName = async () => {
     const val = name.trim() || 'Mistrzostwa Polski';
@@ -1038,7 +1067,7 @@ function TournamentSettings({
             <span /> USTAWIENIA TURNIEJU
           </p>
           <h2>Konfiguracja główna</h2>
-          <p>Edytuj nazwę turnieju oraz przypisz kursy do rund.</p>
+          <p>Edytuj nazwę turnieju, przypisz kursy do rund oraz włączaj/wygaszaj kategorie.</p>
         </div>
         <ShieldCheck size={20} className="muted-icon" />
       </div>
@@ -1080,6 +1109,50 @@ function TournamentSettings({
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* ZARZĄDZANIE WIDOCZNOŚCIĄ KATEGORII W TYM TURNIEJU */}
+      <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div>
+            <label className="form-field-label" style={{ margin: 0 }}>
+              WIDOCZNOŚĆ KATEGORII NA TABELI LIVE
+            </label>
+            <p style={{ margin: '2px 0 10px 0', fontSize: '11px', color: '#64748b' }}>
+              Kliknij kategorię, aby ją wygasić (ukryć w dropdownie) na czas trwania bieżących zawodów.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+          {CATEGORIES.map((cat) => {
+            const isOff = disabledCategories.includes(cat);
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => toggleCategoryStatus(cat)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: isOff ? '1px dashed #cbd5e1' : '1px solid #93c5fd',
+                  background: isOff ? '#f8fafc' : '#eff6ff',
+                  color: isOff ? '#94a3b8' : '#1e40af',
+                  cursor: 'pointer',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>{CATEGORY_LABELS_ADMIN[cat] || cat}</span>
+                {isOff ? <EyeOff size={14} color="#94a3b8" /> : <Eye size={14} color="#2563eb" />}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1759,7 +1832,7 @@ function PlayerManager({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {cat} ({count})
+                {CATEGORY_LABELS_ADMIN[cat] || cat} ({count})
               </button>
             );
           })}
@@ -2861,7 +2934,7 @@ function RoundManager({
                         </span>
                       )}
                     </b>
-                    <small>{flightName} · {p.category}</small>
+                    <small>{flightName} · {CATEGORY_LABELS_ADMIN[p.category] || p.category}</small>
                   </span>
                   <span className={`standings-rel ${rel < 0 ? 'neg' : ''}`}>
                     {rel > 0 ? '+' : ''}
